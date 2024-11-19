@@ -92,6 +92,59 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	FRotator GoalRightHandRotation;
 
+	UPROPERTY(EditAnywhere)
+	float MoveSpeed = 15.f;
+
+	UPROPERTY(EditAnywhere)
+	float RotateSpeed = 7.f;
+
+	/**
+	* server-client prediction / bandwidth minimizer
+	* 
+	* min/maxing the accuracy vs bandwidth performance pros & cons
+	*/
+
+	// returns true if the movement/rotation delta is greater than MinMovementDelta or MinRotationDelta or CurrentPredictionTime > MaxPredictionTime
+	bool ShouldSendRPCThisFrame(float DeltaTime);
+
+	UPROPERTY(EditAnywhere)
+	float CameraVelocitySquaredThreshold = 64.f;
+
+	UPROPERTY(EditAnywhere)
+	float HandVelocitySquaredThreshold = 196.f; // 5.5 inches
+
+	// in radians
+	UPROPERTY(EditAnywhere)
+	float CameraRotationDeltaThreshold = 0.44f;
+
+	// in radians
+	UPROPERTY(EditAnywhere)
+	float HandRotationDeltaThreshold = 0.5f;
+
+	UPROPERTY(EditAnywhere)
+	float DotThreshold = -1.0f;
+
+	UPROPERTY(VisibleAnywhere)
+	float MaxPredictionTime = 0.5f;
+
+	UPROPERTY(VisibleAnywhere)
+	float CurrentPredictionTime = 0;
+
+	FVector_NetQuantize LastCameraLocation;
+	FRotator LastCameraRotation;
+	FVector_NetQuantize LastLeftHandControllerLocation;
+	FRotator LastLeftHandControllerRotation;
+	FVector_NetQuantize LastRightHandControllerLocation;
+	FRotator LastRightHandControllerRotation;
+
+	FVector_NetQuantize LastCameraLocationDelta;
+	FRotator LastCameraRotationDelta;
+	FVector_NetQuantize LastLeftHandLocationDelta;
+	FRotator LastLeftHandRotationDelta;
+	FVector_NetQuantize LastRightHandLocationDelta;
+	FRotator LastRightHandRotationDelta;
+
+
 public:	
 	
 };

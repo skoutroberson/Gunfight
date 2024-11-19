@@ -195,6 +195,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 
 void AGunfightCharacter::ServerEquipButtonPressed_Implementation(bool bLeftController)
 {
+	GetCharacterMovement()
 	if (Combat)
 	{
 		Combat->EquipWeapon(OverlappingWeapon, bLeftController);
