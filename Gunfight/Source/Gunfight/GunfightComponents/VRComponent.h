@@ -13,6 +13,31 @@
  * Includes replicated movement for the hand controllers and camera (HMD)
  */
 
+ /**
+ * struct used to send relative locations over the network for VR components
+ * we pack the vector into 8bit ints by dividing the relative location by 5.
+ * The maximum relative location is 20.8ft so we shouldn't let the player be farther away than 20.8ft from their root
+ * The error margin is 5cm
+ */
+USTRUCT()
+struct FVector8
+{
+	GENERATED_BODY()
+
+	int8 X;
+	int8 Y;
+	int8 Z;
+
+	static inline FVector8 PackVector(const FVector_NetQuantize V)
+	{
+		return FVector8{ (int8)(V.X / 5.f), (int8)(V.Y / 5.f), (int8)(V.Z / 5.f) };
+	}
+	static inline FVector_NetQuantize UnpackVector(const FVector8 V)
+	{
+		return FVector_NetQuantize(V.X * 5.f, V.Y * 5.f, V.Z * 5.f);
+	}
+};
+
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GUNFIGHT_API UVRComponent : public UActorComponent
@@ -21,7 +46,7 @@ class GUNFIGHT_API UVRComponent : public UActorComponent
 
 public:	
 	UVRComponent();
-	friend class AGunfightCharacter;
+	friend class AGunfightCharacterDeprecated;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 /**
@@ -37,21 +62,21 @@ public:
 */
 
 	void ServerVRMove_ClientSend(
-		const FVector_NetQuantize CameraLocation,
+		const FVector8 CameraLocation,
 		const FRotator CameraRotation,
-		const FVector_NetQuantize LeftHandLocation,
+		const FVector8 LeftHandLocation,
 		const FRotator LeftHandRotation,
-		const FVector_NetQuantize RightHandLocation,
+		const FVector8 RightHandLocation,
 		const FRotator RightHandRotation,
 		float Delay
 	);
 
 	void VRMove_ClientReceive(
-		const FVector_NetQuantize CameraLocation,
+		const FVector8 CameraLocation,
 		const FRotator CameraRotation,
-		const FVector_NetQuantize LeftHandLocation,
+		const FVector8 LeftHandLocation,
 		const FRotator LeftHandRotation,
-		const FVector_NetQuantize RightHandLocation,
+		const FVector8 RightHandLocation,
 		const FRotator RightHandRotation,
 		float Delay
 	);
@@ -64,7 +89,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY()
-	TObjectPtr<class AGunfightCharacter> CharacterOwner;
+	TObjectPtr<class AGunfightCharacterDeprecated> CharacterOwner;
 
 private:
 
@@ -107,6 +132,8 @@ private:
 	// returns true if the movement/rotation delta is greater than MinMovementDelta or MinRotationDelta or CurrentPredictionTime > MaxPredictionTime
 	bool ShouldSendRPCThisFrame(float DeltaTime);
 
+	bool ShouldSendRPC();
+
 	UPROPERTY(EditAnywhere)
 	float CameraVelocitySquaredThreshold = 64.f;
 
@@ -115,11 +142,11 @@ private:
 
 	// in radians
 	UPROPERTY(EditAnywhere)
-	float CameraRotationDeltaThreshold = 0.44f;
+	float CameraRotationDeltaThreshold = 0.44f; // 25 degrees
 
 	// in radians
 	UPROPERTY(EditAnywhere)
-	float HandRotationDeltaThreshold = 0.5f;
+	float HandRotationDeltaThreshold = 0.5f; // 28 degrees
 
 	UPROPERTY(EditAnywhere)
 	float DotThreshold = -1.0f;
@@ -143,6 +170,10 @@ private:
 	FRotator LastLeftHandRotationDelta;
 	FVector_NetQuantize LastRightHandLocationDelta;
 	FRotator LastRightHandRotationDelta;
+
+	void DrawReplicatedMovement();
+
+	void CorrectCameraOffset();
 
 
 public:	

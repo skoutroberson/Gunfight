@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/PlayerController.h"
+#include "VRPlayerController.h"
 #include "GunfightPlayerController.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class GUNFIGHT_API AGunfightPlayerController : public APlayerController
+class GUNFIGHT_API AGunfightPlayerController : public AVRPlayerController
 {
 	GENERATED_BODY()
 	

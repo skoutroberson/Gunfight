@@ -14,7 +14,7 @@ class GUNFIGHT_API UCombatComponent : public UActorComponent
 
 public:	
 	UCombatComponent();
-	friend class AGunfightCharacter;
+	friend class AGunfightCharacterDeprecated;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
@@ -25,7 +25,7 @@ protected:
 private:
 
 	UPROPERTY();
-	class AGunfightCharacter* Character;
+	class AGunfightCharacterDeprecated* Character;
 
 	bool CanPickupGun(class UMotionControllerComponent* MotionController);
 

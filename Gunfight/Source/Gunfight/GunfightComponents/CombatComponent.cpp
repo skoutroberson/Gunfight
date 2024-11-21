@@ -4,7 +4,7 @@
 #include "CombatComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "MotionControllerComponent.h"
-#include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/Character/GunfightCharacterDeprecated.h"
 #include "Gunfight/Weapon/Weapon.h"
 
 UCombatComponent::UCombatComponent()

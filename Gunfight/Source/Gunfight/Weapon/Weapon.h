@@ -119,7 +119,7 @@ private:
 	bool bSlidingMag = false;
 
 	UPROPERTY()
-	class AGunfightCharacter* Character;
+	class AGunfightCharacterDeprecated* Character;
 
 	bool bInitDelayCompleted = false;
 	uint8 InitDelayFrame = 0;

@@ -2,9 +2,12 @@
 
 
 #include "VRComponent.h"
-#include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/Character/GunfightCharacterDeprecated.h"
 #include "MotionControllerComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Math/Vector.h"
+#include "DrawDebugHelpers.h"
+#include "Components/CapsuleComponent.h"
 
 UVRComponent::UVRComponent()
 {
@@ -22,8 +25,10 @@ void UVRComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCom
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	CorrectCameraOffset();
 	ReplicateVRMovement(DeltaTime);
 	InterpVRMovement(DeltaTime);
+	DrawReplicatedMovement();
 }
 
 void UVRComponent::ReplicateVRMovement(float DeltaTime)
@@ -32,14 +37,14 @@ void UVRComponent::ReplicateVRMovement(float DeltaTime)
 
 	if (CurrentDelay > ReplicateVRDelay)
 	{
-		if (ShouldSendRPCThisFrame(DeltaTime))
+		if (ShouldSendRPC())
 		{
 			ServerVRMove_ClientSend(
-				LastCameraLocation,
+				FVector8::PackVector(LastCameraLocation),
 				LastCameraRotation,
-				LastLeftHandControllerLocation,
+				FVector8::PackVector(LastLeftHandControllerLocation),
 				LastLeftHandControllerRotation,
-				LastRightHandControllerLocation,
+				FVector8::PackVector(LastRightHandControllerLocation),
 				LastRightHandControllerRotation,
 				ReplicateVRDelay
 			);
@@ -56,15 +61,22 @@ void UVRComponent::InterpVRMovement(float DeltaTime)
 		USceneComponent* RightHandController = CharacterOwner->GetRightHandController();
 		if (Camera && LeftHandController && RightHandController)
 		{
-			const FVector CameraInterpLocation = FMath::VInterpTo(Camera->GetComponentLocation(), GoalCameraLocation, DeltaTime, MoveSpeed);
+			const FVector CameraInterpLocation = FMath::VInterpTo(Camera->GetRelativeLocation(), GoalCameraLocation, DeltaTime, MoveSpeed);
 			const FRotator CameraInterpRotation = FMath::RInterpTo(Camera->GetComponentRotation(), GoalCameraRotation, DeltaTime, RotateSpeed);
-			const FVector LeftHandInterpLocation = FMath::VInterpTo(LeftHandController->GetComponentLocation(), GoalLeftHandLocation, DeltaTime, MoveSpeed);
+			const FVector LeftHandInterpLocation = FMath::VInterpTo(LeftHandController->GetRelativeLocation(), GoalLeftHandLocation, DeltaTime, MoveSpeed);
 			const FRotator LeftHandInterpRotation = FMath::RInterpTo(LeftHandController->GetComponentRotation(), GoalLeftHandRotation, DeltaTime, RotateSpeed);
-			const FVector RightHandInterpLocation = FMath::VInterpTo(RightHandController->GetComponentLocation(), GoalRightHandLocation, DeltaTime, MoveSpeed);
+			const FVector RightHandInterpLocation = FMath::VInterpTo(RightHandController->GetRelativeLocation(), GoalRightHandLocation, DeltaTime, MoveSpeed);
 			const FRotator RightHandInterpRotation = FMath::RInterpTo(RightHandController->GetComponentRotation(), GoalRightHandRotation, DeltaTime, RotateSpeed);
-			Camera->SetWorldLocationAndRotation(CameraInterpLocation, CameraInterpRotation);
-			LeftHandController->SetWorldLocationAndRotation(LeftHandInterpLocation, LeftHandInterpRotation);
-			RightHandController->SetWorldLocationAndRotation(RightHandInterpLocation, RightHandInterpRotation);
+			Camera->SetRelativeLocationAndRotation(CameraInterpLocation, CameraInterpRotation);
+			LeftHandController->SetRelativeLocationAndRotation(LeftHandInterpLocation, LeftHandInterpRotation);
+			RightHandController->SetRelativeLocationAndRotation(RightHandInterpLocation, RightHandInterpRotation);
+
+			Camera->AddLocalOffset(CameraInterpLocation);
+			Camera->SetWorldRotation(CameraInterpRotation);
+			LeftHandController->AddLocalOffset(LeftHandInterpLocation);
+			LeftHandController->SetWorldRotation(LeftHandInterpRotation);
+			RightHandController->AddLocalOffset(RightHandInterpLocation);
+			RightHandController->SetWorldRotation(RightHandInterpRotation);
 		}
 	}
 }
@@ -73,11 +85,11 @@ bool UVRComponent::ShouldSendRPCThisFrame(float DeltaTime)
 {
 	if (CharacterOwner && CharacterOwner->GetCamera() && CharacterOwner->GetLeftHandController() && CharacterOwner->GetRightHandController())
 	{
-		const FVector_NetQuantize CameraLocation = CharacterOwner->GetCamera()->GetComponentLocation();
+		const FVector_NetQuantize CameraLocation = CharacterOwner->GetCamera()->GetRelativeLocation();
 		const FRotator CameraRotation = CharacterOwner->GetCamera()->GetComponentRotation();
-		const FVector_NetQuantize LeftHandLocation = CharacterOwner->GetLeftHandController()->GetComponentLocation();
+		const FVector_NetQuantize LeftHandLocation = CharacterOwner->GetLeftHandController()->GetRelativeLocation();
 		const FRotator LeftHandRotation = CharacterOwner->GetLeftHandController()->GetComponentRotation();
-		const FVector_NetQuantize RightHandLocation = CharacterOwner->GetRightHandController()->GetComponentLocation();
+		const FVector_NetQuantize RightHandLocation = CharacterOwner->GetRightHandController()->GetRelativeLocation();
 		const FRotator RightHandRotation = CharacterOwner->GetRightHandController()->GetComponentRotation();
 
 		const FVector_NetQuantize CameraLocationDelta = CameraLocation - LastCameraLocation;
@@ -92,8 +104,8 @@ bool UVRComponent::ShouldSendRPCThisFrame(float DeltaTime)
 		const float LeftHandDot = FVector::DotProduct(LeftHandLocationDelta, LastLeftHandLocationDelta);
 		const float RightHandDot = FVector::DotProduct(RightHandLocationDelta, LastRightHandLocationDelta);
 
-		UE_LOG(LogTemp, Warning, TEXT("CameraDot: %f"), CameraDot);
-		UE_LOG(LogTemp, Warning, TEXT("RightHandDot: %f"), RightHandDot);
+		//UE_LOG(LogTemp, Warning, TEXT("CameraDot: %f"), CameraDot);
+		//UE_LOG(LogTemp, Warning, TEXT("RightHandDot: %f"), RightHandDot);
 
 		const bool bDotsUnderThreshold =
 			CameraDot > DotThreshold &&
@@ -138,7 +150,48 @@ bool UVRComponent::ShouldSendRPCThisFrame(float DeltaTime)
 	return false;
 }
 
-void UVRComponent::ServerVRMove_ClientSend(const FVector_NetQuantize CameraLocation, const FRotator CameraRotation, const FVector_NetQuantize LeftHandLocation, const FRotator LeftHandRotation, const FVector_NetQuantize RightHandLocation, const FRotator RightHandRotation, float Delay)
+bool UVRComponent::ShouldSendRPC()
+{
+	if (CharacterOwner && CharacterOwner->GetCamera() && CharacterOwner->GetLeftHandController() && CharacterOwner->GetRightHandController())
+	{
+		const FVector_NetQuantize CameraLocation = CharacterOwner->GetCamera()->GetRelativeLocation();
+		const FRotator CameraRotation = CharacterOwner->GetCamera()->GetComponentRotation();
+		const FVector_NetQuantize LeftHandLocation = CharacterOwner->GetLeftHandController()->GetRelativeLocation();
+		const FRotator LeftHandRotation = CharacterOwner->GetLeftHandController()->GetComponentRotation();
+		const FVector_NetQuantize RightHandLocation = CharacterOwner->GetRightHandController()->GetRelativeLocation();
+		const FRotator RightHandRotation = CharacterOwner->GetRightHandController()->GetComponentRotation();
+
+		LastCameraLocation = CameraLocation;
+		LastCameraRotation = CameraRotation;
+		LastLeftHandControllerLocation = LeftHandLocation;
+		LastLeftHandControllerRotation = LeftHandRotation;
+		LastRightHandControllerLocation = RightHandLocation;
+		LastRightHandControllerRotation = RightHandRotation;
+
+		return true;
+	}
+
+	return false;
+}
+
+void UVRComponent::DrawReplicatedMovement()
+{
+	DrawDebugSphere(GetWorld(), GoalLeftHandLocation, 4.f, 12, FColor::Red, false, ReplicateVRDelay);
+	DrawDebugSphere(GetWorld(), GoalRightHandLocation, 4.f, 12, FColor::Blue, false, ReplicateVRDelay);
+}
+
+void UVRComponent::CorrectCameraOffset()
+{
+	if (!CharacterOwner || !CharacterOwner->IsLocallyControlled() || !CharacterOwner->GetCamera() || !CharacterOwner->GetLeftHandController() || !CharacterOwner->GetRightHandController()) return;
+	
+	FVector NewCameraOffset = CharacterOwner->GetCamera()->GetComponentLocation() - CharacterOwner->GetActorLocation();
+	NewCameraOffset.Z = 0.f;
+
+	CharacterOwner->AddActorWorldOffset(NewCameraOffset);
+	CharacterOwner->GetVRRoot()->AddWorldOffset(-NewCameraOffset);
+}
+
+void UVRComponent::ServerVRMove_ClientSend(const FVector8 CameraLocation, const FRotator CameraRotation, const FVector8 LeftHandLocation, const FRotator LeftHandRotation, const FVector8 RightHandLocation, const FRotator RightHandRotation, float Delay)
 {
 	if (CharacterOwner)
 	{
@@ -146,13 +199,28 @@ void UVRComponent::ServerVRMove_ClientSend(const FVector_NetQuantize CameraLocat
 	}
 }
 
-void UVRComponent::VRMove_ClientReceive(const FVector_NetQuantize CameraLocation, const FRotator CameraRotation, const FVector_NetQuantize LeftHandLocation, const FRotator LeftHandRotation, const FVector_NetQuantize RightHandLocation, const FRotator RightHandRotation, float Delay)
+void UVRComponent::VRMove_ClientReceive(const FVector8 CameraLocation, const FRotator CameraRotation, const FVector8 LeftHandLocation, const FRotator LeftHandRotation, const FVector8 RightHandLocation, const FRotator RightHandRotation, float Delay)
 {
-	GoalCameraLocation = CameraLocation;
+	if (!CharacterOwner || !CharacterOwner->GetCamera() || !CharacterOwner->GetLeftHandController() || !CharacterOwner->GetRightHandController() || !CharacterOwner->GetVRRoot()) return;
+	if (CharacterOwner->GetCapsuleComponent() == nullptr) return;
+	FVector UnpackedCamera = FVector8::UnpackVector(CameraLocation);
+	FVector UnpackedLeftHand = FVector8::UnpackVector(LeftHandLocation);
+	FVector UnpackedRightHand = FVector8::UnpackVector(RightHandLocation);
+
+	FVector CharacterLocation = CharacterOwner->GetActorLocation();
+	CharacterLocation.Z -= CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	const FVector RootLocation = CharacterOwner->GetVRRoot()->GetComponentLocation();
+	const FQuat CharacterRotation = CharacterOwner->GetActorQuat();
+
+	UnpackedCamera = CharacterRotation.RotateVector(UnpackedCamera);
+	UnpackedLeftHand = CharacterRotation.RotateVector(UnpackedLeftHand);
+	UnpackedRightHand = CharacterRotation.RotateVector(UnpackedRightHand);
+	
+	GoalCameraLocation = RootLocation + UnpackedCamera;
 	GoalCameraRotation = CameraRotation;
-	GoalLeftHandLocation = LeftHandLocation;
+	GoalLeftHandLocation = RootLocation + UnpackedLeftHand;
 	GoalLeftHandRotation = LeftHandRotation;
-	GoalRightHandLocation = RightHandLocation;
+	GoalRightHandLocation = RootLocation + UnpackedRightHand;
 	GoalRightHandRotation = RightHandRotation;
 }
 

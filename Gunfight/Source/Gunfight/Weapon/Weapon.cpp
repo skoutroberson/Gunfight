@@ -5,7 +5,7 @@
 #include "PhysicsEngine\PhysicsAsset.h"
 #include "Components/SphereComponent.h"
 #include "Gunfight/Gunfight.h"
-#include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/Character/GunfightCharacterDeprecated.h"
 #include "MotionControllerComponent.h"
 
 AWeapon::AWeapon()
@@ -40,7 +40,7 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetOwner());
+	AGunfightCharacterDeprecated* GunfightCharacter = Cast<AGunfightCharacterDeprecated>(GetOwner());
 
 	if (GunfightCharacter)
 	{
@@ -58,10 +58,10 @@ void AWeapon::BeginPlay()
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
-	if (GunfightCharacter && GunfightCharacter == GetOwner())
+	AGunfightCharacterDeprecated* GunfightCharacterDeprecated = Cast<AGunfightCharacterDeprecated>(OtherActor);
+	if (GunfightCharacterDeprecated && GunfightCharacterDeprecated == GetOwner())
 	{
-		GunfightCharacter->SetOverlappingWeapon(this);
+		GunfightCharacterDeprecated->SetOverlappingWeapon(this);
 
 		if (IsOverlappingControllerSideLeft(OtherComp))
 		{
@@ -77,7 +77,7 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
+	AGunfightCharacterDeprecated* GunfightCharacter = Cast<AGunfightCharacterDeprecated>(OtherActor);
 	if (GunfightCharacter && GunfightCharacter == GetOwner())
 	{
 		GunfightCharacter->SetOverlappingWeapon(nullptr);
