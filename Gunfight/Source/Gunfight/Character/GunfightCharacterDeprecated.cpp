@@ -110,7 +110,7 @@ void AGunfightCharacterDeprecated::PostInitializeComponents()
 	}
 	if (Combat)
 	{
-		Combat->Character = this;
+		//Combat->Character = this;
 	}
 	if (DefaultWeapon && GetMesh())
 	{
@@ -168,7 +168,7 @@ void AGunfightCharacterDeprecated::GripPressed(bool bLeftController)
 	UMotionControllerComponent* CurrentController = bLeftController ? LeftHandController : RightHandController;
 	if (Combat && CurrentController && OverlappingWeapon)
 	{
-		if (bLeftController && OverlappingWeapon->bLeftControllerOverlap)
+		if (bLeftController)
 		{
 			if (HasAuthority())
 			{
@@ -179,7 +179,7 @@ void AGunfightCharacterDeprecated::GripPressed(bool bLeftController)
 				ServerEquipButtonPressed(true);
 			}
 		}
-		else if (!bLeftController && OverlappingWeapon->bRightControllerOverlap)
+		else
 		{
 			if (HasAuthority())
 			{

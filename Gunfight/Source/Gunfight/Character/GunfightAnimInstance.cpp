@@ -3,6 +3,7 @@
 
 #include "GunfightAnimInstance.h"
 #include "Gunfight/Character/GunfightCharacter.h"
+#include "DrawDebugHelpers.h"
 
 
 void UGunfightAnimInstance::NativeInitializeAnimation()
@@ -17,10 +18,14 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
 
-	if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
+	//if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
+	if (GunfightCharacter == nullptr) return;
 
 	// Leg IK
 	UpdateFeetLocation();
+
+	LeftHandState = GunfightCharacter->GetHandState(true);
+	RightHandState = GunfightCharacter->GetHandState(false);
 }
 
 void UGunfightAnimInstance::UpdateFeetLocation()
@@ -30,12 +35,18 @@ void UGunfightAnimInstance::UpdateFeetLocation()
 	const FVector RootLocation = GunfightCharacter->GetMesh()->GetSocketLocation(FName("root"));
 	const FVector LeftFootVB = GunfightCharacter->GetMesh()->GetSocketLocation(FName("VB pelvis_foot_l"));
 	const FVector RightFootVB = GunfightCharacter->GetMesh()->GetSocketLocation(FName("VB pelvis_foot_r"));
+
 	LeftFootLocation.X = LeftFootVB.X; 
 	LeftFootLocation.Y = LeftFootVB.Y;
-	LeftFootLocation.Z = (LeftFootVB - RootLocation).Z + LeftFootLocation.Z;
+	LeftFootLocation.Z = (LeftFootVB - RootLocation).Z + TraceLeftFootLocation.Z;
 	RightFootLocation.X = RightFootVB.X;
 	RightFootLocation.Y = RightFootVB.Y;
-	RightFootLocation.Z = (RightFootVB - RootLocation).Z + RightFootLocation.Z;
+	RightFootLocation.Z = (RightFootVB - RootLocation).Z + TraceRightFootLocation.Z;
+
+	//DrawDebugSphere(GetWorld(), LeftFootVB, 5.f, 12, FColor::Green, false, GetWorld()->DeltaTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
+	//DrawDebugSphere(GetWorld(), RightFootVB, 5.f, 12, FColor::Green, false, GetWorld()->DeltaTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
+	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), LeftFootVB, FColor::White, false, GetWorld()->DeltaRealTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
+	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), RightFootVB, FColor::White, false, GetWorld()->DeltaRealTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
 }
 
 FVector UGunfightAnimInstance::TraceFootLocation(bool bLeft)

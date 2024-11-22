@@ -19,6 +19,7 @@ enum class EEquipState : uint8
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
+	EWS_Idle		UMETA(DisplayName = "Idle"),
 	EWS_Ready		UMETA(DisplayName = "Ready"),
 	EWS_Ejecting	UMETA(DisplayName = "Ejecting"),
 	EWS_Ejected		UMETA(DisplayName = "Ejected"),
@@ -46,6 +47,7 @@ public:
 	AWeapon();
 	virtual void PostInitializeComponents() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/**
 	* Automatic fire
@@ -73,6 +75,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	virtual void OnWeaponStateSet();
 
 	UFUNCTION()
 	virtual void OnSphereOverlap(
@@ -105,9 +109,14 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	USceneComponent* MagSlideEnd;
 
+	UPROPERTY(VisibleAnywhere)
 	EEquipState EquipState;
 
+	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
+
+	UFUNCTION()
+	void OnRep_WeaponState();
 
 
 	void SetMagazineSimulatePhysics(bool bTrue);
@@ -126,6 +135,44 @@ private:
 
 	void PollInit();
 
+	UPROPERTY(VisibleAnywhere)
+	bool bBeingGripped = false;
+
+	UPROPERTY(EditAnywhere)
+	int32 Ammo;
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateAmmo(int32 ServerAmmo);
+	void ClientUpdateAmmo_Implementation(int32 ServerAmmo);
+
+	UFUNCTION(Client, Reliable)
+	void ClientAddAmmo(int32 AmmoToAdd);
+	void ClientAddAmmo_Implementation(int32 AmmoToAdd);
+
+	void SpendRound();
+
+	UPROPERTY(EditAnywhere)
+	int32 MagCapacity;
+
+	// The number of unprocessed server requests for Ammo
+	// Incremented in SpendRound, decremented in ClientUpdateAmmo
+	int32 Sequence = 0;
+
+	// Carried ammo for this weapon
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedMags, EditAnywhere)
+	int32 CarriedMags = 0;
+
+	UFUNCTION()
+	void OnRep_CarriedMags();
+
 public:
-	
+	inline bool IsBeingGripped() { return bBeingGripped; }
+	inline void SetBeingGripped(bool bGripped) { bBeingGripped = bGripped; }
+	inline void SetEquipState(EEquipState NewState) { EquipState = NewState; }
+	void SetWeaponState(EWeaponState NewState);
+	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
+	FORCEINLINE int32 GetCarriedMags() const { return CarriedMags; }
+	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; }
+	FORCEINLINE bool IsFull() const { return Ammo == MagCapacity; }
 };

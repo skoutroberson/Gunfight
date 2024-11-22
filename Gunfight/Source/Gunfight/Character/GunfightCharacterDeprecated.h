@@ -8,6 +8,7 @@
 
 struct FVector8;
 
+/*
 UENUM(BlueprintType)
 enum class EHandState : uint8
 {
@@ -17,6 +18,7 @@ enum class EHandState : uint8
 
 	EHS_MAX				UMETA(DisplayName = "DefaultMAX"),
 };
+*/
 
 UCLASS()
 class GUNFIGHT_API AGunfightCharacterDeprecated : public ACharacter
@@ -86,12 +88,13 @@ private:
 	FVector CameraMeshOffset = FVector(-12.373209f, 0.f, -177.667695f);
 	//(X = -12.373209, Y = 0.000000, Z = -177.667695)
 
+	/*
 	UPROPERTY(EditAnywhere)
 	EHandState LeftHandState;
 
 	UPROPERTY(EditAnywhere)
 	EHandState RightHandState;
-
+	*/
 	/**
 	* Gunfight components
 	*/

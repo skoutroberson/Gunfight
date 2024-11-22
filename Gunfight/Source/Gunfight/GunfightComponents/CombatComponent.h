@@ -14,20 +14,37 @@ class GUNFIGHT_API UCombatComponent : public UActorComponent
 
 public:	
 	UCombatComponent();
-	friend class AGunfightCharacterDeprecated;
+	friend class AGunfightCharacter;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
+
+	void AttachWeaponToHand(bool bLeftHand);
 
 protected:
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
+	void OnRep_EquippedWeapon();
+
 private:
 
 	UPROPERTY();
-	class AGunfightCharacterDeprecated* Character;
+	class AGunfightCharacter* Character;
+	UPROPERTY();
+	class AWeapon* CharacterWeapon;
 
-	bool CanPickupGun(class UMotionControllerComponent* MotionController);
+	UPROPERTY(EditAnywhere)
+	float GunPickupDistance = 100.f;
+
+	bool CanPickupGun(bool bLeft);
+
+	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
+	AWeapon* EquippedWeapon;
+
+	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);
+	void UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp);
 
 public:	
 	

@@ -34,6 +34,17 @@
 				"Win64",
 				"Android"
 			]
+		},
+		{
+			"Name": "VRExpansionPlugin",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Win64",
+				"Linux",
+				"Android",
+				"Mac",
+				"IOS"
+			]
 		}
 	]
 }

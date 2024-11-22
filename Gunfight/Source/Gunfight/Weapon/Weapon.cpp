@@ -2,6 +2,7 @@
 
 
 #include "Weapon.h"
+#include "Net/UnrealNetwork.h"
 #include "PhysicsEngine\PhysicsAsset.h"
 #include "Components/SphereComponent.h"
 #include "Gunfight/Gunfight.h"
@@ -10,7 +11,7 @@
 
 AWeapon::AWeapon()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
@@ -34,6 +35,13 @@ void AWeapon::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+}
+
+void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(AWeapon, CarriedMags, COND_OwnerOnly);
 }
 
 void AWeapon::BeginPlay()
@@ -71,7 +79,6 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 		{
 			bRightControllerOverlap = true;
 		}
-		UE_LOG(LogTemp, Warning, TEXT("Overlap"));
 	}
 }
 
@@ -124,7 +131,7 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	PollInit();
+	//PollInit();
 }
 
 void AWeapon::PollInit()
@@ -141,4 +148,37 @@ void AWeapon::PollInit()
 			AreaSphere->SetSphereRadius(100.f, true);
 		}
 	}
+}
+
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
+{
+}
+
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
+{
+}
+
+void AWeapon::SpendRound()
+{
+}
+
+void AWeapon::OnRep_CarriedMags()
+{
+
+}
+
+void AWeapon::SetWeaponState(EWeaponState NewState)
+{
+	WeaponState = NewState;
+
+}
+
+void AWeapon::OnRep_WeaponState()
+{
+	OnWeaponStateSet();
+}
+
+void AWeapon::OnWeaponStateSet()
+{
+
 }
