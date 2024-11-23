@@ -20,13 +20,15 @@ public:
 
 	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
 
+
 	void AttachWeaponToHand(bool bLeftHand);
 
 protected:
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	void OnRep_EquippedWeapon();
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_EquipWeapon(AWeapon* WeaponToEquip, bool bLeft);
+	void Multicast_EquipWeapon_Implementation(AWeapon* WeaponToEquip, bool bLeft);
 
 private:
 
@@ -40,7 +42,7 @@ private:
 
 	bool CanPickupGun(bool bLeft);
 
-	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
+	UPROPERTY()
 	AWeapon* EquippedWeapon;
 
 	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);

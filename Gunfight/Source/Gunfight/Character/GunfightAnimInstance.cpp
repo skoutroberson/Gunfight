@@ -4,6 +4,7 @@
 #include "GunfightAnimInstance.h"
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/KismetMathLibrary.h"
 
 
 void UGunfightAnimInstance::NativeInitializeAnimation()
@@ -18,8 +19,19 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 {
 	Super::NativeUpdateAnimation(DeltaTime);
 
-	//if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
+	if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
 	if (GunfightCharacter == nullptr) return;
+
+	FVector Velocity = GunfightCharacter->GetVelocity();
+	Velocity.Z = 0.f;
+	Speed = Velocity.Size();
+
+	bIsAccelerating = GunfightCharacter->GetCharacterMovement()->GetCurrentAcceleration().Size() > 0.f ? true : false;
+	
+	FRotator AimRotation = GunfightCharacter->GetVRRotation();
+	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(GunfightCharacter->GetVelocity());
+	FRotator DeltaRot = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation);
+	YawOffset = DeltaRot.Yaw;
 
 	// Leg IK
 	UpdateFeetLocation();
@@ -42,11 +54,6 @@ void UGunfightAnimInstance::UpdateFeetLocation()
 	RightFootLocation.X = RightFootVB.X;
 	RightFootLocation.Y = RightFootVB.Y;
 	RightFootLocation.Z = (RightFootVB - RootLocation).Z + TraceRightFootLocation.Z;
-
-	//DrawDebugSphere(GetWorld(), LeftFootVB, 5.f, 12, FColor::Green, false, GetWorld()->DeltaTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
-	//DrawDebugSphere(GetWorld(), RightFootVB, 5.f, 12, FColor::Green, false, GetWorld()->DeltaTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
-	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), LeftFootVB, FColor::White, false, GetWorld()->DeltaRealTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
-	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), RightFootVB, FColor::White, false, GetWorld()->DeltaRealTimeSeconds * 1.1f, ESceneDepthPriorityGroup::SDPG_MAX);
 }
 
 FVector UGunfightAnimInstance::TraceFootLocation(bool bLeft)

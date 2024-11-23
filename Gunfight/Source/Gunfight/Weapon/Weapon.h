@@ -19,10 +19,7 @@ enum class EEquipState : uint8
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
-	EWS_Idle		UMETA(DisplayName = "Idle"),
 	EWS_Ready		UMETA(DisplayName = "Ready"),
-	EWS_Ejecting	UMETA(DisplayName = "Ejecting"),
-	EWS_Ejected		UMETA(DisplayName = "Ejected"),
 	EWS_Empty		UMETA(DisplayName = "Empty"),
 
 	EWS_MAX			UMETA(DisplayName = "DefaultMAX"),
@@ -73,6 +70,14 @@ public:
 	bool bLeftControllerOverlap = false;
 	bool bRightControllerOverlap = false;
 
+	// called at the end of the slide end animation to hide the magazine bone, and spawn an empty magazine to simulate physics
+	UFUNCTION(BlueprintCallable)
+	void DropMag();
+
+	void InitializeAnim();
+
+	FTimerHandle EjectMagTimerHandle;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -100,7 +105,7 @@ protected:
 	bool IsOverlappingControllerSideLeft(UPrimitiveComponent* OverlappingController);
 
 private:
-	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	USkeletalMeshComponent* WeaponMesh;
 
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
@@ -108,6 +113,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
 	USceneComponent* MagSlideEnd;
+
+	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties")
+	USceneComponent* MagSlideStart;
 
 	UPROPERTY(VisibleAnywhere)
 	EEquipState EquipState;
@@ -165,6 +173,20 @@ private:
 	UFUNCTION()
 	void OnRep_CarriedMags();
 
+	UPROPERTY(VisibleAnywhere)
+	bool bMagInserted = true;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	class UAnimationAsset* FireAnimation;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	class UAnimationAsset* MagEjectAnimation;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	UStaticMeshComponent* EmptyMagazineMesh;
+
+	void ResetMag();
+
 public:
 	inline bool IsBeingGripped() { return bBeingGripped; }
 	inline void SetBeingGripped(bool bGripped) { bBeingGripped = bGripped; }
@@ -175,4 +197,6 @@ public:
 	FORCEINLINE int32 GetCarriedMags() const { return CarriedMags; }
 	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; }
 	FORCEINLINE bool IsFull() const { return Ammo == MagCapacity; }
+	FORCEINLINE bool IsMagInserted() const { return bMagInserted; }
+	void EjectMagazine();
 };

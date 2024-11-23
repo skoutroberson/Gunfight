@@ -8,6 +8,7 @@
 #include "Gunfight/Gunfight.h"
 #include "Gunfight/Character/GunfightCharacterDeprecated.h"
 #include "MotionControllerComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 AWeapon::AWeapon()
 {
@@ -16,6 +17,11 @@ AWeapon::AWeapon()
 
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
+	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	EmptyMagazineMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EmptyMag"));
+	EmptyMagazineMesh->SetupAttachment(GetRootComponent());
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -29,6 +35,8 @@ AWeapon::AWeapon()
 	
 	MagSlideEnd = CreateDefaultSubobject<USceneComponent>(TEXT("MagSlideEnd"));
 	MagSlideEnd->SetupAttachment(WeaponMesh);
+	MagSlideStart = CreateDefaultSubobject<USceneComponent>(TEXT("MagSlideStart"));
+	MagSlideStart->SetupAttachment(WeaponMesh);
 }
 
 void AWeapon::PostInitializeComponents()
@@ -42,6 +50,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(AWeapon, CarriedMags, COND_OwnerOnly);
+	DOREPLIFETIME(AWeapon, WeaponState);
 }
 
 void AWeapon::BeginPlay()
@@ -171,6 +180,43 @@ void AWeapon::SetWeaponState(EWeaponState NewState)
 {
 	WeaponState = NewState;
 
+}
+
+void AWeapon::EjectMagazine()
+{
+	if (bMagInserted && MagEjectAnimation)
+	{
+		bMagInserted = false;
+		WeaponMesh->PlayAnimation(MagEjectAnimation, false);
+		GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::DropMag, 0.2f, false, 0.2f);
+	}
+}
+
+void AWeapon::DropMag()
+{
+	if (WeaponMesh == nullptr || EmptyMagazineMesh == nullptr) return;
+	
+	const USkeletalMeshSocket* MeshSocket = WeaponMesh->GetSocketByName(TEXT("EmptyMag"));
+	const FTransform SocketTransform = MeshSocket->GetSocketTransform(WeaponMesh);
+
+	EmptyMagazineMesh->SetWorldLocationAndRotation(SocketTransform.GetLocation(), SocketTransform.GetRotation());
+	EmptyMagazineMesh->SetVisibility(true);
+	EmptyMagazineMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	EmptyMagazineMesh->SetSimulatePhysics(true);
+	EmptyMagazineMesh->SetEnableGravity(true);
+	WeaponMesh->HideBoneByName(FName("Colt_Magazine"), EPhysBodyOp::PBO_None);
+	GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::ResetMag, 3.f, false, 3.f);
+
+	// spawn a full mag on opposite preferred holster
+
+}
+
+void AWeapon::ResetMag()
+{
+	EmptyMagazineMesh->SetVisibility(false);
+	EmptyMagazineMesh->SetSimulatePhysics(false);
+	EmptyMagazineMesh->SetEnableGravity(false);
+	EmptyMagazineMesh->SetRelativeLocation(FVector::ZeroVector);
 }
 
 void AWeapon::OnRep_WeaponState()

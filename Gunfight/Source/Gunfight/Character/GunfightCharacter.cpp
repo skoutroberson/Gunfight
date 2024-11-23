@@ -62,6 +62,7 @@ void AGunfightCharacter::PostInitializeComponents()
 		{
 			WeaponActor = Cast<AWeapon>(DefaultWeapon->GetChildActor());
 			WeaponActor->SetOwner(this);
+			IKQueryParams.AddIgnoredActor(WeaponActor);
 		}
 	}
 }
@@ -142,6 +143,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 		SetHandState(bLeftController, EHandState::EHS_HoldingPistol);
 		Combat->AttachWeaponToHand(bLeftController);
 		WeaponActor->SetBeingGripped(true);
+		Combat->EquippedWeapon = WeaponActor;
 
 		if (HasAuthority())
 		{
@@ -177,6 +179,10 @@ void AGunfightCharacter::TriggerReleased(bool bLeftController)
 
 void AGunfightCharacter::AButtonPressed(bool bLeftController)
 {
+	if (Combat && Combat->EquippedWeapon)
+	{
+		Combat->EquippedWeapon->EjectMagazine();
+	}
 }
 
 void AGunfightCharacter::AButtonReleased(bool bLeftController)
@@ -290,14 +296,16 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 	TraceEnd.Z -= 100.f;
 	FCollisionShape SphereShape; SphereShape.SetSphere(1.f);
 	FHitResult HitResult;
-	bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Visibility, SphereShape, IKQueryParams);
-	//DrawDebugLine(World, TraceStart, TraceEnd, FColor::Red, false, World->DeltaRealTimeSeconds * 1.1f);
+	bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);
 	if (bTraceHit)
 	{
-		//DrawDebugSphere(World, HitResult.ImpactPoint, 5.f, 12, FColor::Green, false, World->DeltaRealTimeSeconds * 1.1f);
 		return HitResult.ImpactPoint;
 	}
-	return FootLocation;
+
+	const FVector LeftFootVB = GetMesh()->GetSocketLocation(FName("VB pelvis_foot_l"));
+	const FVector RightFootVB = GetMesh()->GetSocketLocation(FName("VB pelvis_foot_r"));
+
+	return bLeft ? LeftFootVB : RightFootVB;
 }
 
 void AGunfightCharacter::SetVREnabled(bool bEnabled)

@@ -30,21 +30,14 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UCombatComponent, EquippedWeapon);
 }
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
-	
-	if (!Character->IsLocallyControlled())
-	{
-		AttachWeaponToHand(bLeftController);
-		Character->SetHandState(bLeftController, EHandState::EHS_HoldingPistol);
-	}
-	EquippedWeapon = WeaponToEquip;
-	EquippedWeapon->SetBeingGripped(true);
+
 	UpdateWeaponStateOnPickup(EquippedWeapon);
+	Multicast_EquipWeapon(WeaponToEquip, bLeftController);
 }
 
 void UCombatComponent::AttachWeaponToHand(bool bLeftHand)
@@ -59,9 +52,16 @@ void UCombatComponent::AttachWeaponToHand(bool bLeftHand)
 	}
 }
 
-void UCombatComponent::OnRep_EquippedWeapon()
+void UCombatComponent::Multicast_EquipWeapon_Implementation(AWeapon* WeaponToEquip, bool bLeft)
 {
-
+	if (Character == nullptr || WeaponToEquip == nullptr) return;
+	if (!Character->IsLocallyControlled())
+	{
+		AttachWeaponToHand(bLeft);
+		Character->SetHandState(bLeft, EHandState::EHS_HoldingPistol);
+		EquippedWeapon = WeaponToEquip;
+		EquippedWeapon->SetBeingGripped(true);
+	}
 }
 
 bool UCombatComponent::CanPickupGun(bool bLeft)
@@ -81,6 +81,12 @@ void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
 
 void UCombatComponent::UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp)
 {
-	// if weapon ammo > 0, set state to ready
-	// else, set state to empty
+	if (WeaponPickedUp->GetAmmo() > 0)
+	{
+		WeaponPickedUp->SetWeaponState(EWeaponState::EWS_Ready);
+	}
+	else
+	{
+		WeaponPickedUp->SetWeaponState(EWeaponState::EWS_Empty);
+	}
 }
