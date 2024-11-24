@@ -30,48 +30,111 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(UCombatComponent, LeftEquippedWeapon);
+	DOREPLIFETIME(UCombatComponent, RightEquippedWeapon);
 }
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 
-	UpdateWeaponStateOnPickup(EquippedWeapon);
-	Multicast_EquipWeapon(WeaponToEquip, bLeftController);
+	if (bLeftController && LeftEquippedWeapon == nullptr)
+	{
+		EquipPrimaryWeapon(WeaponToEquip, true);
+	}
+	else if(!bLeftController && RightEquippedWeapon == nullptr)
+	{
+		EquipPrimaryWeapon(WeaponToEquip, false);
+	}
 }
 
-void UCombatComponent::AttachWeaponToHand(bool bLeftHand)
+void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand)
 {
-	if (Character == nullptr || Character->GetMesh() == nullptr || Character->GetWeapon() == nullptr) return;
+	if (WeaponToEquip == nullptr || Character == nullptr) return;
+	/*
+	AWeapon& EquippedWeapon = bLeftHand ? *LeftEquippedWeapon : *RightEquippedWeapon;
+	EquippedWeapon = WeaponToEquip;
+	EquippedWeapon->SetOwner(Character);
+	EquippedWeapon->SetCharacterOwner(Character);
+	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+	*/
+	if (bLeftHand)
+	{
+		LeftEquippedWeapon = WeaponToEquip;
+		LeftEquippedWeapon->SetOwner(Character);
+		LeftEquippedWeapon->SetCharacterOwner(Character);
+		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachActorToHand(LeftEquippedWeapon, bLeftHand);
+	}
+	else
+	{
+		RightEquippedWeapon = WeaponToEquip;
+		RightEquippedWeapon->SetOwner(Character);
+		RightEquippedWeapon->SetCharacterOwner(Character);
+		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachActorToHand(RightEquippedWeapon, bLeftHand);
+	}
+	Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
+	// TODO
+	/*
+		EquippedWeapon->SetHUDAmmo();
+		PlayEquipWeaponSound(WeaponToEquip);
+		WeaponToEquip->ClientUpdateAmmoOnPickup(WeaponToEquip->GetAmmo());
+		ReloadEmptyWeapon();
+	*/
+}
 
-	FName SocketName = bLeftHand ? FName("LeftHandWeapon") : FName("RightHandWeapon");
+void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand)
+{
+	if (Character == nullptr || Character->GetMesh() == nullptr || ActorToAttach == nullptr) return;
+	const FName SocketName = bLeftHand ? FName("LeftHandWeapon") : FName("RightHandWeapon");
 	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(SocketName);
 	if (HandSocket)
 	{
-		HandSocket->AttachActor(Character->GetWeapon(), Character->GetMesh());
+		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
 	}
+	Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
 }
 
-void UCombatComponent::Multicast_EquipWeapon_Implementation(AWeapon* WeaponToEquip, bool bLeft)
+void UCombatComponent::OnRep_LeftEquippedWeapon()
 {
-	if (Character == nullptr || WeaponToEquip == nullptr) return;
-	if (!Character->IsLocallyControlled())
+	if (LeftEquippedWeapon && Character)
 	{
-		AttachWeaponToHand(bLeft);
-		Character->SetHandState(bLeft, EHandState::EHS_HoldingPistol);
-		EquippedWeapon = WeaponToEquip;
-		EquippedWeapon->SetBeingGripped(true);
+		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachActorToHand(LeftEquippedWeapon, true);
+		PlayEquipWeaponSound(LeftEquippedWeapon);
+		Character->SetHandState(true, EHandState::EHS_HoldingPistol);
+		//LeftEquippedWeapon->SetHUDAmmo();
 	}
 }
 
-bool UCombatComponent::CanPickupGun(bool bLeft)
+void UCombatComponent::OnRep_RightEquippedWeapon()
 {
-	if (Character == nullptr || Character->GetWeapon() == nullptr || Character->GetWeapon()->IsBeingGripped()) return false;
+	if (RightEquippedWeapon && Character)
+	{
+		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachActorToHand(RightEquippedWeapon, false);
+		PlayEquipWeaponSound(RightEquippedWeapon);
+		Character->SetHandState(false, EHandState::EHS_HoldingPistol);
+		//RightEquippedWeapon->SetHUDAmmo();
+	}
+}
 
-	const UGripMotionControllerComponent* MotionController = bLeft ? Character->LeftMotionController : Character->RightMotionController;
-	const float DistSquared = FVector::DistSquared(MotionController->GetComponentLocation(), Character->GetWeapon()->GetActorLocation());
+void UCombatComponent::DropWeapon(bool bLeftHand)
+{
+	
+}
 
-	return DistSquared < FMath::Square(GunPickupDistance) ? true : false;
+void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
+{
+	if (Character == nullptr || Character->GetMesh() == nullptr) return;
+	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
+	if (HolsterSocket)
+	{
+		HolsterSocket->AttachActor(WeaponToAttach, Character->GetMesh());
+	}
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
@@ -89,4 +152,14 @@ void UCombatComponent::UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp)
 	{
 		WeaponPickedUp->SetWeaponState(EWeaponState::EWS_Empty);
 	}
+}
+
+void UCombatComponent::OnRep_CombatState()
+{
+
+}
+
+AWeapon* UCombatComponent::GetEquippedWeapon(bool bLeft)
+{
+	return bLeft ? LeftEquippedWeapon : RightEquippedWeapon;
 }

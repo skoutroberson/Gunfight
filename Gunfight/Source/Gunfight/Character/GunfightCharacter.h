@@ -29,6 +29,8 @@ public:
 	UPROPERTY(Replicated)
 	bool bDisableGameplay = false;
 
+	void SpawnDefaultWeapon();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -64,11 +66,28 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<class ULagCompensationComponent> LagCompensation;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Gun, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<class UChildActorComponent> DefaultWeapon;
+	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Gun, meta = (AllowPrivateAccess = "true"))
+	//TObjectPtr<class UChildActorComponent> DefaultWeapon;
+
+	UPROPERTY(VisibleAnywhere)
+	class USphereComponent* LeftHandSphere;
+
+	UPROPERTY(VisibleAnywhere)
+	class USphereComponent* RightHandSphere;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class AWeapon> WeaponClass;
 
 	UPROPERTY()
-	class AWeapon* WeaponActor;
+	class AGunfightPlayerController* GunfightPlayerController;
+
+	UPROPERTY()
+	AWeapon* WeaponActor;
+
+	UFUNCTION()
+	void SpawnWeaponInHolster();
+
+	bool bWeaponInitialized = false;
 
 	UPROPERTY()
 	UWorld* World;
@@ -93,8 +112,18 @@ private:
 	void ServerEquipButtonPressedRight();
 	void ServerEquipButtonPressedRight_Implementation();
 
-	UPROPERTY()
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponLeft();
+	void ServerDropWeaponLeft_Implementation();
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponRight();
+	void ServerDropWeaponRight_Implementation();
+
+	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
+
+	UFUNCTION()
+	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
 	UPROPERTY(EditAnywhere, Category = Hands, meta = (AllowPrivateAccess = "true"))
 	EHandState LeftHandState;
@@ -109,11 +138,17 @@ private:
 
 	bool bLocallyGrippingWeapon = false;
 
+	UPROPERTY(Replicated)
+	AWeapon* DefaultWeapon;
+
 public:
+	void SetOverlappingWeapon(AWeapon* Weapon);
+	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
+	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	// returns true if right holster is preferred
 	inline bool GetRightHolsterPreferred() { return bRightHolsterPreferred; }
-	inline AWeapon* GetWeapon() { return WeaponActor; }
 	inline bool GetLocallyGrippingWeapon() { return bLocallyGrippingWeapon; }
 	void SetHandState(bool bLeftHand, EHandState NewState);
-	inline EHandState GetHandState(bool bLeftHand) { return bLeftHand ? LeftHandState : RightHandState; }
+	inline EHandState GetHandState(bool bLeftHand) { return (bLeftHand) ? LeftHandState : RightHandState; }
+	FORCEINLINE AWeapon* GetDefaultWeapon() { return DefaultWeapon; }
 };

@@ -68,7 +68,8 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = Weapon, meta = (AllowPrivateAccess = "true"))
 	bool bWeaponEquipped;
 
-	class AWeapon* EquippedWeapon;
+	class AWeapon* LeftEquippedWeapon;
+	AWeapon* RightEquippedWeapon;
 
 	FVector TraceFootLocation(bool bLeft);
 	

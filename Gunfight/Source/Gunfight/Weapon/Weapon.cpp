@@ -9,21 +9,26 @@
 #include "Gunfight/Character/GunfightCharacterDeprecated.h"
 #include "MotionControllerComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/GunfightComponents/CombatComponent.h"
+#include "Gunfight/GunfightComponents/CombatComponent.h"
 
 AWeapon::AWeapon()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
+	WeaponMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	EmptyMagazineMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EmptyMag"));
 	EmptyMagazineMesh->SetupAttachment(GetRootComponent());
-	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	EmptyMagazineMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	EmptyMagazineMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
 	AreaSphere->SetupAttachment(GetRootComponent());
@@ -32,6 +37,7 @@ AWeapon::AWeapon()
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->SetUseCCD(true);
 	AreaSphere->SetSphereRadius(0.f);
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	
 	MagSlideEnd = CreateDefaultSubobject<USceneComponent>(TEXT("MagSlideEnd"));
 	MagSlideEnd->SetupAttachment(WeaponMesh);
@@ -57,65 +63,29 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AGunfightCharacterDeprecated* GunfightCharacter = Cast<AGunfightCharacterDeprecated>(GetOwner());
-
-	if (GunfightCharacter)
-	{
-		Character = GunfightCharacter;
-
-		if (GunfightCharacter->IsLocallyControlled())
-		{
-			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-			AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
-			AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
-			AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
-		}
-	}
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
+	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
+	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
+	SetActorTickEnabled(true);
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AGunfightCharacterDeprecated* GunfightCharacterDeprecated = Cast<AGunfightCharacterDeprecated>(OtherActor);
-	if (GunfightCharacterDeprecated && GunfightCharacterDeprecated == GetOwner())
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
+	if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon() == this)
 	{
-		GunfightCharacterDeprecated->SetOverlappingWeapon(this);
-
-		if (IsOverlappingControllerSideLeft(OtherComp))
-		{
-			bLeftControllerOverlap = true;
-		}
-		else
-		{
-			bRightControllerOverlap = true;
-		}
+		GunfightCharacter->SetOverlappingWeapon(this);
 	}
 }
 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	AGunfightCharacterDeprecated* GunfightCharacter = Cast<AGunfightCharacterDeprecated>(OtherActor);
-	if (GunfightCharacter && GunfightCharacter == GetOwner())
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
+	if (GunfightCharacter && GunfightCharacter->GetOverlappingWeapon() == OtherActor)
 	{
 		GunfightCharacter->SetOverlappingWeapon(nullptr);
-
-		if (IsOverlappingControllerSideLeft(OtherComp))
-		{
-			bLeftControllerOverlap = false;
-		}
-		else
-		{
-			bRightControllerOverlap = false;
-		}
 	}
-}
-
-bool AWeapon::IsOverlappingControllerSideLeft(UPrimitiveComponent* OverlappingController)
-{
-	if (OverlappingController && Character)
-	{
-		return OverlappingController == Character->GetLeftHandController() ? true : false;
-	}
-	return false;
 }
 
 void AWeapon::SetMagazineSimulatePhysics(bool bTrue)
@@ -140,7 +110,7 @@ void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	//PollInit();
+	PollInit();
 }
 
 void AWeapon::PollInit()
@@ -155,6 +125,7 @@ void AWeapon::PollInit()
 		{
 			bInitDelayCompleted = true;
 			AreaSphere->SetSphereRadius(100.f, true);
+			SetActorTickEnabled(false);
 		}
 	}
 }
@@ -176,19 +147,13 @@ void AWeapon::OnRep_CarriedMags()
 
 }
 
-void AWeapon::SetWeaponState(EWeaponState NewState)
-{
-	WeaponState = NewState;
-
-}
-
 void AWeapon::EjectMagazine()
 {
 	if (bMagInserted && MagEjectAnimation)
 	{
 		bMagInserted = false;
 		WeaponMesh->PlayAnimation(MagEjectAnimation, false);
-		GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::DropMag, 0.2f, false, 0.2f);
+		GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::DropMag, MagDropDelay, false, MagDropDelay);
 	}
 }
 
@@ -198,12 +163,16 @@ void AWeapon::DropMag()
 	
 	const USkeletalMeshSocket* MeshSocket = WeaponMesh->GetSocketByName(TEXT("EmptyMag"));
 	const FTransform SocketTransform = MeshSocket->GetSocketTransform(WeaponMesh);
+	const FVector ImpulseDir = MagSlideEnd->GetComponentLocation() - MagSlideStart->GetComponentLocation();
+	DrawDebugLine(GetWorld(), SocketTransform.GetLocation(), SocketTransform.GetLocation() + ImpulseDir * 100.f, FColor::Green, true);
 
 	EmptyMagazineMesh->SetWorldLocationAndRotation(SocketTransform.GetLocation(), SocketTransform.GetRotation());
 	EmptyMagazineMesh->SetVisibility(true);
 	EmptyMagazineMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	EmptyMagazineMesh->SetSimulatePhysics(true);
 	EmptyMagazineMesh->SetEnableGravity(true);
+	EmptyMagazineMesh->AddImpulse(FVector(ImpulseDir * MagDropImpulse));
 	WeaponMesh->HideBoneByName(FName("Colt_Magazine"), EPhysBodyOp::PBO_None);
 	GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::ResetMag, 3.f, false, 3.f);
 
@@ -217,14 +186,83 @@ void AWeapon::ResetMag()
 	EmptyMagazineMesh->SetSimulatePhysics(false);
 	EmptyMagazineMesh->SetEnableGravity(false);
 	EmptyMagazineMesh->SetRelativeLocation(FVector::ZeroVector);
+	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AWeapon::SetWeaponState(EWeaponState NewState)
+{
+	WeaponState = NewState;
+	OnWeaponStateSet();
 }
 
 void AWeapon::OnRep_WeaponState()
 {
+	UE_LOG(LogTemp, Warning, TEXT("OnRep WeaponState"));
 	OnWeaponStateSet();
 }
 
 void AWeapon::OnWeaponStateSet()
 {
+	switch (WeaponState)
+	{
+	case EWeaponState::EWS_Equipped:
+		OnEquipped();
+		break;
+	case EWeaponState::EWS_Dropped:
+		OnDropped();
+		break;
+	}
+}
+
+void AWeapon::OnEquipped()
+{
+	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return;
+	if (!CharacterOwner->HasAuthority()) UE_LOG(LogTemp, Warning, TEXT("OnEquipped Client"));
+	CharacterOwner->SetHandState(false, EHandState::EHS_HoldingPistol);
+}
+
+void AWeapon::Dropped(bool bLeftHand)
+{
+	/*
+	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return;
+	bBeingGripped = false;
+	WeaponMesh->SetSimulatePhysics(true);
+	WeaponMesh->SetEnableGravity(true);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);	
+	*/
+}
+
+void AWeapon::OnDropped()
+{
+	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr || CharacterOwner->IsLocallyControlled()) return;
+	if (!CharacterOwner->HasAuthority() && CharacterOwner->IsLocallyControlled()) return;
+	bBeingGripped = false;
+	WeaponMesh->SetSimulatePhysics(true);
+	WeaponMesh->SetEnableGravity(true);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);
+}
+
+void AWeapon::ShouldAttachToHolster()
+{
+	if (bBeingGripped)
+	{
+		GetWorldTimerManager().ClearTimer(ShouldHolsterTimerHandle);
+		return;
+	}
+	if (CharacterOwner && CharacterOwner->GetMesh() && CharacterOwner->GetCombat())
+	{
+		const FVector HolsterLocation = CharacterOwner->GetRightHolsterPreferred() ? 
+			CharacterOwner->GetMesh()->GetSocketLocation(FName("RightHolster")) : CharacterOwner->GetMesh()->GetSocketLocation(FName("LeftHolster"));
+		const float DistanceFromHolsterSquared = FVector::DistSquared(HolsterLocation, GetActorLocation());
+		if (DistanceFromHolsterSquared > FMath::Square(MaxDistanceFromHolster))
+		{
+			CharacterOwner->GetCombat()->AttachWeaponToHolster(this);
+			GetWorldTimerManager().ClearTimer(ShouldHolsterTimerHandle);
+		}
+	}
 
 }

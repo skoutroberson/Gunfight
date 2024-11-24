@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Gunfight/GunfightTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
 
@@ -19,35 +20,50 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
-
+	void DropWeapon(bool bLeftHand);
 
 	void AttachWeaponToHand(bool bLeftHand);
+
+	void AttachWeaponToHolster(AWeapon* WeaponToAttach);
+
+
 
 protected:
 	virtual void BeginPlay() override;
 
-	UFUNCTION(NetMulticast, Reliable)
-	void Multicast_EquipWeapon(AWeapon* WeaponToEquip, bool bLeft);
-	void Multicast_EquipWeapon_Implementation(AWeapon* WeaponToEquip, bool bLeft);
+	void EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand);
+	void AttachActorToHand(AActor* ActorToAttach, bool bLeftHand);
+
+	UFUNCTION()
+	void OnRep_LeftEquippedWeapon();
+	UFUNCTION()
+	void OnRep_RightEquippedWeapon();
 
 private:
 
 	UPROPERTY();
 	class AGunfightCharacter* Character;
-	UPROPERTY();
-	class AWeapon* CharacterWeapon;
+
+	UPROPERTY(ReplicatedUsing = OnRep_LeftEquippedWeapon)
+	AWeapon* LeftEquippedWeapon;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RightEquippedWeapon)
+	AWeapon* RightEquippedWeapon;
 
 	UPROPERTY(EditAnywhere)
 	float GunPickupDistance = 100.f;
 
 	bool CanPickupGun(bool bLeft);
 
-	UPROPERTY()
-	AWeapon* EquippedWeapon;
-
 	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);
 	void UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp);
 
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	ECombatState CombatState = ECombatState::ECS_Unoccupied;
+
+	UFUNCTION()
+	void OnRep_CombatState();
+
 public:	
-	
+	FORCEINLINE AWeapon* GetEquippedWeapon(bool bLeft);
 };

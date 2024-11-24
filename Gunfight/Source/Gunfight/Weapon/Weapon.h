@@ -19,10 +19,13 @@ enum class EEquipState : uint8
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
-	EWS_Ready		UMETA(DisplayName = "Ready"),
-	EWS_Empty		UMETA(DisplayName = "Empty"),
+	EWS_Equipped		UMETA(DisplayName = "Equipped"),
+	EWS_EquippedRight	UMETA(DisplayName = "EquippedRight"),
+	EWS_Dropped			UMETA(DisplayName = "Dropped"),
+	EWS_Ready			UMETA(DisplayName = "Ready"),
+	EWS_Empty			UMETA(DisplayName = "Empty"),
 
-	EWS_MAX			UMETA(DisplayName = "DefaultMAX"),
+	EWS_MAX				UMETA(DisplayName = "DefaultMAX"),
 };
 
 UENUM(BlueprintType)
@@ -78,6 +81,11 @@ public:
 
 	FTimerHandle EjectMagTimerHandle;
 
+	void Dropped(bool bLeftHand);
+
+	UPROPERTY()
+	class AGunfightCharacter* CharacterOwner;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -126,6 +134,10 @@ private:
 	UFUNCTION()
 	void OnRep_WeaponState();
 
+	void OnEquipped();
+	void OnEquippedRight();
+	void OnDropped();
+
 
 	void SetMagazineSimulatePhysics(bool bTrue);
 
@@ -134,9 +146,6 @@ private:
 	void SlideMagOut(float DeltaTime);
 
 	bool bSlidingMag = false;
-
-	UPROPERTY()
-	class AGunfightCharacterDeprecated* Character;
 
 	bool bInitDelayCompleted = false;
 	uint8 InitDelayFrame = 0;
@@ -187,6 +196,29 @@ private:
 
 	void ResetMag();
 
+	UPROPERTY(EditAnywhere)
+	float MagDropDelay = 0.22f;
+
+	UPROPERTY(EditAnywhere)
+	float MagDropImpulse = 5.f;
+
+	FTimerHandle StillGrippedTimerHandle; // used to send server RPC on combat
+	FTimerHandle StillDroppedTimerHandle; // used to send server RPC on combat
+	FTimerHandle ShouldHolsterTimerHandle;
+
+	// calls DropRPC for server/other clients if the weapon is still dropped
+	void StillDropped();
+	void StillEquipped();
+
+	bool bDropRPCCalled = true;
+	bool bEquipRPCCalled = false;
+
+	void ShouldAttachToHolster();
+
+	// if weapon is unequipped and greater than this distance, attach to holster
+	UPROPERTY(EditAnywhere)
+	float MaxDistanceFromHolster = 70.f;
+
 public:
 	inline bool IsBeingGripped() { return bBeingGripped; }
 	inline void SetBeingGripped(bool bGripped) { bBeingGripped = bGripped; }
@@ -199,4 +231,9 @@ public:
 	FORCEINLINE bool IsFull() const { return Ammo == MagCapacity; }
 	FORCEINLINE bool IsMagInserted() const { return bMagInserted; }
 	void EjectMagazine();
+	FORCEINLINE bool WasDropRPCCalled() const { return bDropRPCCalled; }
+	// sets bDropRPCCalled to false
+	FORCEINLINE void ResetDropRPCCalled() { bDropRPCCalled = false; }
+	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() { return WeaponMesh; }
+	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
 };
