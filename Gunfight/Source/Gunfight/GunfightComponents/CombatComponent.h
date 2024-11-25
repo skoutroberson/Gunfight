@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Gunfight/GunfightTypes/CombatState.h"
+#include "Gunfight/GunfightTypes/HandState.h"
 #include "CombatComponent.generated.h"
 
 

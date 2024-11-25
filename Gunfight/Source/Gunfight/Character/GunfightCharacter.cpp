@@ -16,6 +16,7 @@
 #include "Gunfight/GameMode/GunfightGameMode.h"
 #include "Kismet/GameplayStatics.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "Gunfight/Weapon/FullMagazine.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -82,23 +83,6 @@ void AGunfightCharacter::PostInitializeComponents()
 		}
 	}
 	*/
-}
-
-void AGunfightCharacter::SpawnDefaultWeapon()
-{
-	AGunfightGameMode* GunfightGameMode = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
-	World = World == nullptr ? GetWorld() : World;
-	if (GunfightGameMode && World && WeaponClass)
-	{
-		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		if (Combat)
-		{
-			DefaultWeapon = StartingWeapon;
-			Combat->AttachWeaponToHolster(StartingWeapon);
-			StartingWeapon->SetOwner(this);
-			StartingWeapon->CharacterOwner = this;
-		}
-	}
 }
 
 void AGunfightCharacter::BeginPlay()
@@ -186,37 +170,46 @@ void AGunfightCharacter::LookUp(float Throttle)
 void AGunfightCharacter::GripPressed(bool bLeftController)
 {
 	if (bDisableGameplay) return;
-	if (Combat && OverlappingWeapon)
+	if (Combat)
 	{
-		if (HasAuthority())
+		if (OverlappingWeapon)
 		{
-			Combat->EquipWeapon(OverlappingWeapon, bLeftController);
+			if (HasAuthority())
+			{
+				Combat->EquipWeapon(OverlappingWeapon, bLeftController);
+			}
+			else
+			{
+				if (bLeftController) ServerEquipButtonPressedLeft();
+				else ServerEquipButtonPressedRight();
+			}
+			return;
 		}
-		else
+		else if (OverlappingMagazine)
 		{
-			if (bLeftController) ServerEquipButtonPressedLeft();
-			else ServerEquipButtonPressedRight();
+			Combat->AttachActorToHand(OverlappingMagazine, bLeftController);
 		}
 	}
-	else
-	{
-		SetHandState(bLeftController, EHandState::EHS_Grip);
-	}
+	SetHandState(bLeftController, EHandState::EHS_Grip);
 }
 
 void AGunfightCharacter::GripReleased(bool bLeftController)
 {
 	if (bDisableGameplay) return;
-	if (Combat && WeaponActor && WeaponActor->IsBeingGripped())
+	if (Combat)
 	{
-		if (HasAuthority())
+		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
 		{
-			Combat->DropWeapon(bLeftController);
-		}
-		else
-		{
-			if (bLeftController) ServerDropWeaponLeft();
-			else ServerDropWeaponRight();
+			if (HasAuthority())
+			{
+				Combat->DropWeapon(bLeftController);
+			}
+			else
+			{
+				if (bLeftController) ServerDropWeaponLeft();
+				else ServerDropWeaponRight();
+			}
 		}
 	}
 	SetHandState(bLeftController, EHandState::EHS_Idle);
@@ -232,9 +225,14 @@ void AGunfightCharacter::TriggerReleased(bool bLeftController)
 
 void AGunfightCharacter::AButtonPressed(bool bLeftController)
 {
-	if (Combat && WeaponActor && WeaponActor->IsMagInserted())
+	if (Combat)
 	{
-		WeaponActor->EjectMagazine();
+		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
+		{
+			CurrentWeapon->EjectMagazine();
+			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass());
+		}
 	}
 }
 
@@ -347,12 +345,51 @@ void AGunfightCharacter::PollInit()
 	}
 }
 
+void AGunfightCharacter::SpawnDefaultWeapon()
+{
+	AGunfightGameMode* GunfightGameMode = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
+	World = World == nullptr ? GetWorld() : World;
+	if (GunfightGameMode && World && WeaponClass && Combat)
+	{
+		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(WeaponClass);
+		DefaultWeapon = StartingWeapon;
+		Combat->AttachWeaponToHolster(StartingWeapon);
+		StartingWeapon->SetOwner(this);
+		StartingWeapon->CharacterOwner = this;
+	}
+}
+
+void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass)
+{
+	World = World == nullptr ? GetWorld() : World;
+	if (World)
+	{
+		AFullMagazine* FullMagazine = World->SpawnActor<AFullMagazine>(FullMagClass);
+		if (FullMagazine)
+		{
+			DefaultMagazine = FullMagazine;
+			FullMagazine->SetOwner(this);
+			FullMagazine->SetCharacterOwner(this);
+			AttachMagazineToHolster();
+		}
+	}
+}
+
+void AGunfightCharacter::AttachMagazineToHolster()
+{
+	if (DefaultMagazine && GetMesh())
+	{
+		const FName SocketName = !GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+		const USkeletalMeshSocket* HolsterSocket = GetMesh()->GetSocketByName(SocketName);
+		if (HolsterSocket)
+		{
+			HolsterSocket->AttachActor(DefaultMagazine, GetMesh());
+		}
+	}
+}
+
 void AGunfightCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("OverlappingWeapon"));
-	}
 	OverlappingWeapon = Weapon;
 }
 
@@ -395,10 +432,6 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 	bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);
 	if (bTraceHit)
 	{
-		if (HitResult.GetActor())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Trace Hit Actor: %s"), *HitResult.GetActor()->GetName());
-		}
 		return HitResult.ImpactPoint;
 	}
 

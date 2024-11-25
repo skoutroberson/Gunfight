@@ -45,6 +45,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 	}
 	else if(!bLeftController && RightEquippedWeapon == nullptr)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Equip Right Weapon"));
 		EquipPrimaryWeapon(WeaponToEquip, false);
 	}
 }
@@ -69,6 +70,7 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 	}
 	else
 	{
+		UE_LOG(LogTemp, Warning, TEXT("EquipPrimaryWeapon"));
 		RightEquippedWeapon = WeaponToEquip;
 		RightEquippedWeapon->SetOwner(Character);
 		RightEquippedWeapon->SetCharacterOwner(Character);
@@ -94,7 +96,7 @@ void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand)
 	{
 		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
 	}
-	Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
+	//Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
 }
 
 void UCombatComponent::OnRep_LeftEquippedWeapon()
@@ -106,7 +108,9 @@ void UCombatComponent::OnRep_LeftEquippedWeapon()
 		PlayEquipWeaponSound(LeftEquippedWeapon);
 		Character->SetHandState(true, EHandState::EHS_HoldingPistol);
 		//LeftEquippedWeapon->SetHUDAmmo();
+		return;
 	}
+	Character->SetHandState(true, EHandState::EHS_Idle);
 }
 
 void UCombatComponent::OnRep_RightEquippedWeapon()
@@ -118,12 +122,23 @@ void UCombatComponent::OnRep_RightEquippedWeapon()
 		PlayEquipWeaponSound(RightEquippedWeapon);
 		Character->SetHandState(false, EHandState::EHS_HoldingPistol);
 		//RightEquippedWeapon->SetHUDAmmo();
+		return;
 	}
+	Character->SetHandState(false, EHandState::EHS_Idle);
 }
 
 void UCombatComponent::DropWeapon(bool bLeftHand)
 {
-	
+	if (bLeftHand && LeftEquippedWeapon)
+	{
+		LeftEquippedWeapon->Dropped(true);
+		LeftEquippedWeapon = nullptr;
+	}
+	else if (!bLeftHand && RightEquippedWeapon)
+	{
+		RightEquippedWeapon->Dropped(false);
+		RightEquippedWeapon = nullptr;
+	}
 }
 
 void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)

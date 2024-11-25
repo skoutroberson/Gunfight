@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "VRCharacter.h"
 #include "Gunfight/GunfightTypes/HandState.h"
+#include "Gunfight/Gunfight.h"
 #include "GunfightCharacter.generated.h"
 
 /**
@@ -122,6 +123,14 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
 
+	UPROPERTY()
+	class AFullMagazine* OverlappingMagazine;
+
+	UPROPERTY()
+	AFullMagazine* DefaultMagazine;
+
+	void AttachMagazineToHolster();
+
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
@@ -141,6 +150,8 @@ private:
 	UPROPERTY(Replicated)
 	AWeapon* DefaultWeapon;
 
+	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass);
+
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
@@ -151,4 +162,5 @@ public:
 	void SetHandState(bool bLeftHand, EHandState NewState);
 	inline EHandState GetHandState(bool bLeftHand) { return (bLeftHand) ? LeftHandState : RightHandState; }
 	FORCEINLINE AWeapon* GetDefaultWeapon() { return DefaultWeapon; }
+	FORCEINLINE void SetOverlappingMagazine(AFullMagazine* OverlapMag) { OverlappingMagazine = OverlapMag; }
 };

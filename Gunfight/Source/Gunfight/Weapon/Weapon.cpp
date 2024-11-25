@@ -11,7 +11,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Gunfight/GunfightComponents/CombatComponent.h"
-#include "Gunfight/GunfightComponents/CombatComponent.h"
+#include "Gunfight/Weapon/EmptyMagazine.h"
 
 AWeapon::AWeapon()
 {
@@ -23,12 +23,6 @@ AWeapon::AWeapon()
 	WeaponMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	EmptyMagazineMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EmptyMag"));
-	EmptyMagazineMesh->SetupAttachment(GetRootComponent());
-	EmptyMagazineMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	EmptyMagazineMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
 	AreaSphere->SetupAttachment(GetRootComponent());
@@ -82,18 +76,9 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
-	if (GunfightCharacter && GunfightCharacter->GetOverlappingWeapon() == OtherActor)
+	if (GunfightCharacter && CharacterOwner == OtherActor)
 	{
 		GunfightCharacter->SetOverlappingWeapon(nullptr);
-	}
-}
-
-void AWeapon::SetMagazineSimulatePhysics(bool bTrue)
-{
-	FBodyInstance* Magazine = WeaponMesh->GetBodyInstance(FName("Colt_Magazine"));
-	if (Magazine)
-	{
-		Magazine->SetInstanceSimulatePhysics(bTrue);
 	}
 }
 
@@ -159,34 +144,32 @@ void AWeapon::EjectMagazine()
 
 void AWeapon::DropMag()
 {
-	if (WeaponMesh == nullptr || EmptyMagazineMesh == nullptr) return;
-	
-	const USkeletalMeshSocket* MeshSocket = WeaponMesh->GetSocketByName(TEXT("EmptyMag"));
-	const FTransform SocketTransform = MeshSocket->GetSocketTransform(WeaponMesh);
-	const FVector ImpulseDir = MagSlideEnd->GetComponentLocation() - MagSlideStart->GetComponentLocation();
-	DrawDebugLine(GetWorld(), SocketTransform.GetLocation(), SocketTransform.GetLocation() + ImpulseDir * 100.f, FColor::Green, true);
+	if (WeaponMesh == nullptr) return;
 
-	EmptyMagazineMesh->SetWorldLocationAndRotation(SocketTransform.GetLocation(), SocketTransform.GetRotation());
-	EmptyMagazineMesh->SetVisibility(true);
-	EmptyMagazineMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
-	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
-	EmptyMagazineMesh->SetSimulatePhysics(true);
-	EmptyMagazineMesh->SetEnableGravity(true);
-	EmptyMagazineMesh->AddImpulse(FVector(ImpulseDir * MagDropImpulse));
 	WeaponMesh->HideBoneByName(FName("Colt_Magazine"), EPhysBodyOp::PBO_None);
-	GetWorldTimerManager().SetTimer(EjectMagTimerHandle, this, &AWeapon::ResetMag, 3.f, false, 3.f);
+
+	if (EmptyMagazineClass)
+	{
+		const USkeletalMeshSocket* MeshSocket = WeaponMesh->GetSocketByName(TEXT("EmptyMag"));
+		if (MeshSocket)
+		{
+			const FTransform SocketTransform = MeshSocket->GetSocketTransform(WeaponMesh);
+			const FVector ImpulseDir = MagSlideEnd->GetComponentLocation() - MagSlideStart->GetComponentLocation();
+
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				AEmptyMagazine* EmptyMag = World->SpawnActor<AEmptyMagazine>(EmptyMagazineClass, SocketTransform);
+				if (EmptyMag)
+				{
+					EmptyMag->GetMagazineMesh()->AddImpulse(FVector(ImpulseDir * MagDropImpulse));
+				}
+			}
+		}
+	}
 
 	// spawn a full mag on opposite preferred holster
 
-}
-
-void AWeapon::ResetMag()
-{
-	EmptyMagazineMesh->SetVisibility(false);
-	EmptyMagazineMesh->SetSimulatePhysics(false);
-	EmptyMagazineMesh->SetEnableGravity(false);
-	EmptyMagazineMesh->SetRelativeLocation(FVector::ZeroVector);
-	EmptyMagazineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWeapon::SetWeaponState(EWeaponState NewState)
@@ -197,12 +180,12 @@ void AWeapon::SetWeaponState(EWeaponState NewState)
 
 void AWeapon::OnRep_WeaponState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnRep WeaponState"));
 	OnWeaponStateSet();
 }
 
 void AWeapon::OnWeaponStateSet()
 {
+	UE_LOG(LogTemp, Warning, TEXT("On Weapon State Set"));
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
@@ -216,34 +199,33 @@ void AWeapon::OnWeaponStateSet()
 
 void AWeapon::OnEquipped()
 {
-	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return;
-	if (!CharacterOwner->HasAuthority()) UE_LOG(LogTemp, Warning, TEXT("OnEquipped Client"));
-	CharacterOwner->SetHandState(false, EHandState::EHS_HoldingPistol);
+	UE_LOG(LogTemp, Warning, TEXT("On Equipped"));
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMesh->SetSimulatePhysics(false);
+	WeaponMesh->SetEnableGravity(false);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWeapon::Dropped(bool bLeftHand)
 {
-	/*
-	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return;
-	bBeingGripped = false;
-	WeaponMesh->SetSimulatePhysics(true);
-	WeaponMesh->SetEnableGravity(true);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
-	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
-	GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);	
-	*/
+	SetWeaponState(EWeaponState::EWS_Dropped);
+	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+	WeaponMesh->DetachFromComponent(DetachRules);
 }
 
 void AWeapon::OnDropped()
 {
-	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr || CharacterOwner->IsLocallyControlled()) return;
-	if (!CharacterOwner->HasAuthority() && CharacterOwner->IsLocallyControlled()) return;
-	bBeingGripped = false;
+	if (HasAuthority())
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
-	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
-	GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	//GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);
 }
 
 void AWeapon::ShouldAttachToHolster()

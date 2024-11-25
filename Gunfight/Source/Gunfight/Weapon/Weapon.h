@@ -191,10 +191,11 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	class UAnimationAsset* MagEjectAnimation;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	UStaticMeshComponent* EmptyMagazineMesh;
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AEmptyMagazine> EmptyMagazineClass;
 
-	void ResetMag();
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<class AFullMagazine> FullMagazineClass;
 
 	UPROPERTY(EditAnywhere)
 	float MagDropDelay = 0.22f;
@@ -236,4 +237,5 @@ public:
 	FORCEINLINE void ResetDropRPCCalled() { bDropRPCCalled = false; }
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() { return WeaponMesh; }
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
+	FORCEINLINE TSubclassOf<AFullMagazine> GetFullMagazineClass() { return FullMagazineClass; }
 };
