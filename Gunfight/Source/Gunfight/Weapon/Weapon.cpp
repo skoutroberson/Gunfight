@@ -12,6 +12,7 @@
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Gunfight/GunfightComponents/CombatComponent.h"
 #include "Gunfight/Weapon/EmptyMagazine.h"
+#include "Kismet/KismetMathLibrary.h"
 
 AWeapon::AWeapon()
 {
@@ -51,6 +52,15 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 
 	DOREPLIFETIME_CONDITION(AWeapon, CarriedMags, COND_OwnerOnly);
 	DOREPLIFETIME(AWeapon, WeaponState);
+}
+
+void AWeapon::Fire(const FVector& HitTarget)
+{
+	if (FireAnimation)
+	{
+		WeaponMesh->PlayAnimation(FireAnimation, false);
+	}
+	SpendRound();
 }
 
 void AWeapon::UnhideMag()
@@ -146,10 +156,25 @@ void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
 
 void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
 {
+	if (HasAuthority()) return;
+	Ammo = ServerAmmo;
+	--Sequence;
+	Ammo -= Sequence;
+	//SetHUDAmmo();
 }
 
 void AWeapon::SpendRound()
 {
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	//SetHUDAmmo();
+	if (HasAuthority())
+	{
+		ClientUpdateAmmo(Ammo);
+	}
+	else if (CharacterOwner && CharacterOwner->IsLocallyControlled())
+	{
+		++Sequence;
+	}
 }
 
 void AWeapon::OnRep_CarriedMags()
@@ -175,6 +200,23 @@ bool AWeapon::CheckHandOverlap(bool bLeftHand)
 FVector AWeapon::GetMagwellDirection() const
 {
 	return (MagSlideStart->GetComponentLocation() - MagSlideEnd->GetComponentLocation()).GetSafeNormal();
+}
+
+FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget)
+{
+	const USkeletalMeshSocket* MuzzleFlashSocket = WeaponMesh->GetSocketByName("MuzzleFlash");
+	if (MuzzleFlashSocket == nullptr) return FVector();
+
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(WeaponMesh);
+	const FVector TraceStart = SocketTransform.GetLocation();
+
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+	const FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+	const FVector EndLoc = SphereCenter + RandVec;
+	const FVector ToEndLoc = EndLoc - TraceStart;
+
+	return FVector(TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size());
 }
 
 void AWeapon::DropMag()

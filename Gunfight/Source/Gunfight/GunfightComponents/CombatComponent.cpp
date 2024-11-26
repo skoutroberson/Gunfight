@@ -25,6 +25,12 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (Character && Character->IsLocallyControlled() && Character->GetDefaultWeapon())
+	{
+		FHitResult HitResult;
+		TraceUnderCrosshairs(HitResult);
+		HitTarget = HitResult.ImpactPoint;
+	}
 }
 
 void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -194,7 +200,70 @@ void UCombatComponent::Fire(bool bLeft)
 
 void UCombatComponent::FireHitScanWeapon()
 {
+	if (Character)
+	{
+		AWeapon* CharacterWeapon = Character->GetDefaultWeapon();
+		if (CharacterWeapon)
+		{
+			HitTarget = CharacterWeapon->bUseScatter ? CharacterWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
+			if (!Character->HasAuthority()) LocalFire(HitTarget);
+			ServerFire(HitTarget, CharacterWeapon->FireDelay);
+		}
+	}
+}
 
+void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
+{
+	if (Character && Character->GetDefaultWeapon())
+	{
+		UWorld* World = GetWorld();
+		const USkeletalMeshComponent* WeaponMesh = Character->GetDefaultWeapon()->GetWeaponMesh();
+		if (!WeaponMesh || !World) return;
+		const USkeletalMeshSocket* MuzzleSocket = Character->GetDefaultWeapon()->GetWeaponMesh()->GetSocketByName(FName("MuzzleFlash"));
+		if (!MuzzleSocket) return;
+
+		const FTransform SocketTransform = MuzzleSocket->GetSocketTransform(WeaponMesh);
+		const FVector MuzzleDirection = SocketTransform.GetRotation().GetForwardVector();
+		const FVector Start = SocketTransform.GetLocation();
+		const FVector End = Start + MuzzleDirection * TRACE_LENGTH;
+
+		World->LineTraceSingleByChannel(TraceHitResult, Start, End, ECollisionChannel::ECC_Visibility);
+
+		if (!TraceHitResult.bBlockingHit)
+		{
+			TraceHitResult.ImpactPoint = End;
+		}
+	}
+}
+
+void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
+{
+	if (Character && Character->GetDefaultWeapon() && CombatState == ECombatState::ECS_Unoccupied)
+	{
+		//Character->PlayFireMontage(bLeft);
+		Character->GetDefaultWeapon()->Fire(TraceHitTarget);
+	}
+}
+
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const float FireDelay)
+{
+	MultiCastFire(TraceHitTarget);
+}
+
+bool UCombatComponent::ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, const float FireDelay)
+{
+	if (Character && Character->GetDefaultWeapon())
+	{
+		bool bNearlyEqual = FMath::IsNearlyEqual(Character->GetDefaultWeapon()->FireDelay, FireDelay, 0.002f);
+		return bNearlyEqual;
+	}
+	return false;
+}
+
+void UCombatComponent::MultiCastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+{
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+	LocalFire(TraceHitTarget);
 }
 
 void UCombatComponent::StartFireTimer(float FireDelay)

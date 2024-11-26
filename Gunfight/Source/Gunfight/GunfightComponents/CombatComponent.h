@@ -48,6 +48,19 @@ protected:
 	void Fire(bool bLeft);
 	void FireHitScanWeapon();
 
+	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
+
+	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
+	void ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
+	bool ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MultiCastFire(const FVector_NetQuantize& TraceHitTarget);
+	void MultiCastFire_Implementation(const FVector_NetQuantize& TraceHitTarget);
+
 private:
 
 	UPROPERTY();
@@ -88,6 +101,8 @@ private:
 	void FireTimerFinished();
 
 	bool CanFire(bool bLeft);
+
+	FVector HitTarget;
 
 public:	
 	FORCEINLINE AWeapon* GetEquippedWeapon(bool bLeft);

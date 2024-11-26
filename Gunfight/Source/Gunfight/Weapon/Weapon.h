@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "Weapon.generated.h"
 
+#define TRACE_LENGTH 80000.f
+
 UENUM(BlueprintType)
 enum class EEquipState : uint8
 {
@@ -49,6 +51,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	virtual void Fire(const FVector& HitTarget);
+
 	/**
 	* Automatic fire
 	*/
@@ -69,6 +73,8 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	bool bUseScatter = false;
+
+	FVector TraceEndWithScatter(const FVector& HitTarget);
 
 	bool bLeftControllerOverlap = false;
 	bool bRightControllerOverlap = false;
@@ -110,6 +116,16 @@ protected:
 		UPrimitiveComponent* OtherComp,
 		int32 OtherBodyIndex
 	);
+
+	/**
+	* Trace end with scatter
+	*/
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float DistanceToSphere = 800.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float SphereRadius = 75.f;
 
 	// assumes that OverlappingController is a UMotionController, returns true if its the left side
 	bool IsOverlappingControllerSideLeft(UPrimitiveComponent* OverlappingController);
