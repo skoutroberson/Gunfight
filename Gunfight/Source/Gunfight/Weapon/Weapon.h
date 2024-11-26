@@ -86,6 +86,8 @@ public:
 	UPROPERTY()
 	class AGunfightCharacter* CharacterOwner;
 
+	void UnhideMag();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -191,6 +193,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
 	class UAnimationAsset* MagEjectAnimation;
 
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	class UAnimationAsset* SlideBackAnimationPose;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	class UAnimationAsset* SlideBackAnimation;
+
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AEmptyMagazine> EmptyMagazineClass;
 
@@ -238,4 +246,9 @@ public:
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() { return WeaponMesh; }
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
 	FORCEINLINE TSubclassOf<AFullMagazine> GetFullMagazineClass() { return FullMagazineClass; }
+	// returns true if the passed in hand class variable: bOverlappingLeftHand or bOverlappingRightHand is true.
+	bool CheckHandOverlap(bool bLeftHand);
+	FORCEINLINE FVector GetMagwellDirection() const;
+	FORCEINLINE USceneComponent* GetMagwellEnd() { return MagSlideEnd; }
+	FORCEINLINE USceneComponent* GetMagwellStart() { return MagSlideStart; }
 };

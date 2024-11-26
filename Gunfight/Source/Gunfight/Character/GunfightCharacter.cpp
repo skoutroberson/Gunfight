@@ -17,6 +17,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/Weapon/FullMagazine.h"
+#include "ParentRelativeAttachmentComponent.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -34,6 +35,7 @@ AGunfightCharacter::AGunfightCharacter()
 	LeftHandSphere->SetCollisionResponseToChannel(ECC_Weapon, ECollisionResponse::ECR_Overlap);
 	LeftHandSphere->SetUseCCD(true);
 	LeftHandSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
 	RightHandSphere = CreateDefaultSubobject<USphereComponent>(TEXT("RightHandSphere"));
 	RightHandSphere->SetupAttachment(GetMesh(), FName("hand_r"));
 	RightHandSphere->SetCollisionObjectType(ECC_HandController);
@@ -62,27 +64,16 @@ void AGunfightCharacter::PostInitializeComponents()
 	if (GunfightAnimInstance)
 	{
 		GunfightAnimInstance->SetCharacter(this);
+		if (IsLocallyControlled())
+		{
+			GunfightAnimInstance->SetLocallyControlled(true);
+		}
 	}
 
 	if (Combat)
 	{
 		Combat->Character = this;
 	}
-	/*
-	if (DefaultWeapon && GetMesh())
-	{
-		FName HolsterToAttach = bRightHolsterPreferred ? FName("RightHolster") : FName("LeftHolster");
-		DefaultWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, HolsterToAttach);
-		if (DefaultWeapon->GetChildActor())
-		{
-			WeaponActor = Cast<AWeapon>(DefaultWeapon->GetChildActor());
-			WeaponActor->SetOwner(this);
-			WeaponActor->CharacterOwner = this;
-			IKQueryParams.AddIgnoredActor(WeaponActor);
-			WeaponActor->SetReplicates(true);
-		}
-	}
-	*/
 }
 
 void AGunfightCharacter::BeginPlay()
@@ -90,13 +81,6 @@ void AGunfightCharacter::BeginPlay()
 	Super::BeginPlay();
 	SetActorTickEnabled(true);
 	IKQueryParams.AddIgnoredActor(this);
-
-	/*
-	if (HasAuthority())
-	{
-		SpawnWeaponInHolster();
-	}
-	*/
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -172,6 +156,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
+		//if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && !Combat->CheckEquippedWeapon(!bLeftController)) // weapon check
 		if (OverlappingWeapon)
 		{
 			if (HasAuthority())
@@ -185,9 +170,9 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 			}
 			return;
 		}
-		else if (OverlappingMagazine)
+		else if (OverlappingMagazine && OverlappingMagazine->CheckHandOverlap(bLeftController) && !Combat->CheckEquippedMagazine(!bLeftController)) // magazine check
 		{
-			Combat->AttachActorToHand(OverlappingMagazine, bLeftController);
+			Combat->EquipMagazine(OverlappingMagazine, bLeftController);
 		}
 	}
 	SetHandState(bLeftController, EHandState::EHS_Grip);
@@ -196,7 +181,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 void AGunfightCharacter::GripReleased(bool bLeftController)
 {
 	if (bDisableGameplay) return;
-	if (Combat)
+	if (Combat && Combat->CheckEquippedWeapon(bLeftController))
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
 		if (CurrentWeapon)
@@ -212,11 +197,24 @@ void AGunfightCharacter::GripReleased(bool bLeftController)
 			}
 		}
 	}
+	else if (Combat && Combat->CheckEquippedMagazine(bLeftController))
+	{
+		Combat->DropMagazine(bLeftController);
+	}
 	SetHandState(bLeftController, EHandState::EHS_Idle);
 }
 
 void AGunfightCharacter::TriggerPressed(bool bLeftController)
 {
+	if (bDisableGameplay) return;
+	if (Combat)
+	{
+		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
+		{
+			Combat->FireButtonPressed(true, bLeftController);
+		}
+	}
 }
 
 void AGunfightCharacter::TriggerReleased(bool bLeftController)
@@ -228,7 +226,7 @@ void AGunfightCharacter::AButtonPressed(bool bLeftController)
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
-		if (CurrentWeapon)
+		if (CurrentWeapon && CurrentWeapon->IsMagInserted())
 		{
 			CurrentWeapon->EjectMagazine();
 			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass());
@@ -246,21 +244,6 @@ void AGunfightCharacter::BButtonPressed(bool bLeftController)
 
 void AGunfightCharacter::BButtonReleased(bool bLeftController)
 {
-}
-
-void AGunfightCharacter::SpawnWeaponInHolster()
-{
-	World = World == nullptr ? Cast<UWorld>(GetWorld()) : World;
-	if (World && GetMesh())
-	{
-		WeaponActor = World->SpawnActor<AWeapon>(WeaponClass, FVector::ZeroVector, FRotator::ZeroRotator);
-		if (WeaponActor && Combat && HasAuthority())
-		{
-			bWeaponInitialized = true;
-			WeaponActor->SetReplicates(true);
-			Combat->AttachWeaponToHolster(WeaponActor);
-		}
-	}
 }
 
 void AGunfightCharacter::UpdateAnimInstanceIK()
@@ -323,6 +306,10 @@ void AGunfightCharacter::PollInit()
 		if (GunfightAnimInstance)
 		{
 			GunfightAnimInstance->SetCharacter(this);
+			if (IsLocallyControlled())
+			{
+				GunfightAnimInstance->SetLocallyControlled(true);
+			}
 		}
 	}
 	else if (!GunfightAnimInstance)
@@ -345,6 +332,11 @@ void AGunfightCharacter::PollInit()
 	}
 }
 
+void AGunfightCharacter::OnRep_DefaultWeapon()
+{
+	
+}
+
 void AGunfightCharacter::SpawnDefaultWeapon()
 {
 	AGunfightGameMode* GunfightGameMode = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
@@ -353,9 +345,9 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 	{
 		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(WeaponClass);
 		DefaultWeapon = StartingWeapon;
-		Combat->AttachWeaponToHolster(StartingWeapon);
-		StartingWeapon->SetOwner(this);
-		StartingWeapon->CharacterOwner = this;
+		Combat->AttachWeaponToHolster(DefaultWeapon);
+		DefaultWeapon->SetOwner(this);
+		DefaultWeapon->CharacterOwner = this;
 	}
 }
 
@@ -426,7 +418,7 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 	TraceStart.Z = GetActorLocation().Z + 40.f;
 	FVector TraceEnd = TraceStart;
 	TraceEnd.Z = FootLocation.Z - 100.f;
-	DrawDebugLine(World, TraceStart, TraceEnd, FColor::Green, false, World->DeltaTimeSeconds * 1.1f);
+	//DrawDebugLine(World, TraceStart, TraceEnd, FColor::Green, false, World->DeltaTimeSeconds * 1.1f);
 	FCollisionShape SphereShape; SphereShape.SetSphere(1.f);
 	FHitResult HitResult;
 	bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);

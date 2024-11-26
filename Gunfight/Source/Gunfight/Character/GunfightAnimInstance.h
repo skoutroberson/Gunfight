@@ -68,6 +68,9 @@ private:
 	UPROPERTY(BlueprintReadOnly, Category = Weapon, meta = (AllowPrivateAccess = "true"))
 	bool bWeaponEquipped;
 
+	UPROPERTY(BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess = "true"))
+	bool bLocallyControlled = false;
+
 	class AWeapon* LeftEquippedWeapon;
 	AWeapon* RightEquippedWeapon;
 
@@ -85,4 +88,5 @@ private:
 public:
 	AGunfightCharacter* GetCharacter() { return GunfightCharacter; }
 	void SetCharacter(AGunfightCharacter* Char) { GunfightCharacter = Char; }
+	FORCEINLINE void SetLocallyControlled(bool bNewLocallyControlled) { bLocallyControlled = bNewLocallyControlled; }
 };

@@ -32,6 +32,8 @@ public:
 
 	void SpawnDefaultWeapon();
 
+	void AttachMagazineToHolster();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -51,6 +53,9 @@ protected:
 	void AButtonReleased(bool bLeftController);
 	void BButtonPressed(bool bLeftController);
 	void BButtonReleased(bool bLeftController);
+
+	UFUNCTION()
+	void OnRep_DefaultWeapon();
 
 private:
 
@@ -81,12 +86,6 @@ private:
 
 	UPROPERTY()
 	class AGunfightPlayerController* GunfightPlayerController;
-
-	UPROPERTY()
-	AWeapon* WeaponActor;
-
-	UFUNCTION()
-	void SpawnWeaponInHolster();
 
 	bool bWeaponInitialized = false;
 
@@ -129,8 +128,6 @@ private:
 	UPROPERTY()
 	AFullMagazine* DefaultMagazine;
 
-	void AttachMagazineToHolster();
-
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
 
@@ -147,7 +144,7 @@ private:
 
 	bool bLocallyGrippingWeapon = false;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_DefaultWeapon)
 	AWeapon* DefaultWeapon;
 
 	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass);
@@ -163,4 +160,6 @@ public:
 	inline EHandState GetHandState(bool bLeftHand) { return (bLeftHand) ? LeftHandState : RightHandState; }
 	FORCEINLINE AWeapon* GetDefaultWeapon() { return DefaultWeapon; }
 	FORCEINLINE void SetOverlappingMagazine(AFullMagazine* OverlapMag) { OverlappingMagazine = OverlapMag; }
+	FORCEINLINE USphereComponent* GetLeftHandSphere() { return LeftHandSphere; }
+	FORCEINLINE USphereComponent* GetRightHandSphere() { return RightHandSphere; }
 };

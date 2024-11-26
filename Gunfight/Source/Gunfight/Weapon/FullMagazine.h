@@ -13,6 +13,10 @@ class GUNFIGHT_API AFullMagazine : public AActor
 	
 public:	
 	AFullMagazine();
+	virtual void Tick(float DeltaTime) override;
+
+	void Dropped();
+	void Equipped();
 
 protected:
 	virtual void BeginPlay() override;
@@ -50,7 +54,41 @@ private:
 	FTimerHandle InitializeCollisionHandle;
 	void InitializeCollision();
 
+	bool bLeftControllerOverlap = false;
+	bool bRightControllerOverlap = false;
+
+	bool bDropped = false;
+
+	void ShouldAttachToHolster();
+
+	FTimerHandle ShouldAttachToHolsterHandle;
+	FTimerHandle InsertIntoMagHandle;
+
+	void CanInsertIntoMagwell();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magazine Properties", meta = (AllowPrivateAccess = "true"));
+	FVector HandSocketOffset = FVector::ZeroVector;
+
+	bool bLerpToMagwellStart = false;
+
+	void LerpToMagwellStart(float DeltaTime);
+
+	FVector MagwellRelativeTargetLocation;
+
+	float MagwellDistance = 0.f;
+
+	UPROPERTY();
+	USceneComponent* MagwellEnd;
+	UPROPERTY();
+	USceneComponent* MagwellStart;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magazine Properties", meta = (AllowPrivateAccess = "true"));
+	float MagInsertSpeed = 5.f;
+
 public:	
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
-	
+	FORCEINLINE bool CheckHandOverlap(bool bLeft) const { return bLeft ? bLeftControllerOverlap : bRightControllerOverlap; }
+	FORCEINLINE UStaticMeshComponent* GetMagazineMesh() const { return MagazineMesh; }
+	void SetDropped(bool bIsDropped) { bDropped = bIsDropped; }
+	FORCEINLINE FVector GetHandSocketOffset() const { return HandSocketOffset; }
 };

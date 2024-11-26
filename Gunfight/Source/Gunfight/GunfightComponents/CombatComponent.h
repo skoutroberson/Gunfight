@@ -27,18 +27,26 @@ public:
 
 	void AttachWeaponToHolster(AWeapon* WeaponToAttach);
 
+	void EquipMagazine(class AFullMagazine* MagToEquip, bool bLeftController);
+	void DropMagazine(bool bLeftHand);
 
+	void FireButtonPressed(bool bPressed, bool bLeftHand);
+
+	bool bLocallyReloading = false;
 
 protected:
 	virtual void BeginPlay() override;
 
 	void EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand);
-	void AttachActorToHand(AActor* ActorToAttach, bool bLeftHand);
+	void AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, FVector RelativeOffset = FVector::ZeroVector);
 
 	UFUNCTION()
 	void OnRep_LeftEquippedWeapon();
 	UFUNCTION()
 	void OnRep_RightEquippedWeapon();
+
+	void Fire(bool bLeft);
+	void FireHitScanWeapon();
 
 private:
 
@@ -50,6 +58,11 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_RightEquippedWeapon)
 	AWeapon* RightEquippedWeapon;
+
+	UPROPERTY()
+	AFullMagazine* LeftEquippedMagazine;
+	UPROPERTY()
+	AFullMagazine* RightEquippedMagazine;
 
 	UPROPERTY(EditAnywhere)
 	float GunPickupDistance = 100.f;
@@ -65,6 +78,24 @@ private:
 	UFUNCTION()
 	void OnRep_CombatState();
 
+	bool bFireButtonPressed;
+
+	bool bCanFire = true;
+
+	FTimerHandle FireTimer;
+
+	void StartFireTimer(float FireDelay);
+	void FireTimerFinished();
+
+	bool CanFire(bool bLeft);
+
 public:	
 	FORCEINLINE AWeapon* GetEquippedWeapon(bool bLeft);
+	// returns true if the corresponding Weapon*: LeftEquippedWeapon or RightEquipWeapoin is not nullptr
+	bool CheckEquippedWeapon(bool bLeft);
+	// returns true if the corresponding FullMagazine*: LeftEquippedMagazine or RightEquippedMagazine is not nullptr
+	bool CheckEquippedMagazine(bool bLeft);
+	FORCEINLINE AFullMagazine* GetEquippedMagazine(bool bLeft);
+	FORCEINLINE void SetEquippedMagazine(AFullMagazine* NewMag, bool bLeft);
+	bool IsWeaponEquipped();
 };

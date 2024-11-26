@@ -5,10 +5,12 @@
 #include "Gunfight/Gunfight.h"
 #include "Components/SphereComponent.h"
 #include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/GunfightComponents/CombatComponent.h"
+#include "Gunfight/Weapon/Weapon.h"
 
 AFullMagazine::AFullMagazine()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	MagazineMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MagazineMesh"));
 	SetRootComponent(MagazineMesh);
@@ -27,37 +29,166 @@ void AFullMagazine::BeginPlay()
 {
 	Super::BeginPlay();
 
+	SetActorTickEnabled(false);
+
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AFullMagazine::OnSphereOverlap);
 	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AFullMagazine::OnSphereEndOverlap);
-	
+
 	GetWorldTimerManager().SetTimer(InitializeCollisionHandle, this, &AFullMagazine::InitializeCollision, 0.011f, false, 0.011f);
+}
+
+void AFullMagazine::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (bLerpToMagwellStart)
+	{
+		LerpToMagwellStart(DeltaTime);
+	}
+}
+
+void AFullMagazine::Dropped()
+{
+	bDropped = true;
+	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+	MagazineMesh->DetachFromComponent(DetachRules);
+
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	MagazineMesh->SetSimulatePhysics(true);
+	MagazineMesh->SetEnableGravity(true);
+	MagazineMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	MagazineMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	MagazineMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	MagazineMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
+	GetWorldTimerManager().SetTimer(ShouldAttachToHolsterHandle, this, &AFullMagazine::ShouldAttachToHolster, 0.5f, false, 0.5f);
+	GetWorldTimerManager().ClearTimer(InsertIntoMagHandle);
+}
+
+void AFullMagazine::Equipped()
+{
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MagazineMesh->SetSimulatePhysics(false);
+	MagazineMesh->SetEnableGravity(false);
+	MagazineMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	GetWorldTimerManager().SetTimer(InsertIntoMagHandle, this, &AFullMagazine::CanInsertIntoMagwell, 0.1f, true, 0.1f);
 }
 
 void AFullMagazine::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor == CharacterOwner)
 	{
+		if (OtherComp == CharacterOwner->GetLeftHandSphere()) bLeftControllerOverlap = true;
+		else if (OtherComp == CharacterOwner->GetRightHandSphere()) bRightControllerOverlap = true;
 		CharacterOwner->SetOverlappingMagazine(this);
 	}
 }
 
 void AFullMagazine::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (OtherActor == CharacterOwner)
+	if (CharacterOwner && OtherActor == CharacterOwner)
 	{
-		TArray<AActor*> OverlappingActors;
-		AreaSphere->GetOverlappingActors(OverlappingActors);
-
-		if (OverlappingActors.IsEmpty())
+		if (OtherComp == CharacterOwner->GetLeftHandSphere())
 		{
-			CharacterOwner->SetOverlappingMagazine(nullptr);
+			bLeftControllerOverlap = false;
+			if (!bRightControllerOverlap) CharacterOwner->SetOverlappingMagazine(nullptr);
 		}
+		else if (OtherComp == CharacterOwner->GetRightHandSphere())
+		{
+			bRightControllerOverlap = false;
+			if (!bLeftControllerOverlap) CharacterOwner->SetOverlappingMagazine(nullptr);
+		}
+		//GunfightCharacter->SetOverlappingWeapon(nullptr);
 	}
 }
 
 void AFullMagazine::InitializeCollision()
 {
 	AreaSphere->SetSphereRadius(100.f, true);
+}
+
+void AFullMagazine::ShouldAttachToHolster()
+{
+	if (CharacterOwner)
+	{
+		UCombatComponent* CombatComponent = CharacterOwner->GetCombat();
+		if (!CombatComponent->GetEquippedMagazine(false) && !CombatComponent->GetEquippedMagazine(false))
+		{
+			if (FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation()) > 14400.f)
+			{
+				MagazineMesh->SetSimulatePhysics(false);
+				MagazineMesh->SetEnableGravity(false);
+				CharacterOwner->AttachMagazineToHolster();
+				return;
+			}
+		}
+		else
+		{
+			return;
+		}
+		GetWorldTimerManager().SetTimer(ShouldAttachToHolsterHandle, this, &AFullMagazine::ShouldAttachToHolster, 0.5f, false, 0.5f);
+	}
+}
+
+void AFullMagazine::CanInsertIntoMagwell()
+{
+	if (CharacterOwner)
+	{
+		UCombatComponent* Combat = CharacterOwner->GetCombat();
+		AWeapon* Weapon = CharacterOwner->GetDefaultWeapon();
+		if (Weapon && Combat)
+		{
+			const FVector MagwellDirection = Weapon->GetMagwellDirection();
+			const FVector UV = GetActorUpVector();
+			const float Dot = FVector::DotProduct(MagwellDirection, UV);
+			const float DistanceSquared = FVector::DistSquared(Weapon->GetMagwellEnd()->GetComponentLocation(), GetActorLocation());
+
+			if (DistanceSquared < 70.f && Dot > 0.9f)
+			{
+				GetWorldTimerManager().ClearTimer(InsertIntoMagHandle);
+
+				if (Combat->GetEquippedMagazine(true) == this)
+				{
+					Combat->SetEquippedMagazine(nullptr, true);
+				}
+				else if (Combat->GetEquippedMagazine(false) == this)
+				{
+					Combat->SetEquippedMagazine(nullptr, false);
+				}
+
+				DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+				AttachToComponent(Weapon->GetMagwellEnd(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+
+				MagwellEnd = Weapon->GetMagwellEnd();
+				MagwellStart = Weapon->GetMagwellStart();
+				MagwellRelativeTargetLocation = MagwellStart->GetRelativeLocation() - MagwellEnd->GetRelativeLocation();
+				bLerpToMagwellStart = true;
+				SetActorTickEnabled(true);
+			}
+		}
+	}
+}
+
+void AFullMagazine::LerpToMagwellStart(float DeltaTime)
+{
+	if (CharacterOwner)
+	{
+		AWeapon* Weapon = CharacterOwner->GetDefaultWeapon();
+		if (Weapon)
+		{
+			const float MagSpeedScaled = MagInsertSpeed * DeltaTime;
+			MagwellDistance = MagwellDistance + MagSpeedScaled > 1 ? 1.0f : MagwellDistance + MagSpeedScaled;
+			SetActorRelativeLocation(MagwellRelativeTargetLocation * MagwellDistance);
+			if (MagwellDistance == 1.0f)
+			{
+				bLerpToMagwellStart = false;
+				SetActorTickEnabled(false);
+				Weapon->UnhideMag();
+				Destroy();
+			}
+		}
+	}
 }

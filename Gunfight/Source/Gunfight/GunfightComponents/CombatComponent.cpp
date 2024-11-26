@@ -8,6 +8,7 @@
 #include "Gunfight/Weapon/Weapon.h"
 #include "GripMotionControllerComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Gunfight/Weapon/FullMagazine.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -38,6 +39,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
+	if (!Character->GetOverlappingWeapon() || !Character->GetOverlappingWeapon()->CheckHandOverlap(bLeftController) || CheckEquippedWeapon(!bLeftController)) return;
 
 	if (bLeftController && LeftEquippedWeapon == nullptr)
 	{
@@ -45,7 +47,6 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 	}
 	else if(!bLeftController && RightEquippedWeapon == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Equip Right Weapon"));
 		EquipPrimaryWeapon(WeaponToEquip, false);
 	}
 }
@@ -60,6 +61,7 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 	EquippedWeapon->SetCharacterOwner(Character);
 	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 	*/
+	UE_LOG(LogTemp, Warning, TEXT("Equip Primary Weapon"));
 	if (bLeftHand)
 	{
 		LeftEquippedWeapon = WeaponToEquip;
@@ -70,7 +72,6 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("EquipPrimaryWeapon"));
 		RightEquippedWeapon = WeaponToEquip;
 		RightEquippedWeapon->SetOwner(Character);
 		RightEquippedWeapon->SetCharacterOwner(Character);
@@ -87,7 +88,49 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 	*/
 }
 
-void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand)
+void UCombatComponent::EquipMagazine(AFullMagazine* MagToEquip, bool bLeftController)
+{
+	if (bLeftController && !LeftEquippedMagazine)
+	{
+		LeftEquippedMagazine = MagToEquip;
+
+	}
+	else if (!bLeftController && !RightEquippedMagazine)
+	{
+		RightEquippedMagazine = MagToEquip;
+	}
+
+	MagToEquip->Equipped();
+	AttachActorToHand(MagToEquip, bLeftController, MagToEquip->GetHandSocketOffset());
+	
+	// add magazine offset too i think
+}
+
+void UCombatComponent::DropMagazine(bool bLeftHand)
+{
+	if (bLeftHand && LeftEquippedMagazine)
+	{
+		LeftEquippedMagazine->Dropped();
+		LeftEquippedMagazine = nullptr;
+	}
+	else if(!bLeftHand && RightEquippedMagazine)
+	{
+		RightEquippedMagazine->Dropped();
+		RightEquippedMagazine = nullptr;
+	}
+}
+
+void UCombatComponent::FireButtonPressed(bool bPressed, bool bLeftHand)
+{
+	bFireButtonPressed = bPressed;
+
+	if (bFireButtonPressed)
+	{
+		Fire(bLeftHand);
+	}
+}
+
+void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, FVector RelativeOffset)
 {
 	if (Character == nullptr || Character->GetMesh() == nullptr || ActorToAttach == nullptr) return;
 	const FName SocketName = bLeftHand ? FName("LeftHandWeapon") : FName("RightHandWeapon");
@@ -95,6 +138,7 @@ void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand)
 	if (HandSocket)
 	{
 		HandSocket->AttachActor(ActorToAttach, Character->GetMesh());
+		ActorToAttach->SetActorRelativeLocation(RelativeOffset);
 	}
 	//Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
 }
@@ -125,6 +169,72 @@ void UCombatComponent::OnRep_RightEquippedWeapon()
 		return;
 	}
 	Character->SetHandState(false, EHandState::EHS_Idle);
+}
+
+void UCombatComponent::Fire(bool bLeft)
+{
+	if (CanFire(bLeft))
+	{
+		const AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
+		if (CurrentWeapon)
+		{
+			bCanFire = false;
+
+			switch (CurrentWeapon->FireType)
+			{
+			case EFireType::EFT_HitScan:
+				FireHitScanWeapon();
+				break;
+			}
+			StartFireTimer(CurrentWeapon->FireDelay);
+		}
+
+	}
+}
+
+void UCombatComponent::FireHitScanWeapon()
+{
+
+}
+
+void UCombatComponent::StartFireTimer(float FireDelay)
+{
+	if (Character == nullptr) return;
+	Character->GetWorldTimerManager().SetTimer(
+		FireTimer,
+		this,
+		&UCombatComponent::FireTimerFinished,
+		FireDelay
+	);
+}
+
+void UCombatComponent::FireTimerFinished()
+{
+	if (Character == nullptr || Character->GetDefaultWeapon() == nullptr) return;
+	bCanFire = true;
+	if (bFireButtonPressed && IsWeaponEquipped() && Character->GetDefaultWeapon()->bAutomatic)
+	{
+		if (GetEquippedWeapon(true))
+		{
+			Fire(true);
+		}
+		else if (GetEquippedWeapon(false))
+		{
+			Fire(false);
+		}
+	}
+	if (Character->GetDefaultWeapon()->IsEmpty())
+	{
+		//Character->GetDefaultWeapon()->PlayReload
+	}
+}
+
+bool UCombatComponent::CanFire(bool bLeft)
+{
+	const AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
+	if (CurrentWeapon == nullptr) return false;
+	if (bLocallyReloading) return false;
+	return !CurrentWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Unoccupied;
 }
 
 void UCombatComponent::DropWeapon(bool bLeftHand)
@@ -177,4 +287,60 @@ void UCombatComponent::OnRep_CombatState()
 AWeapon* UCombatComponent::GetEquippedWeapon(bool bLeft)
 {
 	return bLeft ? LeftEquippedWeapon : RightEquippedWeapon;
+}
+
+bool UCombatComponent::CheckEquippedWeapon(bool bLeft)
+{
+	if (bLeft && LeftEquippedWeapon)
+	{
+		return true;
+	}
+	else if (!bLeft && RightEquippedWeapon)
+	{
+		return true;
+	}
+	return false;
+}
+
+bool UCombatComponent::CheckEquippedMagazine(bool bLeft)
+{
+	if (bLeft && LeftEquippedMagazine)
+	{
+		return true;
+	}
+	else if(!bLeft && RightEquippedMagazine)
+	{
+		return true;
+	}
+	return false;
+}
+
+AFullMagazine* UCombatComponent::GetEquippedMagazine(bool bLeft)
+{
+	return bLeft ? LeftEquippedMagazine : RightEquippedMagazine;
+}
+
+void UCombatComponent::SetEquippedMagazine(AFullMagazine* NewMag, bool bLeft)
+{
+	if (bLeft)
+	{
+		LeftEquippedMagazine = NewMag;
+	}
+	else
+	{
+		RightEquippedMagazine = NewMag;
+	}
+}
+
+bool UCombatComponent::IsWeaponEquipped()
+{
+	if (LeftEquippedWeapon)
+	{
+		return true;
+	}
+	if (RightEquippedWeapon)
+	{
+		return true;
+	}
+	return false;
 }

@@ -53,6 +53,14 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, WeaponState);
 }
 
+void AWeapon::UnhideMag()
+{
+	if (WeaponMesh)
+	{
+		WeaponMesh->UnHideBoneByName(FName("Colt_Magazine"));
+	}
+}
+
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
@@ -61,7 +69,12 @@ void AWeapon::BeginPlay()
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
 	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
-	SetActorTickEnabled(true);
+
+	// initialize on spawn sphere overlaps
+	if (HasAuthority())
+	{
+		SetActorTickEnabled(true);
+	}
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -69,16 +82,28 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
 	if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon() == this)
 	{
+		if (GunfightCharacter->HasAuthority() && !GunfightCharacter->IsLocallyControlled()) UE_LOG(LogTemp, Warning, TEXT("Client Sphere Overlap"));
+		if (OtherComp == GunfightCharacter->GetLeftHandSphere()) bLeftControllerOverlap = true;
+		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
 	}
 }
 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
-	if (GunfightCharacter && CharacterOwner == OtherActor)
+	if (CharacterOwner && OtherActor == CharacterOwner)
 	{
-		GunfightCharacter->SetOverlappingWeapon(nullptr);
+		if (OtherComp == CharacterOwner->GetLeftHandSphere())
+		{
+			bLeftControllerOverlap = false;
+			if(!bRightControllerOverlap) CharacterOwner->SetOverlappingWeapon(nullptr);
+		}
+		else if (OtherComp == CharacterOwner->GetRightHandSphere())
+		{
+			bRightControllerOverlap = false;
+			if(!bLeftControllerOverlap) CharacterOwner->SetOverlappingWeapon(nullptr);
+		}
+		//GunfightCharacter->SetOverlappingWeapon(nullptr);
 	}
 }
 
@@ -142,11 +167,22 @@ void AWeapon::EjectMagazine()
 	}
 }
 
+bool AWeapon::CheckHandOverlap(bool bLeftHand)
+{
+	return bLeftHand ? bLeftControllerOverlap : bRightControllerOverlap;
+}
+
+FVector AWeapon::GetMagwellDirection() const
+{
+	return (MagSlideStart->GetComponentLocation() - MagSlideEnd->GetComponentLocation()).GetSafeNormal();
+}
+
 void AWeapon::DropMag()
 {
 	if (WeaponMesh == nullptr) return;
 
 	WeaponMesh->HideBoneByName(FName("Colt_Magazine"), EPhysBodyOp::PBO_None);
+	WeaponMesh->PlayAnimation(SlideBackAnimationPose, false);
 
 	if (EmptyMagazineClass)
 	{
@@ -180,12 +216,12 @@ void AWeapon::SetWeaponState(EWeaponState NewState)
 
 void AWeapon::OnRep_WeaponState()
 {
+	UE_LOG(LogTemp, Warning, TEXT("OnRep Weapon State"));
 	OnWeaponStateSet();
 }
 
 void AWeapon::OnWeaponStateSet()
 {
-	UE_LOG(LogTemp, Warning, TEXT("On Weapon State Set"));
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
@@ -199,7 +235,6 @@ void AWeapon::OnWeaponStateSet()
 
 void AWeapon::OnEquipped()
 {
-	UE_LOG(LogTemp, Warning, TEXT("On Equipped"));
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetSimulatePhysics(false);
 	WeaponMesh->SetEnableGravity(false);
@@ -225,26 +260,28 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
-	//GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.25f, true, 0.25f);
+	
+	// Delay and check if server location and client location is nearly equal or currently equipped, if not, then multicast move the gun to the correct location/rotation
 }
 
 void AWeapon::ShouldAttachToHolster()
 {
-	if (bBeingGripped)
+	if (CharacterOwner)
 	{
-		GetWorldTimerManager().ClearTimer(ShouldHolsterTimerHandle);
-		return;
-	}
-	if (CharacterOwner && CharacterOwner->GetMesh() && CharacterOwner->GetCombat())
-	{
-		const FVector HolsterLocation = CharacterOwner->GetRightHolsterPreferred() ? 
-			CharacterOwner->GetMesh()->GetSocketLocation(FName("RightHolster")) : CharacterOwner->GetMesh()->GetSocketLocation(FName("LeftHolster"));
-		const float DistanceFromHolsterSquared = FVector::DistSquared(HolsterLocation, GetActorLocation());
-		if (DistanceFromHolsterSquared > FMath::Square(MaxDistanceFromHolster))
+		UCombatComponent* Combat = CharacterOwner->GetCombat();
+		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
 		{
-			CharacterOwner->GetCombat()->AttachWeaponToHolster(this);
-			GetWorldTimerManager().ClearTimer(ShouldHolsterTimerHandle);
+			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
+			if (DistSquared > 14400.f)
+			{
+				Combat->AttachWeaponToHolster(this);
+				return;
+			}
 		}
+		else
+		{
+			return;
+		}
+		GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.5f, false, 0.5f);
 	}
-
 }
