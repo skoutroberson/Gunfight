@@ -21,8 +21,8 @@ enum class EEquipState : uint8
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
+	EWS_Min				UMETA(DisplayName = "DefaultMIN"),
 	EWS_Equipped		UMETA(DisplayName = "Equipped"),
-	EWS_EquippedRight	UMETA(DisplayName = "EquippedRight"),
 	EWS_Dropped			UMETA(DisplayName = "Dropped"),
 	EWS_Ready			UMETA(DisplayName = "Ready"),
 	EWS_Empty			UMETA(DisplayName = "Empty"),
@@ -94,6 +94,14 @@ public:
 
 	void UnhideMag();
 
+	void SetCarriedAmmo(int32 NewAmmo) { CarriedAmmo = NewAmmo; }
+	void AddAmmo(int32 AmmoToAdd);
+
+	void PlaySlideBackAnimation();
+	void PlaySlideForwardAnimation();
+
+	void SetServerSideRewind(bool bUseSSR);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -127,8 +135,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
 	float SphereRadius = 75.f;
 
-	// assumes that OverlappingController is a UMotionController, returns true if its the left side
-	bool IsOverlappingControllerSideLeft(UPrimitiveComponent* OverlappingController);
+	UPROPERTY(EditAnywhere)
+	float Damage = 20.f;
+
+	UPROPERTY(Replicated, EditAnywhere)
+	bool bUseServerSideRewind = false;
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
@@ -176,6 +187,12 @@ private:
 	UPROPERTY(EditAnywhere)
 	int32 Ammo;
 
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo, EditAnywhere)
+	int32 CarriedAmmo = 0;
+
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
+
 	UFUNCTION(Client, Reliable)
 	void ClientUpdateAmmo(int32 ServerAmmo);
 	void ClientUpdateAmmo_Implementation(int32 ServerAmmo);
@@ -194,11 +211,11 @@ private:
 	int32 Sequence = 0;
 
 	// Carried ammo for this weapon
-	UPROPERTY(ReplicatedUsing = OnRep_CarriedMags, EditAnywhere)
-	int32 CarriedMags = 0;
+	//UPROPERTY(ReplicatedUsing = OnRep_CarriedMags, EditAnywhere)
+	//int32 CarriedMags = 0;
 
-	UFUNCTION()
-	void OnRep_CarriedMags();
+	//UFUNCTION()
+	//void OnRep_CarriedMags();
 
 	UPROPERTY(VisibleAnywhere)
 	bool bMagInserted = true;
@@ -207,13 +224,19 @@ private:
 	class UAnimationAsset* FireAnimation;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
-	class UAnimationAsset* MagEjectAnimation;
+	UAnimationAsset* FireEndAnimation;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
-	class UAnimationAsset* SlideBackAnimationPose;
+	UAnimationAsset* MagEjectAnimation;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
-	class UAnimationAsset* SlideBackAnimation;
+	UAnimationAsset* SlideBackAnimationPose;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	UAnimationAsset* SlideBackAnimation;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Properties")
+	UAnimationAsset* SlideForwardAnimation;
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<class AEmptyMagazine> EmptyMagazineClass;
@@ -242,7 +265,7 @@ private:
 
 	// if weapon is unequipped and greater than this distance, attach to holster
 	UPROPERTY(EditAnywhere)
-	float MaxDistanceFromHolster = 70.f;
+	float MaxDistanceFromHolster = 80.f;
 
 public:
 	inline bool IsBeingGripped() { return bBeingGripped; }
@@ -251,10 +274,12 @@ public:
 	void SetWeaponState(EWeaponState NewState);
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
 	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
-	FORCEINLINE int32 GetCarriedMags() const { return CarriedMags; }
+	//FORCEINLINE int32 GetCarriedMags() const { return CarriedMags; }
+	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; }
 	FORCEINLINE bool IsEmpty() const { return Ammo <= 0; }
 	FORCEINLINE bool IsFull() const { return Ammo == MagCapacity; }
 	FORCEINLINE bool IsMagInserted() const { return bMagInserted; }
+	FORCEINLINE void SetMagInserted(bool bIsInserted) { bMagInserted = bIsInserted; }
 	void EjectMagazine();
 	FORCEINLINE bool WasDropRPCCalled() const { return bDropRPCCalled; }
 	// sets bDropRPCCalled to false
@@ -267,4 +292,5 @@ public:
 	FORCEINLINE FVector GetMagwellDirection() const;
 	FORCEINLINE USceneComponent* GetMagwellEnd() { return MagSlideEnd; }
 	FORCEINLINE USceneComponent* GetMagwellStart() { return MagSlideStart; }
+	FORCEINLINE EWeaponState GetWeaponState() { return WeaponState; }
 };

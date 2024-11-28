@@ -18,8 +18,13 @@ public:
 	void Dropped();
 	void Equipped();
 
+	bool bEquipped = false;
+
 protected:
 	virtual void BeginPlay() override;
+
+	// check for overlaps on spawn because the OnComponentBeginOverlap doesn't register if they are inside eachother on spawn.
+	void GetSpawnOverlaps();
 
 	UFUNCTION()
 	virtual void OnSphereOverlap(
@@ -57,8 +62,6 @@ private:
 	bool bLeftControllerOverlap = false;
 	bool bRightControllerOverlap = false;
 
-	bool bDropped = false;
-
 	void ShouldAttachToHolster();
 
 	FTimerHandle ShouldAttachToHolsterHandle;
@@ -89,6 +92,5 @@ public:
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
 	FORCEINLINE bool CheckHandOverlap(bool bLeft) const { return bLeft ? bLeftControllerOverlap : bRightControllerOverlap; }
 	FORCEINLINE UStaticMeshComponent* GetMagazineMesh() const { return MagazineMesh; }
-	void SetDropped(bool bIsDropped) { bDropped = bIsDropped; }
 	FORCEINLINE FVector GetHandSocketOffset() const { return HandSocketOffset; }
 };

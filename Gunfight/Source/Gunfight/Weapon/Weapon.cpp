@@ -50,17 +50,26 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(AWeapon, CarriedMags, COND_OwnerOnly);
+	//DOREPLIFETIME_CONDITION(AWeapon, CarriedMags, COND_OwnerOnly);
 	DOREPLIFETIME(AWeapon, WeaponState);
+	DOREPLIFETIME_CONDITION(AWeapon, CarriedAmmo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AWeapon, bUseServerSideRewind, COND_OwnerOnly);
 }
 
 void AWeapon::Fire(const FVector& HitTarget)
 {
-	if (FireAnimation)
-	{
-		WeaponMesh->PlayAnimation(FireAnimation, false);
-	}
 	SpendRound();
+	if (FireAnimation && FireEndAnimation)
+	{
+		if (Ammo <= 0)
+		{
+			WeaponMesh->PlayAnimation(FireEndAnimation, false);
+		}
+		else
+		{
+			WeaponMesh->PlayAnimation(FireAnimation, false);
+		}
+	}
 }
 
 void AWeapon::UnhideMag()
@@ -69,6 +78,13 @@ void AWeapon::UnhideMag()
 	{
 		WeaponMesh->UnHideBoneByName(FName("Colt_Magazine"));
 	}
+}
+
+void AWeapon::AddAmmo(int32 AmmoToAdd)
+{
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	//SetHUDAmmo();
+	ClientAddAmmo(AmmoToAdd);
 }
 
 void AWeapon::BeginPlay()
@@ -117,15 +133,6 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 	}
 }
 
-void AWeapon::EjectMag()
-{
-}
-
-void AWeapon::SlideMagOut(float DeltaTime)
-{
-	
-}
-
 void AWeapon::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -152,6 +159,15 @@ void AWeapon::PollInit()
 
 void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
 {
+	if (HasAuthority()) return;
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
+	//SetHUDAmmo();
+}
+
+void AWeapon::OnRep_CarriedAmmo()
+{
+
 }
 
 void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
@@ -174,12 +190,11 @@ void AWeapon::SpendRound()
 	else if (CharacterOwner && CharacterOwner->IsLocallyControlled())
 	{
 		++Sequence;
+		if (GEngine && !HasAuthority())
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::Printf(TEXT("Spend Round. Ammo: %d"), Ammo));
+		}
 	}
-}
-
-void AWeapon::OnRep_CarriedMags()
-{
-
 }
 
 void AWeapon::EjectMagazine()
@@ -258,7 +273,6 @@ void AWeapon::SetWeaponState(EWeaponState NewState)
 
 void AWeapon::OnRep_WeaponState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnRep Weapon State"));
 	OnWeaponStateSet();
 }
 
@@ -304,6 +318,27 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	
 	// Delay and check if server location and client location is nearly equal or currently equipped, if not, then multicast move the gun to the correct location/rotation
+}
+
+void AWeapon::PlaySlideBackAnimation()
+{
+	if (SlideBackAnimation)
+	{
+		WeaponMesh->PlayAnimation(SlideBackAnimation, false);
+	}
+}
+
+void AWeapon::PlaySlideForwardAnimation()
+{
+	if (SlideForwardAnimation)
+	{
+		WeaponMesh->PlayAnimation(SlideForwardAnimation, false);
+	}
+}
+
+void AWeapon::SetServerSideRewind(bool bUseSSR)
+{
+	bUseServerSideRewind = bUseSSR;
 }
 
 void AWeapon::ShouldAttachToHolster()

@@ -116,6 +116,11 @@ void AGunfightCharacter::Tick(float DeltaTime)
 
 	UpdateAnimation();
 	PollInit();
+
+	if (DefaultWeapon && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Orange, FString::Printf(TEXT("Ammo: %d"), DefaultWeapon->GetAmmo()));
+	}
 }
 
 void AGunfightCharacter::MoveForward(float Throttle)
@@ -156,9 +161,14 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
+		DebugMagOverlap(bLeftController);
 		//if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && !Combat->CheckEquippedWeapon(!bLeftController)) // weapon check
-		if (OverlappingWeapon)
+		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && OverlappingWeapon->GetWeaponState() != EWeaponState::EWS_Equipped)
 		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("EquipWeapon"));
+			}
 			if (HasAuthority())
 			{
 				Combat->EquipWeapon(OverlappingWeapon, bLeftController);
@@ -170,8 +180,12 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 			}
 			return;
 		}
-		else if (OverlappingMagazine && OverlappingMagazine->CheckHandOverlap(bLeftController) && !Combat->CheckEquippedMagazine(!bLeftController)) // magazine check
+		else if (OverlappingMagazine && !OverlappingMagazine->bEquipped && OverlappingMagazine->CheckHandOverlap(bLeftController)) // magazine check
 		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("EquipMagazine"));
+			}
 			Combat->EquipMagazine(OverlappingMagazine, bLeftController);
 		}
 	}
@@ -334,7 +348,10 @@ void AGunfightCharacter::PollInit()
 
 void AGunfightCharacter::OnRep_DefaultWeapon()
 {
-	
+	if (DefaultWeapon)
+	{
+		DefaultWeapon->CharacterOwner = this;
+	}
 }
 
 void AGunfightCharacter::SpawnDefaultWeapon()
@@ -343,8 +360,7 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 	World = World == nullptr ? GetWorld() : World;
 	if (GunfightGameMode && World && WeaponClass && Combat)
 	{
-		AWeapon* StartingWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		DefaultWeapon = StartingWeapon;
+		DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
 		Combat->AttachWeaponToHolster(DefaultWeapon);
 		DefaultWeapon->SetOwner(this);
 		DefaultWeapon->CharacterOwner = this;
@@ -363,6 +379,35 @@ void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagCla
 			FullMagazine->SetOwner(this);
 			FullMagazine->SetCharacterOwner(this);
 			AttachMagazineToHolster();
+		}
+	}
+}
+
+void AGunfightCharacter::DebugMagOverlap(bool bLeft)
+{
+	if (OverlappingMagazine)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("OverlappingMagazine"));
+		}
+	}
+	else
+	{
+		return;
+	}
+	if (!OverlappingMagazine->bEquipped)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("!OverlappingMagazine->bEquipped"));
+		}
+	}
+	if (OverlappingMagazine->CheckHandOverlap(bLeft))
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("OverlappingMagazine->CheckHandOverlap(bLeftController)"));
 		}
 	}
 }

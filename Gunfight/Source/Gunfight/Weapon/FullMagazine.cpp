@@ -7,6 +7,8 @@
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Gunfight/GunfightComponents/CombatComponent.h"
 #include "Gunfight/Weapon/Weapon.h"
+#include "Kismet/GameplayStatics.h"
+#include "Gunfight/PlayerController/GunfightPlayerController.h"
 
 AFullMagazine::AFullMagazine()
 {
@@ -23,6 +25,7 @@ AFullMagazine::AFullMagazine()
 	AreaSphere->SetUseCCD(true);
 	AreaSphere->SetSphereRadius(0.f);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	AreaSphere->SetUseCCD(true);
 }
 
 void AFullMagazine::BeginPlay()
@@ -36,7 +39,32 @@ void AFullMagazine::BeginPlay()
 	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AFullMagazine::OnSphereOverlap);
 	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AFullMagazine::OnSphereEndOverlap);
 
-	GetWorldTimerManager().SetTimer(InitializeCollisionHandle, this, &AFullMagazine::InitializeCollision, 0.011f, false, 0.011f);
+	GetWorldTimerManager().SetTimer(InitializeCollisionHandle, this, &AFullMagazine::InitializeCollision, 0.02f, false, 0.1f);
+}
+
+void AFullMagazine::GetSpawnOverlaps()
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetOwner());
+	if (GunfightCharacter)
+	{
+		USphereComponent* LeftHandSphere = GunfightCharacter->GetLeftHandSphere();
+		USphereComponent* RightHandSphere = GunfightCharacter->GetRightHandSphere();
+
+		if (LeftHandSphere && RightHandSphere)
+		{
+			const float LeftDistance = FVector::DistSquared(LeftHandSphere->GetComponentLocation(), GetActorLocation());
+			const float RightDistance = FVector::DistSquared(RightHandSphere->GetComponentLocation(), GetActorLocation());
+
+			if (LeftDistance <= FMath::Square(LeftHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
+			{
+				bLeftControllerOverlap = true;
+			}
+			if (RightDistance <= FMath::Square(RightHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
+			{
+				bRightControllerOverlap = true;
+			}
+		}
+	}
 }
 
 void AFullMagazine::Tick(float DeltaTime)
@@ -51,7 +79,7 @@ void AFullMagazine::Tick(float DeltaTime)
 
 void AFullMagazine::Dropped()
 {
-	bDropped = true;
+	bEquipped = false;
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	MagazineMesh->DetachFromComponent(DetachRules);
 
@@ -69,6 +97,7 @@ void AFullMagazine::Dropped()
 
 void AFullMagazine::Equipped()
 {
+	bEquipped = true;
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	MagazineMesh->SetSimulatePhysics(false);
 	MagazineMesh->SetEnableGravity(false);
@@ -81,7 +110,14 @@ void AFullMagazine::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AA
 {
 	if (OtherActor == CharacterOwner)
 	{
-		if (OtherComp == CharacterOwner->GetLeftHandSphere()) bLeftControllerOverlap = true;
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("FullMagOverlap"));
+		}
+		if (OtherComp == CharacterOwner->GetLeftHandSphere())
+		{
+			bLeftControllerOverlap = true;
+		}
 		else if (OtherComp == CharacterOwner->GetRightHandSphere()) bRightControllerOverlap = true;
 		CharacterOwner->SetOverlappingMagazine(this);
 	}
@@ -108,6 +144,7 @@ void AFullMagazine::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent,
 void AFullMagazine::InitializeCollision()
 {
 	AreaSphere->SetSphereRadius(100.f, true);
+	GetSpawnOverlaps();
 }
 
 void AFullMagazine::ShouldAttachToHolster()
@@ -146,7 +183,7 @@ void AFullMagazine::CanInsertIntoMagwell()
 			const float Dot = FVector::DotProduct(MagwellDirection, UV);
 			const float DistanceSquared = FVector::DistSquared(Weapon->GetMagwellEnd()->GetComponentLocation(), GetActorLocation());
 
-			if (DistanceSquared < 70.f && Dot > 0.9f)
+			if (DistanceSquared < 7000.f && Dot > -0.9f)
 			{
 				GetWorldTimerManager().ClearTimer(InsertIntoMagHandle);
 
@@ -174,7 +211,7 @@ void AFullMagazine::CanInsertIntoMagwell()
 
 void AFullMagazine::LerpToMagwellStart(float DeltaTime)
 {
-	if (CharacterOwner)
+	if (CharacterOwner && CharacterOwner->GetCombat())
 	{
 		AWeapon* Weapon = CharacterOwner->GetDefaultWeapon();
 		if (Weapon)
@@ -187,6 +224,7 @@ void AFullMagazine::LerpToMagwellStart(float DeltaTime)
 				bLerpToMagwellStart = false;
 				SetActorTickEnabled(false);
 				Weapon->UnhideMag();
+				CharacterOwner->GetCombat()->Reload();
 				Destroy();
 			}
 		}

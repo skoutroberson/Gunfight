@@ -8,6 +8,7 @@
 #include "Gunfight/GunfightTypes/HandState.h"
 #include "CombatComponent.generated.h"
 
+// ps, i'm never using a bool to determine left/right again
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GUNFIGHT_API UCombatComponent : public UActorComponent
@@ -22,6 +23,7 @@ public:
 
 	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
 	void DropWeapon(bool bLeftHand);
+	void Reload();
 
 	void AttachWeaponToHand(bool bLeftHand);
 
@@ -61,10 +63,22 @@ protected:
 	void MultiCastFire(const FVector_NetQuantize& TraceHitTarget);
 	void MultiCastFire_Implementation(const FVector_NetQuantize& TraceHitTarget);
 
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+	void ServerReload_Implementation();
+	void HandleReload();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastReload();
+	void MulticastReload_Implementation();
+
 private:
 
 	UPROPERTY();
 	class AGunfightCharacter* Character;
+
+	UPROPERTY()
+	class AGunfightPlayerController* Controller;
 
 	UPROPERTY(ReplicatedUsing = OnRep_LeftEquippedWeapon)
 	AWeapon* LeftEquippedWeapon;
@@ -103,6 +117,11 @@ private:
 	bool CanFire(bool bLeft);
 
 	FVector HitTarget;
+
+	void UpdateWeaponAmmos();
+	void UpdateCarriedAmmo();
+	void UpdateAmmoValues();
+	int32 AmountToReload();
 
 public:	
 	FORCEINLINE AWeapon* GetEquippedWeapon(bool bLeft);

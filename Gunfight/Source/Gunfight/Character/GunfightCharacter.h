@@ -149,6 +149,8 @@ private:
 
 	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass);
 
+	void DebugMagOverlap(bool bLeft);
+
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
