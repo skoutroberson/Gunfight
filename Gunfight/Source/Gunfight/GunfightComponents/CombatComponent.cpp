@@ -98,12 +98,12 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 
 void UCombatComponent::EquipMagazine(AFullMagazine* MagToEquip, bool bLeftController)
 {
-	if (bLeftController && !LeftEquippedMagazine)
+	if (bLeftController)
 	{
 		LeftEquippedMagazine = MagToEquip;
 
 	}
-	else if (!bLeftController && !RightEquippedMagazine)
+	else if (!bLeftController)
 	{
 		RightEquippedMagazine = MagToEquip;
 	}
@@ -112,11 +112,6 @@ void UCombatComponent::EquipMagazine(AFullMagazine* MagToEquip, bool bLeftContro
 	AttachActorToHand(MagToEquip, bLeftController, MagToEquip->GetHandSocketOffset());
 	
 	// add magazine offset too i think
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("EquipMagazine"));
-	}
 }
 
 void UCombatComponent::DropMagazine(bool bLeftHand)
@@ -310,6 +305,7 @@ bool UCombatComponent::CanFire(bool bLeft)
 	const AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
 	if (CurrentWeapon == nullptr) return false;
 	if (bLocallyReloading) return false;
+
 	return !CurrentWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Unoccupied && CurrentWeapon->IsMagInserted();
 }
 
@@ -332,8 +328,8 @@ void UCombatComponent::Reload()
 	if (Character && Character->GetDefaultWeapon() && Character->GetDefaultWeapon()->GetCarriedAmmo() > 0 && CombatState == ECombatState::ECS_Unoccupied && !Character->GetDefaultWeapon()->IsFull() && !bLocallyReloading)
 	{
 		ServerReload();
-		HandleReload();
-		bLocallyReloading = true;
+		//HandleReload();
+		bLocallyReloading = false;
 	}
 }
 
@@ -344,22 +340,22 @@ void UCombatComponent::ServerReload_Implementation()
 	MulticastReload();
 }
 
+void UCombatComponent::MulticastReload_Implementation()
+{
+	HandleReload();
+}
+
 void UCombatComponent::HandleReload()
 {
 	if (Character == nullptr || Character->GetDefaultWeapon() == nullptr) return;
 	bLocallyReloading = false;
 	if (Character->HasAuthority())
 	{
-		CombatState = ECombatState::ECS_Unoccupied;
 		UpdateWeaponAmmos();
 	}
-	Character->GetDefaultWeapon()->PlaySlideForwardAnimation();
+	CombatState = ECombatState::ECS_Unoccupied;
 	Character->GetDefaultWeapon()->SetMagInserted(true);
-}
-
-void UCombatComponent::MulticastReload_Implementation()
-{
-	HandleReload();
+	Character->GetDefaultWeapon()->PlaySlideForwardAnimation();
 }
 
 void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
@@ -392,6 +388,7 @@ void UCombatComponent::UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp)
 
 void UCombatComponent::OnRep_CombatState()
 {
+	/*
 	switch (CombatState)
 	{
 	case ECombatState::ECS_Reloading:
@@ -412,7 +409,8 @@ void UCombatComponent::OnRep_CombatState()
 			}
 		}
 		break;
-	}
+	}*/
+
 }
 
 void UCombatComponent::UpdateWeaponAmmos()
@@ -430,10 +428,6 @@ void UCombatComponent::UpdateWeaponAmmos()
 		//Controller->SetHUDCarriedAmmo(EquippedWeapon->GetCarriedAmmo());
 	}
 	DefaultWeapon->AddAmmo(ReloadAmount);
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Combat->update weapon ammos"));
-	}
 }
 
 void UCombatComponent::UpdateCarriedAmmo()

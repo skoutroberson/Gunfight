@@ -13,6 +13,7 @@
 #include "Gunfight/GunfightComponents/CombatComponent.h"
 #include "Gunfight/Weapon/EmptyMagazine.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Gunfight/PlayerController/GunfightPlayerController.h"
 
 AWeapon::AWeapon()
 {
@@ -31,7 +32,7 @@ AWeapon::AWeapon()
 	AreaSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->SetUseCCD(true);
-	AreaSphere->SetSphereRadius(0.f);
+	AreaSphere->SetSphereRadius(10.f);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	
 	MagSlideEnd = CreateDefaultSubobject<USceneComponent>(TEXT("MagSlideEnd"));
@@ -59,15 +60,28 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 void AWeapon::Fire(const FVector& HitTarget)
 {
 	SpendRound();
-	if (FireAnimation && FireEndAnimation)
+	if (FireAnimation && FireEndAnimation && CharacterOwner)
 	{
-		if (Ammo <= 0)
+		if (Ammo <= 0 && CharacterOwner->IsLocallyControlled())
 		{
 			WeaponMesh->PlayAnimation(FireEndAnimation, false);
 		}
 		else
 		{
 			WeaponMesh->PlayAnimation(FireAnimation, false);
+		}
+	}
+}
+
+void AWeapon::SetHUDAmmo()
+{
+	if (CharacterOwner)
+	{
+		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
+		if (GunfightOwnerController)
+		{
+			GunfightOwnerController->SetHUDWeaponAmmo(Ammo);
+			GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo);
 		}
 	}
 }
@@ -83,7 +97,7 @@ void AWeapon::UnhideMag()
 void AWeapon::AddAmmo(int32 AmmoToAdd)
 {
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
-	//SetHUDAmmo();
+	SetHUDAmmo();
 	ClientAddAmmo(AmmoToAdd);
 }
 
@@ -97,10 +111,7 @@ void AWeapon::BeginPlay()
 	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
 
 	// initialize on spawn sphere overlaps
-	if (HasAuthority())
-	{
-		SetActorTickEnabled(true);
-	}
+	SetActorTickEnabled(true);
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -108,7 +119,6 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
 	if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon() == this)
 	{
-		if (GunfightCharacter->HasAuthority() && !GunfightCharacter->IsLocallyControlled()) UE_LOG(LogTemp, Warning, TEXT("Client Sphere Overlap"));
 		if (OtherComp == GunfightCharacter->GetLeftHandSphere()) bLeftControllerOverlap = true;
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
@@ -151,8 +161,8 @@ void AWeapon::PollInit()
 		else
 		{
 			bInitDelayCompleted = true;
-			AreaSphere->SetSphereRadius(100.f, true);
 			SetActorTickEnabled(false);
+			GetSpawnOverlaps();
 		}
 	}
 }
@@ -162,12 +172,20 @@ void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
 	if (HasAuthority()) return;
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
-	//SetHUDAmmo();
+	SetHUDAmmo();
 }
 
 void AWeapon::OnRep_CarriedAmmo()
 {
-
+	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
+	if (CharacterOwner && CharacterOwner->GetDefaultWeapon())
+	{
+		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
+		if (GunfightOwnerController && CharacterOwner->GetDefaultWeapon() == this)
+		{
+			GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo);
+		}
+	}
 }
 
 void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
@@ -176,13 +194,13 @@ void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
 	Ammo = ServerAmmo;
 	--Sequence;
 	Ammo -= Sequence;
-	//SetHUDAmmo();
+	SetHUDAmmo();
 }
 
 void AWeapon::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-	//SetHUDAmmo();
+	SetHUDAmmo();
 	if (HasAuthority())
 	{
 		ClientUpdateAmmo(Ammo);
@@ -190,10 +208,6 @@ void AWeapon::SpendRound()
 	else if (CharacterOwner && CharacterOwner->IsLocallyControlled())
 	{
 		++Sequence;
-		if (GEngine && !HasAuthority())
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red, FString::Printf(TEXT("Spend Round. Ammo: %d"), Ammo));
-		}
 	}
 }
 
@@ -302,14 +316,14 @@ void AWeapon::Dropped(bool bLeftHand)
 	SetWeaponState(EWeaponState::EWS_Dropped);
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	WeaponMesh->DetachFromComponent(DetachRules);
+
 }
 
 void AWeapon::OnDropped()
 {
-	if (HasAuthority())
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	}
+	
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -360,5 +374,30 @@ void AWeapon::ShouldAttachToHolster()
 			return;
 		}
 		GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.5f, false, 0.5f);
+	}
+}
+
+void AWeapon::GetSpawnOverlaps()
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetOwner());
+	if (GunfightCharacter)
+	{
+		USphereComponent* LeftHandSphere = GunfightCharacter->GetLeftHandSphere();
+		USphereComponent* RightHandSphere = GunfightCharacter->GetRightHandSphere();
+
+		if (LeftHandSphere && RightHandSphere)
+		{
+			const float LeftDistance = FVector::DistSquared(LeftHandSphere->GetComponentLocation(), GetActorLocation());
+			const float RightDistance = FVector::DistSquared(RightHandSphere->GetComponentLocation(), GetActorLocation());
+
+			if (LeftDistance <= FMath::Square(LeftHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
+			{
+				bLeftControllerOverlap = true;
+			}
+			if (RightDistance <= FMath::Square(RightHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
+			{
+				bRightControllerOverlap = true;
+			}
+		}
 	}
 }

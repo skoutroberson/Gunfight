@@ -14,7 +14,16 @@ class GUNFIGHT_API AGunfightGameState : public AGameState
 {
 	GENERATED_BODY()
 	
-	
+public:
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void UpdateTopScore(class AGunfightPlayerState* ScoringPlayer);
+
+	UPROPERTY(Replicated)
+	TArray<AGunfightPlayerState*> TopScoringPlayers;
+protected:
+
+private:
+	float TopScore = 0.f;
 	
 	
 };

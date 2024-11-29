@@ -52,6 +52,7 @@ void AGunfightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AGunfightCharacter, DefaultWeapon);
 	DOREPLIFETIME_CONDITION(AGunfightCharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME(AGunfightCharacter, bDisableGameplay);
+	DOREPLIFETIME(AGunfightCharacter, Health);
 }
 
 void AGunfightCharacter::PostInitializeComponents()
@@ -81,6 +82,11 @@ void AGunfightCharacter::BeginPlay()
 	Super::BeginPlay();
 	SetActorTickEnabled(true);
 	IKQueryParams.AddIgnoredActor(this);
+
+	if (HasAuthority())
+	{
+		OnTakeAnyDamage.AddDynamic(this, &AGunfightCharacter::ReceiveDamage);
+	}
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -116,11 +122,6 @@ void AGunfightCharacter::Tick(float DeltaTime)
 
 	UpdateAnimation();
 	PollInit();
-
-	if (DefaultWeapon && GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Orange, FString::Printf(TEXT("Ammo: %d"), DefaultWeapon->GetAmmo()));
-	}
 }
 
 void AGunfightCharacter::MoveForward(float Throttle)
@@ -161,9 +162,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
-		DebugMagOverlap(bLeftController);
-		//if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && !Combat->CheckEquippedWeapon(!bLeftController)) // weapon check
-		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && OverlappingWeapon->GetWeaponState() != EWeaponState::EWS_Equipped)
+		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && OverlappingWeapon->GetWeaponState() != EWeaponState::EWS_Equipped) // weapon check
 		{
 			if (GEngine)
 			{
@@ -339,8 +338,8 @@ void AGunfightCharacter::PollInit()
 		if (GunfightPlayerController)
 		{
 			SpawnDefaultWeapon();
+			UpdateHUDAmmo();
 			//TO DO
-			//UpdateHUDAmmo();
 			//UpdateHUDHealth();
 		}
 	}
@@ -352,6 +351,39 @@ void AGunfightCharacter::OnRep_DefaultWeapon()
 	{
 		DefaultWeapon->CharacterOwner = this;
 	}
+}
+
+void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
+{
+	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
+	UpdateHUDHealth();
+	//PlayHitReactMontage();
+
+	if (Health == 0.f && !bElimmed)
+	{
+		AGunfightGameMode* GunfightGameMode = GetWorld()->GetAuthGameMode<AGunfightGameMode>();
+		if (GunfightGameMode)
+		{
+			GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+			AGunfightPlayerController* AttackerController = Cast<AGunfightPlayerController>(InstigatorController);
+			GunfightGameMode->PlayerEliminated(this, GunfightPlayerController, AttackerController);
+		}
+	}
+}
+
+void AGunfightCharacter::UpdateHUDHealth()
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController)
+	{
+		GunfightPlayerController->SetHUDHealth(Health, MaxHealth);
+	}
+}
+
+void AGunfightCharacter::OnRep_Health()
+{
+	UpdateHUDHealth();
+	//PlayHitReactMontage();
 }
 
 void AGunfightCharacter::SpawnDefaultWeapon()
@@ -422,6 +454,16 @@ void AGunfightCharacter::AttachMagazineToHolster()
 		{
 			HolsterSocket->AttachActor(DefaultMagazine, GetMesh());
 		}
+	}
+}
+
+void AGunfightCharacter::UpdateHUDAmmo()
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController && DefaultWeapon)
+	{
+		GunfightPlayerController->SetHUDCarriedAmmo(DefaultWeapon->GetCarriedAmmo());
+		GunfightPlayerController->SetHUDWeaponAmmo(DefaultWeapon->GetAmmo());
 	}
 }
 

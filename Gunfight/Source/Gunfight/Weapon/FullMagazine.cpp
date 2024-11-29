@@ -57,11 +57,13 @@ void AFullMagazine::GetSpawnOverlaps()
 
 			if (LeftDistance <= FMath::Square(LeftHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
 			{
+				GunfightCharacter->SetOverlappingMagazine(this);
 				bLeftControllerOverlap = true;
 			}
 			if (RightDistance <= FMath::Square(RightHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
 			{
 				bRightControllerOverlap = true;
+				GunfightCharacter->SetOverlappingMagazine(this);
 			}
 		}
 	}
@@ -110,10 +112,6 @@ void AFullMagazine::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AA
 {
 	if (OtherActor == CharacterOwner)
 	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("FullMagOverlap"));
-		}
 		if (OtherComp == CharacterOwner->GetLeftHandSphere())
 		{
 			bLeftControllerOverlap = true;

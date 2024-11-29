@@ -22,9 +22,9 @@ class GUNFIGHT_API AGunfightGameMode : public AGameMode
 public:
 	AGunfightGameMode();
 	virtual void Tick(float DeltaTime) override;
-	virtual void PlayerEliminated(class ABlasterCharacter* ElimmedCharacter, class ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController);
+	virtual void PlayerEliminated(class AGunfightCharacter* ElimmedCharacter, class AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController);
 	virtual void RequestRespawn(class ACharacter* ElimmedCharacter, AController* ElimmedController);
-	void PlayerLeftGame(class ABlasterPlayerState* PlayerLeaving);
+	void PlayerLeftGame(class AGunfightPlayerState* PlayerLeaving);
 
 	UPROPERTY(EditDefaultsOnly)
 	float WarmupTime = 10.f;

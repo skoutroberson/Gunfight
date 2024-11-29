@@ -99,7 +99,7 @@ private:
 	void PlayEquipWeaponSound(AWeapon* WeaponToEquip);
 	void UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp);
 
-	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState, VisibleAnywhere)
 	ECombatState CombatState = ECombatState::ECS_Unoccupied;
 
 	UFUNCTION()

@@ -34,6 +34,9 @@ public:
 
 	void AttachMagazineToHolster();
 
+	void UpdateHUDAmmo();
+
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -56,6 +59,10 @@ protected:
 
 	UFUNCTION()
 	void OnRep_DefaultWeapon();
+
+	UFUNCTION()
+	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
+	void UpdateHUDHealth();
 
 private:
 
@@ -86,6 +93,21 @@ private:
 
 	UPROPERTY()
 	class AGunfightPlayerController* GunfightPlayerController;
+
+	/**
+	* Player health
+	*/
+
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float MaxHealth = 100.f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Health, VisibleAnywhere, Category = "Player Stats")
+	float Health = 100.f;
+
+	UFUNCTION()
+	void OnRep_Health();
+
+	bool bElimmed = false;
 
 	bool bWeaponInitialized = false;
 
@@ -164,4 +186,6 @@ public:
 	FORCEINLINE void SetOverlappingMagazine(AFullMagazine* OverlapMag) { OverlappingMagazine = OverlapMag; }
 	FORCEINLINE USphereComponent* GetLeftHandSphere() { return LeftHandSphere; }
 	FORCEINLINE USphereComponent* GetRightHandSphere() { return RightHandSphere; }
+	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 };

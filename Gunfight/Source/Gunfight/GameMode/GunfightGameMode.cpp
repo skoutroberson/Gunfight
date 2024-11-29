@@ -53,7 +53,7 @@ void AGunfightGameMode::OnMatchStateSet()
 	Super::OnMatchStateSet();
 }
 
-void AGunfightGameMode::PlayerEliminated(ABlasterCharacter* ElimmedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController)
+void AGunfightGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController)
 {
 }
 
@@ -61,6 +61,6 @@ void AGunfightGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController
 {
 }
 
-void AGunfightGameMode::PlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
+void AGunfightGameMode::PlayerLeftGame(AGunfightPlayerState* PlayerLeaving)
 {
 }

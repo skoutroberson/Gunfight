@@ -53,6 +53,8 @@ public:
 
 	virtual void Fire(const FVector& HitTarget);
 
+	void SetHUDAmmo();
+
 	/**
 	* Automatic fire
 	*/
@@ -76,6 +78,7 @@ public:
 
 	FVector TraceEndWithScatter(const FVector& HitTarget);
 
+
 	bool bLeftControllerOverlap = false;
 	bool bRightControllerOverlap = false;
 
@@ -91,6 +94,9 @@ public:
 
 	UPROPERTY()
 	class AGunfightCharacter* CharacterOwner;
+
+	UPROPERTY()
+	class AGunfightPlayerController* GunfightOwnerController;
 
 	void UnhideMag();
 
@@ -266,6 +272,8 @@ private:
 	// if weapon is unequipped and greater than this distance, attach to holster
 	UPROPERTY(EditAnywhere)
 	float MaxDistanceFromHolster = 80.f;
+
+	void GetSpawnOverlaps();
 
 public:
 	inline bool IsBeingGripped() { return bBeingGripped; }
