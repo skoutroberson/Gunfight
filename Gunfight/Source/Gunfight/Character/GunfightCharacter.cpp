@@ -18,6 +18,8 @@
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/Weapon/FullMagazine.h"
 #include "ParentRelativeAttachmentComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Components/StereoLayerComponent.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -369,6 +371,11 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 			GunfightGameMode->PlayerEliminated(this, GunfightPlayerController, AttackerController);
 		}
 	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Health: %f"), Health));
+	}
 }
 
 void AGunfightCharacter::UpdateHUDHealth()
@@ -465,6 +472,11 @@ void AGunfightCharacter::UpdateHUDAmmo()
 		GunfightPlayerController->SetHUDCarriedAmmo(DefaultWeapon->GetCarriedAmmo());
 		GunfightPlayerController->SetHUDWeaponAmmo(DefaultWeapon->GetAmmo());
 	}
+}
+
+void AGunfightCharacter::SetupUI()
+{
+	
 }
 
 void AGunfightCharacter::SetOverlappingWeapon(AWeapon* Weapon)

@@ -77,7 +77,7 @@ private:
 	TObjectPtr<class UVRComponent> VRComponent;
 
 	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<class ULagCompensationComponent> LagCompensation;
+	class ULagCompensationComponent*  LagCompensation;
 
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Gun, meta = (AllowPrivateAccess = "true"))
 	//TObjectPtr<class UChildActorComponent> DefaultWeapon;
@@ -173,6 +173,11 @@ private:
 
 	void DebugMagOverlap(bool bLeft);
 
+	// UI
+
+	void SetupUI();
+
+
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
@@ -188,4 +193,5 @@ public:
 	FORCEINLINE USphereComponent* GetRightHandSphere() { return RightHandSphere; }
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
 };

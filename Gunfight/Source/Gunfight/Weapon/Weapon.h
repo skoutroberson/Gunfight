@@ -147,6 +147,8 @@ protected:
 	UPROPERTY(Replicated, EditAnywhere)
 	bool bUseServerSideRewind = false;
 
+	FCollisionQueryParams BulletQueryParams;
+
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	USkeletalMeshComponent* WeaponMesh;

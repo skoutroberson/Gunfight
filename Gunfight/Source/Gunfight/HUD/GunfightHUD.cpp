@@ -5,6 +5,17 @@
 #include "GameFramework/PlayerController.h"
 #include "CharacterOverlay.h"
 #include "Announcement.h"
+#include "Components/StereoLayerComponent.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Slate/WidgetRenderer.h"
+#include "Components/Widget.h"
+#include "Components/TextBlock.h"
+
+AGunfightHUD::AGunfightHUD()
+{
+	VRStereoLayer = CreateDefaultSubobject<UStereoLayerComponent>(TEXT("StereoLayer"));
+	VRStereoLayer->SetupAttachment(GetRootComponent());
+}
 
 void AGunfightHUD::BeginPlay()
 {
@@ -18,7 +29,7 @@ void AGunfightHUD::AddCharacterOverlay()
 	if (PlayerController && CharacterOverlayClass && !CharacterOverlay)
 	{
 		CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
-		CharacterOverlay->AddToViewport();
+		//CharacterOverlay->AddToViewport();
 	}
 }
 

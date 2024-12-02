@@ -20,6 +20,7 @@ public:
 protected:
 
 	void WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit);
+	void WeaponTraceHits(const FVector& TraceStart, const FVector& HitTarget, TArray<FHitResult>& OutHits);
 
 	UPROPERTY(EditAnywhere)
 	class UParticleSystem* ImpactParticles;

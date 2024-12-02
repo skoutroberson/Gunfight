@@ -105,6 +105,8 @@ void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
 
+	BulletQueryParams.bReturnPhysicalMaterial = true;
+
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);

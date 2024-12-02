@@ -15,10 +15,11 @@ class GUNFIGHT_API AGunfightHUD : public AHUD
 	GENERATED_BODY()
 	
 public:
+	AGunfightHUD();
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> CharacterOverlayClass;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UCharacterOverlay* CharacterOverlay;
 
 	void AddCharacterOverlay();
@@ -30,6 +31,12 @@ public:
 	class UAnnouncement* Announcement;
 
 	void AddAnnouncement();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UStereoLayerComponent* VRStereoLayer;
+
+	UPROPERTY(EditAnywhere)
+	class UTextureRenderTarget2D* StereoLayerRenderTarget;
 
 protected:
 	virtual void BeginPlay() override;
