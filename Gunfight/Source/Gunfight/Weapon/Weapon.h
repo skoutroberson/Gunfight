@@ -303,4 +303,5 @@ public:
 	FORCEINLINE USceneComponent* GetMagwellEnd() { return MagSlideEnd; }
 	FORCEINLINE USceneComponent* GetMagwellStart() { return MagSlideStart; }
 	FORCEINLINE EWeaponState GetWeaponState() { return WeaponState; }
+	FORCEINLINE float GetDamage() { return Damage; }
 };

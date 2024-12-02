@@ -77,6 +77,14 @@ void AGunfightCharacter::PostInitializeComponents()
 	{
 		Combat->Character = this;
 	}
+	if (LagCompensation)
+	{
+		LagCompensation->Character = this;
+		if (Controller)
+		{
+			LagCompensation->Controller = Cast<AGunfightPlayerController>(Controller);
+		}
+	}
 }
 
 void AGunfightCharacter::BeginPlay()
