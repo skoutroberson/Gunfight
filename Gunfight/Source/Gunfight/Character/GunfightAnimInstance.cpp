@@ -22,6 +22,8 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
 	if (GunfightCharacter == nullptr) return;
 
+	bElimmed = GunfightCharacter->IsEliminated();
+
 	FVector Velocity = GunfightCharacter->GetVelocity();
 	Velocity.Z = 0.f;
 	Speed = Velocity.Size();

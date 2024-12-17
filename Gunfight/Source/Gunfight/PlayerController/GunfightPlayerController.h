@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "VRPlayerController.h"
+#include "Gunfight/GunfightTypes/ScoreboardUpdate.h"
 #include "GunfightPlayerController.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
@@ -24,6 +25,7 @@ public:
 	void SetHUDCarriedAmmo(int32 Ammo);
 	void SetHUDMatchCountdown(float CountdownTime);
 	void SetHUDAnnouncementCountdown(float CountdownTime);
+	void SetHUDScoreboard();
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -38,6 +40,10 @@ public:
 	float SingleTripTime = 0.f;
 
 	FHighPingDelegate HighPingDelegate;
+
+	void InitializeHUD();
+
+	void UpdateScoreboard(class AGunfightPlayerState* PlayerToUpdate, EScoreboardUpdate Type);
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -121,13 +127,38 @@ private:
 	float HighPingDuration = 5.f;
 
 	UPROPERTY(EditAnywhere)
-	float CheckPingFrequency = 20.f;
+	float CheckPingFrequency = 10.f;
 
 	UFUNCTION(Server, Reliable)
 	void ServerReportPingStatus(bool bHighPing);
 	void ServerReportPingStatus_Implementation(bool bHighPing);
 
 	UPROPERTY(EditAnywhere)
-	float HighPingThreshold = 70.f;
+	float HighPingThreshold = 120.f;
+
+	UPROPERTY(EditAnywhere)
+	class UCurveFloat* HealthColorCurve;
+
+	public:
+	FORCEINLINE UCharacterOverlay* GetCharacterOverlay() { return CharacterOverlay; }
+
+	// fills PlayerSorted with Players, sorted by score
+	void SortPlayersByScore(TArray<TObjectPtr<APlayerState>>& Players);
+
+	// inserts player into PlayersSorted using binary search
+	void BinaryInsertPlayer(TObjectPtr<APlayerState>& ThisPlayer, TArray<TObjectPtr<APlayerState>>& Players);
+
+	// players sorted by score
+	TArray<TObjectPtr<APlayerState>> PlayersSorted;
+
+	void SetHUDScoreboardScores(int32 StartIndex, int32 EndIndex);
+
+	UPROPERTY()
+	class AGunfightGameState* GunfightGameState;
+
+	void DrawSortedPlayers();
+
+	// for intializing the scoreboard
+	bool bPlayerStateInitialized = false;
 
 };

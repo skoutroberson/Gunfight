@@ -16,6 +16,10 @@ class GUNFIGHT_API AGunfightHUD : public AHUD
 	
 public:
 	AGunfightHUD();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* HUDRoot;
+
 	UPROPERTY(EditAnywhere, Category = "Player Stats")
 	TSubclassOf<class UUserWidget> CharacterOverlayClass;
 
@@ -34,6 +38,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UStereoLayerComponent* VRStereoLayer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UWidgetComponent* CharacterOverlayWidget;
 
 	UPROPERTY(EditAnywhere)
 	class UTextureRenderTarget2D* StereoLayerRenderTarget;

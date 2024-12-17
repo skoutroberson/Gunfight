@@ -6,6 +6,23 @@
 #include "Blueprint/UserWidget.h"
 #include "CharacterOverlay.generated.h"
 
+class UTextBlock;
+
+USTRUCT(BlueprintType)
+struct FScoreboardInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	UTextBlock* NameText;
+
+	UPROPERTY()
+	UTextBlock* ScoreText;
+
+	UPROPERTY()
+	UTextBlock* DeathsText;
+};
+
 /**
  * 
  */
@@ -14,13 +31,20 @@ class GUNFIGHT_API UCharacterOverlay : public UUserWidget
 {
 	GENERATED_BODY()
 
+protected:
+	virtual void NativeConstruct();
+
 public:
+
+	void FillPlayers();
+
+	bool bIsConstructed = false;
 	
 	UPROPERTY(meta = (BindWidget))
 	class UProgressBar* HealthBar;
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* HealthText;
+	UTextBlock* HealthText;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* ScoreAmount;
@@ -42,6 +66,111 @@ public:
 
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	class UWidgetAnimation* HighPingAnimation;
+
+	/**
+	* Scoreboard
+	*/
+
+	// FScoreboardInfo at index corresponds with the scoreboard texts in that row
+	TArray<FScoreboardInfo> ScoreboardInfos;
+
+	// updates scoreboard info at the specified index
+	void ScoreUpdate(int32 Index, FString Name, float Score, int32 Deaths);
+	void HideUnusedScores();
 	
-	
+	UPROPERTY(meta = (BindWidget))
+	class UGridPanel* Scoreboard;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player0Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player0ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player0DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player1Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player1ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player1DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player2Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player2ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player2DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player3Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player3ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player3DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player4Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player4ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player4DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player5Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player5ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player5DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player6Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player6ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player6DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player7Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player7ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player7DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player8Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player8ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player8DeathsText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player9Text;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player9ScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* Player9DeathsText;
+
+private:
+	void InitializeScoreboardInfo();
 };

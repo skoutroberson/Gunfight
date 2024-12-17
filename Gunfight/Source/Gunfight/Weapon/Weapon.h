@@ -149,6 +149,9 @@ protected:
 
 	FCollisionQueryParams BulletQueryParams;
 
+	UFUNCTION()
+	void OnPingTooHigh(bool bPingTooHigh);
+
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	USkeletalMeshComponent* WeaponMesh;

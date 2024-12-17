@@ -10,11 +10,19 @@
 #include "Slate/WidgetRenderer.h"
 #include "Components/Widget.h"
 #include "Components/TextBlock.h"
+#include "Components/WidgetComponent.h"
 
 AGunfightHUD::AGunfightHUD()
 {
+	HUDRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HUDRoot"));
+	SetRootComponent(HUDRoot);
+	/*
 	VRStereoLayer = CreateDefaultSubobject<UStereoLayerComponent>(TEXT("StereoLayer"));
-	VRStereoLayer->SetupAttachment(GetRootComponent());
+	VRStereoLayer->SetupAttachment(HUDRoot);
+	
+	CharacterOverlayWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("CharacterOverlayWidget"));
+	CharacterOverlayWidget->SetupAttachment(HUDRoot);
+	*/
 }
 
 void AGunfightHUD::BeginPlay()
@@ -28,8 +36,9 @@ void AGunfightHUD::AddCharacterOverlay()
 	APlayerController* PlayerController = GetOwningPlayerController();
 	if (PlayerController && CharacterOverlayClass && !CharacterOverlay)
 	{
-		CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
+		//CharacterOverlay = CreateWidget<UCharacterOverlay>(PlayerController, CharacterOverlayClass);
 		//CharacterOverlay->AddToViewport();
+		//CharacterOverlay = Cast<UCharacterOverlay>(CharacterOverlayWidget->GetUserWidgetObject());
 	}
 }
 

@@ -14,7 +14,31 @@ class GUNFIGHT_API AGunfightPlayerState : public APlayerState
 {
 	GENERATED_BODY()
 	
-	
-	
+public:
+	virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+
+	/**
+	* Replication notifies
+	*/
+
+	virtual void OnRep_Score() override;
+	UFUNCTION()
+	virtual void OnRep_Defeats();
+
+	void AddToScore(float ScoreAmount);
+	void AddToDefeats(int32 DefeatsAmount);
+
+private:
+
+	UPROPERTY()
+	class AGunfightCharacter* Character;
+	UPROPERTY()
+	class AGunfightPlayerController* Controller;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Defeats)
+	int32 Defeats;
+
+public:
+	FORCEINLINE int32 GetDefeats() const { return Defeats; }
 	
 };

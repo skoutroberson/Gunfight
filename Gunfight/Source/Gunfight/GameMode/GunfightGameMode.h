@@ -24,6 +24,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void PlayerEliminated(class AGunfightCharacter* ElimmedCharacter, class AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController);
 	virtual void RequestRespawn(class ACharacter* ElimmedCharacter, AController* ElimmedController);
+	virtual void PostLogin(APlayerController* NewPlayer) override;
+	virtual void Logout(AController* Exiting) override;
 	void PlayerLeftGame(class AGunfightPlayerState* PlayerLeaving);
 
 	UPROPERTY(EditDefaultsOnly)
@@ -43,6 +45,10 @@ protected:
 	
 private:
 	float CountdownTime = 0.f;
+
+	UPROPERTY()
+	class AGunfightGameState* GunfightGameState;
+
 public:
 	FORCEINLINE float GetCountdownTime() const { return CountdownTime; }
 };

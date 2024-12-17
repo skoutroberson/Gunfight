@@ -51,6 +51,9 @@ public:
 	// feet need to be reset here so the foot traces work in AGunfightCharacter::UpdateAnimInstanceIK()
 	void UpdateFeetLocation();
 
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	bool bElimmed = false;
+
 private:
 
 	UPROPERTY(BlueprintReadOnly, Category = Character, meta = (AllowPrivateAccess = "true"))

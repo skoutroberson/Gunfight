@@ -20,6 +20,10 @@
 #include "ParentRelativeAttachmentComponent.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Components/StereoLayerComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "Gunfight/PlayerState/GunfightPlayerState.h"
+#include "Gunfight/HUD/CharacterOverlay.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -45,6 +49,16 @@ AGunfightCharacter::AGunfightCharacter()
 	RightHandSphere->SetCollisionResponseToChannel(ECC_Weapon, ECollisionResponse::ECR_Overlap);
 	RightHandSphere->SetUseCCD(true);
 	RightHandSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+	VRStereoLayer = CreateDefaultSubobject<UStereoLayerComponent>(TEXT("VRStereoLayer"));
+	VRStereoLayer->SetupAttachment(VRReplicatedCamera);
+	VRStereoLayer->SetRelativeLocation(FVector(50.f, 0.f, -5.f));
+
+	CharacterOverlayWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("CharacterOverlayWidget"));
+	CharacterOverlayWidget->SetupAttachment(VRReplicatedCamera);
+	CharacterOverlayWidget->SetRelativeLocation(FVector(50.f, 0.f, -5.f));
+	CharacterOverlayWidget->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
+	CharacterOverlayWidget->SetMaterial(0, WidgetMaterial);
 }
 
 void AGunfightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -96,6 +110,16 @@ void AGunfightCharacter::BeginPlay()
 	if (HasAuthority())
 	{
 		OnTakeAnyDamage.AddDynamic(this, &AGunfightCharacter::ReceiveDamage);
+	}
+
+	// TODO make the widget/stereo layer not construct on non locally controlled clients
+
+	// this causes the widget not be visible on PIE on the server after respawning for some reason, I don't think it will cause issues in a packaged game
+	if (!IsLocallyControlled())
+	{
+		bStereoLayerInitialized = true;
+		VRStereoLayer->DestroyComponent();
+		CharacterOverlayWidget->DestroyComponent();
 	}
 }
 
@@ -285,6 +309,7 @@ void AGunfightCharacter::UpdateAnimInstanceIK()
 
 void AGunfightCharacter::UpdateAnimation()
 {
+	if (bElimmed) return;
 	MoveMeshToCamera();
 	UpdateAnimInstanceIK();
 }
@@ -348,10 +373,16 @@ void AGunfightCharacter::PollInit()
 		if (GunfightPlayerController)
 		{
 			SpawnDefaultWeapon();
+			InitializeHUD();
 			UpdateHUDAmmo();
-			//TO DO
-			//UpdateHUDHealth();
+			UpdateHUDHealth();
 		}
+	}
+	else if(!GunfightPlayerController->GetCharacterOverlay())
+	{
+		InitializeHUD();
+		UpdateHUDAmmo();
+		UpdateHUDHealth();
 	}
 }
 
@@ -371,7 +402,7 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 
 	if (Health == 0.f && !bElimmed)
 	{
-		AGunfightGameMode* GunfightGameMode = GetWorld()->GetAuthGameMode<AGunfightGameMode>();
+		GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
 		if (GunfightGameMode)
 		{
 			GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
@@ -379,11 +410,70 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 			GunfightGameMode->PlayerEliminated(this, GunfightPlayerController, AttackerController);
 		}
 	}
+}
 
-	if (GEngine)
+void AGunfightCharacter::Elim(bool bPlayerLeftGame)
+{
+	//DropOrDestroyWeapons();
+	MultiCastElim(bPlayerLeftGame);
+}
+
+void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
+{
+	bLeftGame = false;
+	if (GunfightPlayerController)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("Health: %f"), Health));
+		GunfightPlayerController->SetHUDWeaponAmmo(0);
 	}
+	bElimmed = true;
+
+	//PlayElimMontage()
+
+	Ragdoll();
+
+	// Disable character movement
+	GetCharacterMovement()->DisableMovement();
+	GetCharacterMovement()->StopMovementImmediately();
+	bDisableGameplay = true;
+	if (Combat)
+	{
+		Combat->FireButtonPressed(false, false);
+	}
+
+	// Disable collision
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	GetCapsuleComponent()->SetSimulatePhysics(false);
+	MeshCollisionResponses = GetMesh()->GetCollisionResponseToChannels();
+
+	GetWorldTimerManager().SetTimer(
+		ElimTimer,
+		this,
+		&AGunfightCharacter::ElimTimerFinished,
+		2.f
+	);
+}
+
+void AGunfightCharacter::ElimTimerFinished()
+{
+	GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
+	if (GunfightGameMode && !bLeftGame)
+	{
+		GunfightGameMode->RequestRespawn(this, Controller);
+	}
+	// TODO leftgame stuff
+}
+
+void AGunfightCharacter::Ragdoll()
+{
+	SetReplicateMovement(false);
+
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECR_Block);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Ignore);
+	GetMesh()->SetAllBodiesSimulatePhysics(true);
+	GetMesh()->SetSimulatePhysics(true);
+	GetMesh()->WakeAllRigidBodies();
+	GetMesh()->bBlendPhysics = true;
+	GetCharacterMovement()->SetComponentTickEnabled(false);
 }
 
 void AGunfightCharacter::UpdateHUDHealth()
@@ -395,6 +485,15 @@ void AGunfightCharacter::UpdateHUDHealth()
 	}
 }
 
+void AGunfightCharacter::InitializeHUD()
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController)
+	{
+		GunfightPlayerController->InitializeHUD();
+	}
+}
+
 void AGunfightCharacter::OnRep_Health()
 {
 	UpdateHUDHealth();
@@ -403,7 +502,7 @@ void AGunfightCharacter::OnRep_Health()
 
 void AGunfightCharacter::SpawnDefaultWeapon()
 {
-	AGunfightGameMode* GunfightGameMode = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
+	GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
 	World = World == nullptr ? GetWorld() : World;
 	if (GunfightGameMode && World && WeaponClass && Combat)
 	{

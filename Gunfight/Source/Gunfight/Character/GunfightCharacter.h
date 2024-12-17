@@ -36,6 +36,17 @@ public:
 
 	void UpdateHUDAmmo();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UStereoLayerComponent* VRStereoLayer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UWidgetComponent* CharacterOverlayWidget;
+
+	void Elim(bool bPlayerLeftGame);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MultiCastElim(bool bPlayerLeftGame);
+	void MultiCastElim_Implementation(bool bPlayerLeftGame);
 
 protected:
 	virtual void BeginPlay() override;
@@ -63,6 +74,11 @@ protected:
 	UFUNCTION()
 	void ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, class AController* InstigatorController, AActor* DamageCauser);
 	void UpdateHUDHealth();
+	void InitializeHUD();
+
+	// set in the blueprint after initializing the stereo layer. Set true in BeginPlay for all non locally controlled players so we don't try to initialize the stereo layer
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	bool bStereoLayerInitialized = false;
 
 private:
 
@@ -108,6 +124,8 @@ private:
 	void OnRep_Health();
 
 	bool bElimmed = false;
+	FTimerHandle ElimTimer;
+	void ElimTimerFinished();
 
 	bool bWeaponInitialized = false;
 
@@ -177,6 +195,20 @@ private:
 
 	void SetupUI();
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess = "true"))
+	class UMaterialInstance* WidgetMaterial;
+
+	UPROPERTY()
+	class AGunfightGameMode* GunfightGameMode;
+
+	bool bLeftGame = false;
+
+	void Ragdoll();
+
+	FCollisionResponseContainer MeshCollisionResponses;
+
+	UPROPERTY()
+	class AGunfightPlayerState* GunfightPlayerState;
 
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -194,4 +226,5 @@ public:
 	FORCEINLINE float GetHealth() const { return Health; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
+	FORCEINLINE bool IsEliminated() const { return bElimmed; }
 };
