@@ -286,6 +286,7 @@ public:
 	inline void SetEquipState(EEquipState NewState) { EquipState = NewState; }
 	void SetWeaponState(EWeaponState NewState);
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+	FORCEINLINE void SetAmmo(int32 NewAmmo) { Ammo = NewAmmo; }
 	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
 	//FORCEINLINE int32 GetCarriedMags() const { return CarriedMags; }
 	FORCEINLINE int32 GetCarriedAmmo() const { return CarriedAmmo; }

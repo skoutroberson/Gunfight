@@ -67,6 +67,16 @@ public:
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	class UWidgetAnimation* HighPingAnimation;
 
+	// Announcement
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* AnnouncementText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* WarmupTime;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* InfoText;
+
 	/**
 	* Scoreboard
 	*/

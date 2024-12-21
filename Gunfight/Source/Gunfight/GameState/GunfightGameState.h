@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
+#include "Gunfight/GunfightTypes/GunfightMatchState.h"
 #include "GunfightGameState.generated.h"
 
 /**
@@ -34,7 +35,21 @@ public:
 
 	int32 ScoringPlayerIndex = INDEX_NONE;
 
+	/** Gunfight match state has changed */
+	UFUNCTION()
+	void OnRep_GunfightMatchState();
+
+	/** Updates the gunfight match state and calls the appropriate transition functions, only valid on server */
+	void SetGunfightMatchState(EGunfightMatchState NewState);
+
 protected:
+
+	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)
+	EGunfightMatchState GunfightMatchState;
+
+	void HandleGunfightWarmupStarted();
+	void HandleGunfightMatchStarted();
+	void HandleGunfightCooldownStarted();
 
 private:
 	float TopScore = 0.f;

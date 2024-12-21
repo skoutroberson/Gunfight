@@ -34,7 +34,6 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 			bool bCauseAuthDamage = !bUseServerSideRewind || OwnerPawn->IsLocallyControlled();
 			if (HasAuthority() && bCauseAuthDamage)
 			{
-
 				UGameplayStatics::ApplyDamage(
 					GunfightCharacter,
 					FHitbox::GetDamage(FireHit.BoneName, Damage),
@@ -42,6 +41,9 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 					this,
 					UDamageType::StaticClass()
 				);
+
+				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 10.f) + FireHit.ImpactPoint;
+				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation);
 			}
 			if (!HasAuthority() && bUseServerSideRewind)
 			{

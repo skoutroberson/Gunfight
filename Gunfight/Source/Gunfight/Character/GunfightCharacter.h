@@ -48,6 +48,17 @@ public:
 	void MultiCastElim(bool bPlayerLeftGame);
 	void MultiCastElim_Implementation(bool bPlayerLeftGame);
 
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastSpawnBlood(const FVector_NetQuantize Location);
+	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location);
+
+	// resets
+	void Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastRespawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
+	void MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -67,6 +78,9 @@ protected:
 	void AButtonReleased(bool bLeftController);
 	void BButtonPressed(bool bLeftController);
 	void BButtonReleased(bool bLeftController);
+
+	void LeftStickPressed();
+	void LeftStickReleased();
 
 	UFUNCTION()
 	void OnRep_DefaultWeapon();
@@ -122,6 +136,14 @@ private:
 
 	UFUNCTION()
 	void OnRep_Health();
+
+	// blood spray
+
+	UPROPERTY(EditAnywhere)
+	UParticleSystem* BloodParticles;
+
+	UPROPERTY(EditAnywhere)
+	class USoundCue* ImpactBodySound;
 
 	bool bElimmed = false;
 	FTimerHandle ElimTimer;
@@ -204,6 +226,7 @@ private:
 	bool bLeftGame = false;
 
 	void Ragdoll();
+	void UnRagdoll();
 
 	FCollisionResponseContainer MeshCollisionResponses;
 

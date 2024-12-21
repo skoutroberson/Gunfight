@@ -10,7 +10,9 @@ void AGunfightGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME(AGunfightGameState, TopScoringPlayers);
 	DOREPLIFETIME(AGunfightGameState, SortedPlayers);
+	DOREPLIFETIME(AGunfightGameState, GunfightMatchState);
 }
 
 void AGunfightGameState::UpdateTopScore(AGunfightPlayerState* ScoringPlayer)
@@ -68,4 +70,46 @@ int32 AGunfightGameState::PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer)
 	SortedPlayers.Insert(ScoringPlayer, ScoringPlayerIndex - i + 1);
 
 	return ScoringPlayerIndex - i + 1;
+}
+
+void AGunfightGameState::OnRep_GunfightMatchState()
+{
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
+	{
+		HandleGunfightWarmupStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
+	{
+		HandleGunfightMatchStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
+	{
+		HandleGunfightCooldownStarted();
+	}
+}
+
+void AGunfightGameState::SetGunfightMatchState(EGunfightMatchState NewState)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		GunfightMatchState = NewState;
+
+		// Call the onrep to make sure the callbacks happen
+		OnRep_GunfightMatchState();
+	}
+}
+
+void AGunfightGameState::HandleGunfightWarmupStarted()
+{
+	
+}
+
+void AGunfightGameState::HandleGunfightMatchStarted()
+{
+
+}
+
+void AGunfightGameState::HandleGunfightCooldownStarted()
+{
+
 }

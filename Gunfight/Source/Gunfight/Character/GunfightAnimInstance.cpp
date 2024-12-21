@@ -24,6 +24,8 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 
 	bElimmed = GunfightCharacter->IsEliminated();
 
+	if (bElimmed) return;
+
 	FVector Velocity = GunfightCharacter->GetVelocity();
 	Velocity.Z = 0.f;
 	Speed = Velocity.Size();

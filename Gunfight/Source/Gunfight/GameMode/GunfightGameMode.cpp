@@ -8,6 +8,7 @@
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
+#include "Components/CapsuleComponent.h"
 
 namespace MatchState
 {
@@ -24,29 +25,30 @@ void AGunfightGameMode::BeginPlay()
 	Super::BeginPlay();
 
 	LevelStartingTime = GetWorld()->GetTimeSeconds();
+
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Spawnpoints);
 }
 
 void AGunfightGameMode::Tick(float DeltaTime)
 {
+	Super::Tick(DeltaTime);
+
 	if (MatchState == MatchState::WaitingToStart)
 	{
-		CountdownTime = WarmupTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			StartMatch();
+			SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
 		}
 	}
 	else if (MatchState == MatchState::InProgress)
 	{
-		CountdownTime = WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
-		if (CountdownTime <= 0.f)
-		{
-			SetMatchState(MatchState::Cooldown);
-		}
+		TickGunfightMatchState(DeltaTime);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		CountdownTime = CooldownTime + WarmupTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = CooldownTime + WaitingToStartTime + MatchTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			RestartGame();
@@ -54,9 +56,155 @@ void AGunfightGameMode::Tick(float DeltaTime)
 	}
 }
 
+void AGunfightGameMode::TickGunfightMatchState(float DeltaTime)
+{
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
+	{
+		CountdownTime = GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			StartGunfightMatch();
+		}
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
+	{
+		CountdownTime = GunfightMatchTime + GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			EndGunfightMatch();
+		}
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
+	{
+		CountdownTime = GunfightCooldownTime + GunfightMatchTime + GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			SetMatchState(MatchState::Cooldown);
+		}
+	}
+}
+
 void AGunfightGameMode::OnMatchStateSet()
 {
 	Super::OnMatchStateSet();
+}
+
+void AGunfightGameMode::HandleGunfightWarmupStarted()
+{
+
+}
+
+void AGunfightGameMode::HandleGunfightMatchStarted()
+{
+}
+
+void AGunfightGameMode::HandleGunfightMatchEnded()
+{
+}
+
+void AGunfightGameMode::StartGunfightWarmup()
+{
+	GunfightMatchState = EGunfightMatchState::EGMS_Warmup;
+}
+
+void AGunfightGameMode::StartGunfightMatch()
+{
+	// spawn all players at random spawn points, allow combat
+
+	SetGunfightMatchState(EGunfightMatchState::EGMS_MatchInProgress);
+}
+
+void AGunfightGameMode::EndGunfightMatch()
+{
+	// show scoreboard and play announcement for Win/Loss
+
+	SetGunfightMatchState(EGunfightMatchState::EGMS_MatchCooldown);
+}
+
+void AGunfightGameMode::SetGunfightMatchState(EGunfightMatchState NewState)
+{
+	if (GunfightMatchState == NewState)
+	{
+		return;
+	}
+
+	GunfightMatchState = NewState;
+
+	OnGunfightMatchStateSet();
+
+	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
+	if (GunfightGameState)
+	{
+		GunfightGameState->SetGunfightMatchState(NewState);
+	}
+}
+
+void AGunfightGameMode::OnGunfightMatchStateSet()
+{
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
+	{
+		HandleGunfightWarmupStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
+	{
+		HandleGunfightMatchStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
+	{
+		HandleGunfightMatchEnded();
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			GunfightPlayer->SetGunfightMatchState(GunfightMatchState);
+		}
+	}
+}
+
+AActor* AGunfightGameMode::GetBestSpawnpoint()
+{
+	if (Spawnpoints.IsEmpty())
+	{
+		UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Spawnpoints);
+	}
+	if (Spawnpoints.IsEmpty()) return nullptr;
+
+	AActor* BestSpawn = Spawnpoints[0];
+	float ClosestPlayerDistance = 0.f;
+
+	AGunfightGameState* GState = Cast<AGunfightGameState>(GameState);
+	if (GState == nullptr) return nullptr;
+
+	const TArray<TObjectPtr<APlayerState>>& PlayerArray = GState->PlayerArray;
+
+	if (PlayerArray.IsEmpty()) return nullptr;
+
+	for (AActor* Spawn : Spawnpoints)
+	{
+		if (Spawn == nullptr) continue;
+		float ClosestDistance = FLT_MAX;
+		for (auto PState : PlayerArray)
+		{
+			APawn* CurrentPawn = PState->GetPawn();
+			if (CurrentPawn == nullptr) continue;
+			float CurrentDistance = FVector::DistSquared2D(Spawn->GetActorLocation(), CurrentPawn->GetActorLocation());
+			if (CurrentDistance < ClosestDistance)
+			{
+				ClosestDistance = CurrentDistance;
+			}
+		}
+
+		if (ClosestDistance > ClosestPlayerDistance)
+		{
+			ClosestPlayerDistance = ClosestDistance;
+			BestSpawn = Spawn;
+		}
+	}
+
+	return BestSpawn;
 }
 
 void AGunfightGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController)
@@ -82,23 +230,37 @@ void AGunfightGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, A
 	{
 		ElimmedCharacter->Elim(false);
 	}
-
-
 }
 
 void AGunfightGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController)
 {
-	if (ElimmedCharacter)
+	AActor* BestSpawnpoint = GetBestSpawnpoint();
+	if (BestSpawnpoint == nullptr) return;
+	FVector SpawnLocation = BestSpawnpoint->GetActorLocation();
+	FRotator SpawnRotation = BestSpawnpoint->GetActorRotation();
+
+	APlayerStart* PlayerStart = Cast<APlayerStart>(BestSpawnpoint);
+	if (PlayerStart && PlayerStart->GetCapsuleComponent())
 	{
-		ElimmedCharacter->Reset();
-		ElimmedCharacter->Destroy();
+		SpawnLocation.Z -= PlayerStart->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	}
+
 	if (ElimmedController)
 	{
-		TArray<AActor*> PlayerStarts;
-		UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
-		int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
-		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
+		//RestartPlayerAtPlayerStart(ElimmedController, BestSpawnpoint);
+	}
+	if (ElimmedCharacter)
+	{
+		/**
+		* TODO: Don't destroy, just reset HUD/Ammo/Health/Weapon/Input and spawn at the best spawnpoint
+		*/
+		//ElimmedCharacter->Reset();
+		//ElimmedCharacter->Destroy();
+		AGunfightCharacter* GCharacter = Cast<AGunfightCharacter>(ElimmedCharacter);
+		if (GCharacter)
+		{
+			GCharacter->MulticastRespawn(SpawnLocation, SpawnRotation);
+		}
 	}
 }
 
@@ -107,13 +269,15 @@ void AGunfightGameMode::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
-
 	AGunfightPlayerState* NewPlayerState = NewPlayer->GetPlayerState<AGunfightPlayerState>();
+	AGunfightPlayerController* GunfightPlayerController = Cast<AGunfightPlayerController>(NewPlayer);
 
-	if (GunfightGameState && NewPlayerState)
+	if (GunfightGameState && NewPlayerState && GunfightPlayerController)
 	{
 		GunfightGameState->SortedPlayers.AddUnique(NewPlayerState);
 		GunfightGameState->OnRep_SortedPlayers();
+
+		// call client RPC on GunfightPlayerController to setup the HUD
 	}
 }
 

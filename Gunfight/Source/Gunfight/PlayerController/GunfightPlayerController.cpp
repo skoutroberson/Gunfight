@@ -19,6 +19,9 @@
 #include "Gunfight/Weapon/Weapon.h"
 #include "Components/WidgetComponent.h"
 #include "Curves/CurveFloat.h"
+#include "Components/GridPanel.h"
+#include "Components/Widget.h"
+#include "Components/StereoLayerComponent.h"
 
 void AGunfightPlayerController::BeginPlay()
 {
@@ -33,6 +36,7 @@ void AGunfightPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGunfightPlayerController, MatchState);
+	DOREPLIFETIME(AGunfightPlayerController, GunfightMatchState);
 }
 
 void AGunfightPlayerController::SetupInputComponent()
@@ -130,42 +134,31 @@ void AGunfightPlayerController::UpdateScoreboard(AGunfightPlayerState* PlayerToU
 	{
 		SetHUDScoreboardScores(0, 9); // hardcoded for 10 players
 	}
+}
 
-	/*
-	//PlayersSorted.Empty();
-	//SortPlayersByScore(GunfightGameState->PlayerArray);
-	//TArray<TObjectPtr<APlayerState>>& PlayerArray = GunfightGameState->PlayerArray;
+void AGunfightPlayerController::SetScoreboardVisibility(bool bVisible)
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay == nullptr || CharacterOverlay->Scoreboard == nullptr) return;
 	
-	for (int i = 0; i < PlayerArray.Num(); ++i)
+	UWidget* ScoreboardWidget = Cast<UWidget>(CharacterOverlay->Scoreboard);
+	if (ScoreboardWidget == nullptr) return;
+
+	if (bVisible) ScoreboardWidget->SetRenderOpacity(1.f);
+	else ScoreboardWidget->SetRenderOpacity(0.f);
+}
+
+void AGunfightPlayerController::SetGunfightMatchState(EGunfightMatchState NewState)
+{
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		TObjectPtr<APlayerState> CurrentPlayerState = PlayerArray[i];
-		FScoreboardInfo& CurrentScoreInfo = CharacterOverlay->ScoreboardInfos[i];
-		AGunfightPlayerState* GPlayerState = Cast<AGunfightPlayerState>(CurrentPlayerState.Get());
+		GunfightMatchState = NewState;
 
-		CurrentScoreInfo.NameText->SetText(FText::FromString(CurrentPlayerState->GetPlayerName()));
-		CurrentScoreInfo.ScoreText->SetText(FText::FromString(FString::Printf(TEXT("%d"), FMath::FloorToInt(CurrentPlayerState->GetScore()))));
-		CurrentScoreInfo.DeathsText->SetText(FText::FromString(FString::Printf(TEXT("%d"), GPlayerState->GetDefeats())));
+		// Call the onrep to make sure the callbacks happen
+		OnRep_GunfightMatchState();
 	}
-	
-	for (int i = 0; i < CharacterOverlay->ScoreboardInfos.Num(); ++i)
-	{
-		//TObjectPtr<APlayerState> CurrentPlayerState = PlayersSorted[0];
-		//AGunfightPlayerState* GPlayerState = Cast<AGunfightPlayerState>(CurrentPlayerState.Get());
-		//if (!GPlayerState) continue;
-
-		FScoreboardInfo& CurrentScoreInfo = CharacterOverlay->ScoreboardInfos[i];
-
-		// TODO only update scoreboard info if the value has changed
-		
-		CurrentScoreInfo.NameText->SetText(FText());
-		CurrentScoreInfo.ScoreText->SetText(FText());
-		CurrentScoreInfo.DeathsText->SetText(FText());
-
-		//CurrentScoreInfo.NameText->SetText(FText::FromString(CurrentPlayerState->GetPlayerName()));
-		//CurrentScoreInfo.ScoreText->SetText(FText::FromString(FString::Printf(TEXT("%d"), FMath::FloorToInt(CurrentPlayerState->GetScore()))));
-		//CurrentScoreInfo.DeathsText->SetText(FText::FromString(FString::Printf(TEXT("%d"), GPlayerState->GetDefeats())));
-	}
-	*/
 }
 
 void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 EndIndex)
@@ -200,12 +193,20 @@ void AGunfightPlayerController::DrawSortedPlayers()
 	}
 }
 
+AGunfightHUD* AGunfightPlayerController::GetGunfightHUD()
+{
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD<AGunfightHUD>()) : GunfightHUD;
+	return GunfightHUD;
+}
+
 void AGunfightPlayerController::SetHUDTime()
 {
 	float TimeLeft = 0.f;
-	if (MatchState == MatchState::WaitingToStart) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
-	else if (MatchState == MatchState::InProgress) TimeLeft = WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
-	else if (MatchState == MatchState::Cooldown) TimeLeft = CooldownTime + WarmupTime + MatchTime - GetServerTime() + LevelStartingTime;
+
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress) TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown) TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+
 	uint32 SecondsLeft = FMath::CeilToInt(TimeLeft);
 
 	if (HasAuthority())
@@ -219,11 +220,11 @@ void AGunfightPlayerController::SetHUDTime()
 
 	if (CountdownInt != SecondsLeft)
 	{
-		if (MatchState == MatchState::WaitingToStart || MatchState == MatchState::Cooldown)
+		if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup || GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}
-		else if (MatchState == MatchState::InProgress)
+		else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
 		{
 			SetHUDMatchCountdown(TimeLeft);
 		}
@@ -312,11 +313,12 @@ void AGunfightPlayerController::OnMatchStateSet(FName State)
 
 	if (MatchState == MatchState::InProgress)
 	{
-		HandleMatchHasStarted();
+		//HandleMatchHasStarted();
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		HandleCooldown();
+		//HandleCooldown();
+		//HandleCooldown2();
 	}
 }
 
@@ -328,20 +330,28 @@ void AGunfightPlayerController::OnRep_MatchState()
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
-		HandleCooldown();
+		//HandleCooldown();
+		//HandleCooldown2();
 	}
 }
 
 void AGunfightPlayerController::HandleMatchHasStarted()
 {
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
-	if (GunfightHUD)
+	if (GunfightHUD == nullptr) return;
+
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay && CharacterOverlay->AnnouncementText && CharacterOverlay->WarmupTime && CharacterOverlay->InfoText && CharacterOverlay->MatchCountdownText)
 	{
-		GunfightHUD->AddCharacterOverlay();
-		if (GunfightHUD->Announcement)
-		{
-			GunfightHUD->Announcement->SetVisibility(ESlateVisibility::Hidden);
-		}
+		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
+		GunfightCharacter->VRStereoLayer->SetVisibility(true);
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+		CharacterOverlay->WarmupTime->SetRenderOpacity(0.f);
+		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
+		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.0f);
 	}
 }
 
@@ -399,6 +409,113 @@ void AGunfightPlayerController::HandleCooldown()
 		GunfightCharacter->bDisableGameplay = true;
 		GunfightCharacter->GetCombat()->FireButtonPressed(false, false);
 	}
+}
+
+void AGunfightPlayerController::HandleCooldown2()
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay == nullptr) return;
+
+	// TODO Hide all components like healthbar, ammo, health, timer
+
+	bool bHUDValid = CharacterOverlay->AnnouncementText &&
+		CharacterOverlay->WarmupTime &&
+		CharacterOverlay->InfoText &&
+		CharacterOverlay->MatchCountdownText;
+
+	if (bHUDValid)
+	{
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(1.f);
+		CharacterOverlay->WarmupTime->SetRenderOpacity(1.f);
+		CharacterOverlay->InfoText->SetRenderOpacity(1.f);
+		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
+
+		FString AnnouncementText("New Match Starts In:");
+		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
+
+		GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+		AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
+		if (GunfightGameState && GunfightPlayerState)
+		{
+			TArray<AGunfightPlayerState*> TopPlayers = GunfightGameState->TopScoringPlayers;
+			FString InfoTextString;
+			if (TopPlayers.Num() == 0)
+			{
+				InfoTextString = FString("There is no winner.");
+			}
+			else if (TopPlayers.Num() == 1 && TopPlayers[0] == GunfightPlayerState)
+			{
+				InfoTextString = FString("You are the winner!");
+			}
+			else if (TopPlayers.Num() == 1)
+			{
+				InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
+			}
+			else if (TopPlayers.Num() > 1)
+			{
+				InfoTextString = FString("Players tied for the win:\n");
+				for (auto TiedPlayer : TopPlayers)
+				{
+					InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerName()));
+				}
+			}
+
+			CharacterOverlay->InfoText->SetText(FText::FromString(InfoTextString));
+		}
+	}
+}
+
+void AGunfightPlayerController::OnRep_GunfightMatchState()
+{
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
+	{
+		HandleGunfightWarmupStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
+	{
+		HandleGunfightMatchStarted();
+	}
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
+	{
+		HandleGunfightCooldownStarted();
+	}
+}
+
+void AGunfightPlayerController::HandleGunfightWarmupStarted()
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay == nullptr) return;
+
+	// TODO Hide all components like healthbar, ammo, health, timer
+
+	bool bHUDValid = CharacterOverlay->AnnouncementText &&
+		CharacterOverlay->WarmupTime &&
+		CharacterOverlay->InfoText &&
+		CharacterOverlay->MatchCountdownText;
+
+	if (bHUDValid)
+	{
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(1.f);
+		CharacterOverlay->WarmupTime->SetRenderOpacity(1.f);
+		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
+
+		FString AnnouncementText("Match starts in:");
+		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
+	}
+}
+
+void AGunfightPlayerController::HandleGunfightMatchStarted()
+{
+	HandleMatchHasStarted();
+}
+
+void AGunfightPlayerController::HandleGunfightCooldownStarted()
+{
+	HandleCooldown2();
 }
 
 void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
@@ -526,15 +643,24 @@ void AGunfightPlayerController::SetHUDMatchCountdown(float CountdownTime)
 
 void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 {
+	/*
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->Announcement &&
 		GunfightHUD->Announcement->WarmupTime;
+	*/
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	bool bHUDValid = CharacterOverlay &&
+		CharacterOverlay->WarmupTime;
+
 	if (bHUDValid)
 	{
 		if (CountdownTime < 0.f)
 		{
-			GunfightHUD->Announcement->WarmupTime->SetText(FText());
+			CharacterOverlay->WarmupTime->SetText(FText());
 			return;
 		}
 
@@ -542,7 +668,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 		int32 Seconds = CountdownTime - Minutes * 60;
 
 		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
-		GunfightHUD->Announcement->WarmupTime->SetText(FText::FromString(CountdownText));
+		CharacterOverlay->WarmupTime->SetText(FText::FromString(CountdownText));
 	}
 }
 
@@ -562,27 +688,34 @@ void AGunfightPlayerController::ServerCheckMatchState_Implementation()
 	AGunfightGameMode* GameMode = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
 	if (GameMode)
 	{
-		WarmupTime = GameMode->WarmupTime;
-		MatchTime = GameMode->MatchTime;
+		WaitingToStartTime = GameMode->WaitingToStartTime;
+		MatchTime = GameMode->GunfightMatchTime;
 		CooldownTime = GameMode->CooldownTime;
 		LevelStartingTime = GameMode->LevelStartingTime;
 		MatchState = GameMode->GetMatchState();
-		ClientJoinMidGame(MatchState, WarmupTime, MatchTime, CooldownTime, LevelStartingTime);
+		WarmupTime = GameMode->GunfightWarmupTime;
+		MatchEndTime = GameMode->GunfightCooldownTime;
+		
+		SetGunfightMatchState(GameMode->GetGunfightMatchState());
+
+		ClientJoinMidGame(GunfightMatchState, WarmupTime, MatchTime, MatchEndTime, LevelStartingTime);
 	}
 }
 
-void AGunfightPlayerController::ClientJoinMidGame_Implementation(FName StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime)
+void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)
 {
-	WarmupTime = Warmup;
+	WarmupTime = WaitingToStart;
 	MatchTime = Match;
 	CooldownTime = Cooldown;
 	LevelStartingTime = StartingTime;
-	MatchState = StateOfMatch;
-	OnMatchStateSet(MatchState);
+	SetGunfightMatchState(StateOfMatch);
+
+	/*
 	if (GunfightHUD && MatchState == MatchState::WaitingToStart)
 	{
 		GunfightHUD->AddAnnouncement();
 	}
+	*/
 }
 
 void AGunfightPlayerController::HighPingWarning()
