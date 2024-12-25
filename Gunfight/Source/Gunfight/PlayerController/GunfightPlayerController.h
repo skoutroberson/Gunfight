@@ -182,5 +182,5 @@ private:
 	bool bPlayerStateInitialized = false;
 	
 public:
-	FORCEINLINE AGunfightHUD* GetGunfightHUD();
+	AGunfightHUD* GetGunfightHUD();
 };

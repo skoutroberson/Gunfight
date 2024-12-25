@@ -82,6 +82,17 @@ protected:
 	void LeftStickPressed();
 	void LeftStickReleased();
 
+	// For interacting with widgets like the pause menu or the main menu
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void RightTriggerPressedUI();
+
+	// For interacting with widgets like the pause menu or the main menu
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void LeftTriggerPressedUI();
+
+	void MenuButtonPressed();
+	bool bMenuOpen = false;
+
 	UFUNCTION()
 	void OnRep_DefaultWeapon();
 

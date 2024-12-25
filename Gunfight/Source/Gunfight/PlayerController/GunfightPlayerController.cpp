@@ -171,7 +171,11 @@ void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 E
 
 	for (int i = StartIndex; i <= EndIndex; ++i)
 	{
-		if (i >= GunfightGameState->SortedPlayers.Num()) return;
+		if (i >= GunfightGameState->SortedPlayers.Num())
+		{
+			CharacterOverlay->ClearScore(i);
+			continue;
+		}
 		const AGunfightPlayerState* CurrentPlayerState = GunfightGameState->SortedPlayers[i];
 		if (CurrentPlayerState != nullptr)
 		{

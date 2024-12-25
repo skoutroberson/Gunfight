@@ -85,6 +85,14 @@ void UCharacterOverlay::ScoreUpdate(int32 Index, FString Name, float Score, int3
 	ScoreboardInfos[Index].DeathsText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Deaths)));
 }
 
+void UCharacterOverlay::ClearScore(int32 Index)
+{
+	if (Index >= ScoreboardInfos.Num()) return;
+	ScoreboardInfos[Index].NameText->SetText(FText::FromString(FString()));
+	ScoreboardInfos[Index].ScoreText->SetText(FText::FromString(FString()));
+	ScoreboardInfos[Index].DeathsText->SetText(FText::FromString(FString()));
+}
+
 void UCharacterOverlay::HideUnusedScores()
 {
 	for (auto& ScoreboardInfo : ScoreboardInfos)

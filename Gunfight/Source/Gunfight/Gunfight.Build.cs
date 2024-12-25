@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class Gunfight : ModuleRules
@@ -17,19 +18,36 @@ public class Gunfight : ModuleRules
 				"EnhancedInput", 
 				"SlateCore",
 				"HeadMountedDisplay", 
-				"UMG", });
+				"UMG",
+                "OnlineSubsystem",
+                "OnlineSubsystemEOS",
+                "OnlineSubsystemUtils",
+                "OVRPlatform",
+            });
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "XRBase",
+                "Json",
+                "JsonUtilities",
+                "EnhancedInput",
+                "OnlineSubsystem",
+                "OnlineSubsystemEOS",
+                "OnlineSubsystemUtils",
             });
 
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-		
-		// Uncomment if you are using online features
-		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
+        if (Target.Platform == UnrealTargetPlatform.Android && Target.Configuration == UnrealTargetConfiguration.Shipping)
+        {
+            var manifestFile = Path.Combine(ModuleDirectory, "AndroidSanitizePermissions_UPL.xml");
+            AdditionalPropertiesForReceipt.Add("AndroidPlugin", manifestFile);
+        }
 
-		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
-	}
+        // Uncomment if you are using Slate UI
+        // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+
+        // Uncomment if you are using online features
+        // PrivateDependencyModuleNames.Add("OnlineSubsystem");
+
+        // To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
+    }
 }

@@ -287,6 +287,9 @@ void AGunfightCharacter::GripReleased(bool bLeftController)
 
 void AGunfightCharacter::TriggerPressed(bool bLeftController)
 {
+	if (bLeftController) LeftTriggerPressedUI();
+	else RightTriggerPressedUI();
+
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
@@ -342,6 +345,20 @@ void AGunfightCharacter::LeftStickReleased()
 	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
 	if (GunfightPlayerController == nullptr) return;
 	GunfightPlayerController->SetScoreboardVisibility(false);
+}
+
+void AGunfightCharacter::MenuButtonPressed()
+{
+	bMenuOpen = !bMenuOpen;
+
+	if (bMenuOpen)
+	{
+		// show menu
+	}
+	else
+	{
+		// hide menu
+	}
 }
 
 void AGunfightCharacter::UpdateAnimInstanceIK()
@@ -483,22 +500,35 @@ void AGunfightCharacter::Elim(bool bPlayerLeftGame)
 
 void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 {
-	bLeftGame = false;
+	// drop equipped weapon/magazine
+	if (Combat)
+	{
+		if (Combat->LeftEquippedWeapon || Combat->LeftEquippedMagazine)
+		{
+			GripReleased(true);
+		}
+		if (Combat->RightEquippedWeapon || Combat->RightEquippedMagazine)
+		{
+			GripReleased(false);
+		}
+	}
+
 	if (GunfightPlayerController)
 	{
 		GunfightPlayerController->SetHUDWeaponAmmo(0);
 	}
+
+	bLeftGame = false;
 	bElimmed = true;
+	bDisableGameplay = true;
+	Ragdoll();
 
 	//PlayElimMontage()
-
-	Ragdoll();
 
 	/*
 	// Disable character movement
 	GetCharacterMovement()->DisableMovement();
 	GetCharacterMovement()->StopMovementImmediately();
-	bDisableGameplay = true;
 	if (Combat)
 	{
 		Combat->FireButtonPressed(false, false);
@@ -509,6 +539,7 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 	GetCapsuleComponent()->SetSimulatePhysics(false);
 	MeshCollisionResponses = GetMesh()->GetCollisionResponseToChannels();
 	*/
+
 	GetWorldTimerManager().SetTimer(
 		ElimTimer,
 		this,

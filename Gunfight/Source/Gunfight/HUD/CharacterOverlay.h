@@ -86,6 +86,7 @@ public:
 
 	// updates scoreboard info at the specified index
 	void ScoreUpdate(int32 Index, FString Name, float Score, int32 Deaths);
+	void ClearScore(int32 Index);
 	void HideUnusedScores();
 	
 	UPROPERTY(meta = (BindWidget))
