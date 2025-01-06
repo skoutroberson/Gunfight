@@ -59,6 +59,34 @@ public:
 	void MulticastRespawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
 	void MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
 
+	/**
+	* Shared Spaces blueprint events for Meta Quest Multiplayer
+	*/
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetCharacterMasterClientStatus();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetCharacterAttributes();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetCharacterIdentifier();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetCharacterName();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SetCharacterDestination();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SaveNetID(const FString& NetID);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void RemoveNetID(const FString& NetID);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void NewHost();
+
 protected:
 	virtual void BeginPlay() override;
 

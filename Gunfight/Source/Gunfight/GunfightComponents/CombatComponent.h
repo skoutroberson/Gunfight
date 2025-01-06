@@ -124,12 +124,12 @@ private:
 	int32 AmountToReload();
 
 public:	
-	FORCEINLINE AWeapon* GetEquippedWeapon(bool bLeft);
+	AWeapon* GetEquippedWeapon(bool bLeft);
 	// returns true if the corresponding Weapon*: LeftEquippedWeapon or RightEquipWeapoin is not nullptr
 	bool CheckEquippedWeapon(bool bLeft);
 	// returns true if the corresponding FullMagazine*: LeftEquippedMagazine or RightEquippedMagazine is not nullptr
 	bool CheckEquippedMagazine(bool bLeft);
-	FORCEINLINE AFullMagazine* GetEquippedMagazine(bool bLeft);
-	FORCEINLINE void SetEquippedMagazine(AFullMagazine* NewMag, bool bLeft);
+	AFullMagazine* GetEquippedMagazine(bool bLeft);
+	void SetEquippedMagazine(AFullMagazine* NewMag, bool bLeft);
 	bool IsWeaponEquipped();
 };

@@ -82,6 +82,10 @@
 				"Win64",
 				"Android"
 			]
+		},
+		{
+			"Name": "MultiplayerSessions",
+			"Enabled": false
 		}
 	]
 }
