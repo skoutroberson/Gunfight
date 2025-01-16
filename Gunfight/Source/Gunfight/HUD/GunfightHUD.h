@@ -26,6 +26,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UCharacterOverlay* CharacterOverlay;
 
+	UPROPERTY()
+	class UStereoLayerComponent* StereoLayer;
+
 	void AddCharacterOverlay();
 
 	UPROPERTY(EditAnywhere, Category = "Announcements")

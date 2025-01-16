@@ -87,6 +87,21 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void NewHost();
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void FireWeaponHaptic(bool bLeft);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void ReceiveDamageHaptic();
+
+	// Average velocity of the last 4 frames
+	FVector LeftMotionControllerAverageVelocity = FVector::ZeroVector;
+	// Average velocity of the last 4 frames
+	FVector RightMotionControllerAverageVelocity = FVector::ZeroVector;
+	// Average angular velocity of the last 4 frames
+	FVector LeftMotionControllerAverageAngularVelocity = FVector::ZeroVector;
+	// Average angular velocity of the last 4 frames
+	FVector RightMotionControllerAverageAngularVelocity = FVector::ZeroVector;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -272,6 +287,25 @@ private:
 	UPROPERTY()
 	class AGunfightPlayerState* GunfightPlayerState;
 
+	/**
+	* Keep track of average hand controller velocities
+	* 
+	* Used for updating dropped item velocities
+	*/
+	
+	TArray<FVector> LeftMotionControllerVelocities;
+	TArray<FVector> RightMotionControllerVelocities;
+	TArray<FQuat> LastLeftMotionControllerRotations;
+	TArray<FQuat> LastRightMotionControllerRotations;
+
+	FVector LastLeftMotionControllerLocation = FVector::ZeroVector;
+	FVector LastLeftMotionControllerRotation = FVector::ZeroVector;
+	FVector LastRightMotionControllerLocation = FVector::ZeroVector;
+	FVector LastRightMotionControllerRotation = FVector::ZeroVector;
+
+
+	void UpdateAverageMotionControllerVelocities();
+
 public:
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
@@ -289,4 +323,12 @@ public:
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
 	FORCEINLINE bool IsEliminated() const { return bElimmed; }
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetLeftMotionControllerAverageVelocity();
+	UFUNCTION(BlueprintCallable)
+	FVector GetRightMotionControllerAverageVelocity();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void DebugLogMessage(const FString& LogText);
 };

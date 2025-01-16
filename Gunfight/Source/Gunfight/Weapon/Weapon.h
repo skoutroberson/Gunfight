@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Gunfight/Gunfight.h"
 #include "Weapon.generated.h"
 
 #define TRACE_LENGTH 80000.f
@@ -107,6 +108,10 @@ public:
 	void PlaySlideForwardAnimation();
 
 	void SetServerSideRewind(bool bUseSSR);
+
+	// Used to determine which hand controller velocity to apply to the weapon when dropped.
+	UPROPERTY(Replicated, BlueprintReadWrite)
+	ESide WeaponSide = ESide::ES_None;
 
 protected:
 	virtual void BeginPlay() override;
@@ -261,13 +266,10 @@ private:
 	UPROPERTY(EditAnywhere)
 	float MagDropImpulse = 5.f;
 
-	FTimerHandle StillGrippedTimerHandle; // used to send server RPC on combat
-	FTimerHandle StillDroppedTimerHandle; // used to send server RPC on combat
-	FTimerHandle ShouldHolsterTimerHandle;
+	// for holstering the weapon if it is far from the player
+	FTimerHandle ShouldHolsterTimer;
 
-	// calls DropRPC for server/other clients if the weapon is still dropped
-	void StillDropped();
-	void StillEquipped();
+	void ShouldHolster();
 
 	bool bDropRPCCalled = true;
 	bool bEquipRPCCalled = false;
@@ -279,6 +281,11 @@ private:
 	float MaxDistanceFromHolster = 80.f;
 
 	void GetSpawnOverlaps();
+
+	FVector DropVelocity;
+	FQuat DropAngularVelocity;
+
+	void ApplyVelocityOnDropped();
 
 public:
 	inline bool IsBeingGripped() { return bBeingGripped; }
@@ -303,9 +310,12 @@ public:
 	FORCEINLINE TSubclassOf<AFullMagazine> GetFullMagazineClass() { return FullMagazineClass; }
 	// returns true if the passed in hand class variable: bOverlappingLeftHand or bOverlappingRightHand is true.
 	bool CheckHandOverlap(bool bLeftHand);
-	FORCEINLINE FVector GetMagwellDirection() const;
+	FVector GetMagwellDirection() const;
 	FORCEINLINE USceneComponent* GetMagwellEnd() { return MagSlideEnd; }
 	FORCEINLINE USceneComponent* GetMagwellStart() { return MagSlideStart; }
 	FORCEINLINE EWeaponState GetWeaponState() { return WeaponState; }
 	FORCEINLINE float GetDamage() { return Damage; }
+	FORCEINLINE void SetDropVelocity(FVector NewVelocity) { DropVelocity = NewVelocity; }
+	FORCEINLINE void SetDropAngularVelocity(FQuat NewAngularVelocity) { DropAngularVelocity = NewAngularVelocity; }
+	FORCEINLINE void SetWeaponSide(ESide NewSide) { WeaponSide = NewSide; }
 };

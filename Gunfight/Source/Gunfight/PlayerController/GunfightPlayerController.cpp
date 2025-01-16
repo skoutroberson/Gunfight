@@ -74,6 +74,11 @@ void AGunfightPlayerController::PollInit()
 				if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon())
 				{
 					GunfightCharacter->GetDefaultWeapon()->SetHUDAmmo();
+
+					if (GunfightCharacter->VRStereoLayer)
+					{
+						StereoLayer = GunfightCharacter->VRStereoLayer;
+					}
 				}
 
 				if (bInitializeCarriedAmmo) SetHUDCarriedAmmo(HUDCarriedAmmo);
@@ -98,9 +103,11 @@ void AGunfightPlayerController::InitializeHUD()
 	if (GunfightCharacter && GunfightHUD)
 	{
 		CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
-		if (CharacterOverlay)
+		if (CharacterOverlay && GunfightCharacter->VRStereoLayer)
 		{
 			GunfightHUD->CharacterOverlay = CharacterOverlay;
+			GunfightHUD->StereoLayer = GunfightCharacter->VRStereoLayer;
+			StereoLayer = GunfightCharacter->VRStereoLayer;
 			//SetHUDScoreboardScores(0, 9); // hardcoded 10 players
 		}
 	}
@@ -114,7 +121,7 @@ void AGunfightPlayerController::UpdateScoreboard(AGunfightPlayerState* PlayerToU
 	if (GunfightCharacter == nullptr || GunfightGameState == nullptr) return;
 	if (PlayerToUpdate == nullptr && Type < EScoreboardUpdate::ESU_Join) return;
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
-	if (CharacterOverlay == nullptr) return;
+	if (CharacterOverlay == nullptr || StereoLayer == nullptr) return;
 	if (CharacterOverlay->ScoreboardInfos.IsEmpty()) return;
 
 	if (Type == EScoreboardUpdate::ESU_Score) // player gets a kill
@@ -128,12 +135,14 @@ void AGunfightPlayerController::UpdateScoreboard(AGunfightPlayerState* PlayerToU
 	else if (Type == EScoreboardUpdate::ESU_Death) // player dies
 	{
 		int32 IndexToUpdate = GunfightGameState->SortedPlayers.Find(PlayerToUpdate);
-		CharacterOverlay->ScoreUpdate(IndexToUpdate, PlayerToUpdate->GetPlayerName(), PlayerToUpdate->GetScore(), PlayerToUpdate->GetDefeats());
+		CharacterOverlay->ScoreUpdate(IndexToUpdate, PlayerToUpdate->GetPlayerNameCustom(), PlayerToUpdate->GetScore(), PlayerToUpdate->GetDefeats());
 	}
 	else if (Type == EScoreboardUpdate::ESU_MAX) // player joins or leaves the game
 	{
 		SetHUDScoreboardScores(0, 9); // hardcoded for 10 players
 	}
+
+	StereoLayer->MarkTextureForUpdate();
 }
 
 void AGunfightPlayerController::SetScoreboardVisibility(bool bVisible)
@@ -167,7 +176,7 @@ void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 E
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightGameState == nullptr || GunfightCharacter == nullptr) return;
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
-	if (CharacterOverlay == nullptr) return;
+	if (CharacterOverlay == nullptr || StereoLayer == nullptr) return;
 
 	for (int i = StartIndex; i <= EndIndex; ++i)
 	{
@@ -179,10 +188,12 @@ void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 E
 		const AGunfightPlayerState* CurrentPlayerState = GunfightGameState->SortedPlayers[i];
 		if (CurrentPlayerState != nullptr)
 		{
-			CharacterOverlay->ScoreUpdate(i, CurrentPlayerState->GetPlayerName(), CurrentPlayerState->GetScore(), CurrentPlayerState->GetDefeats());
+			CharacterOverlay->ScoreUpdate(i, CurrentPlayerState->GetPlayerNameCustom(), CurrentPlayerState->GetScore(), CurrentPlayerState->GetDefeats());
 			CharacterOverlay->bIsConstructed = true;
 		}
 	}
+
+	StereoLayer->MarkTextureForUpdate();
 }
 
 void AGunfightPlayerController::DrawSortedPlayers()
@@ -191,7 +202,7 @@ void AGunfightPlayerController::DrawSortedPlayers()
 	{
 		for (auto i : GunfightGameState->SortedPlayers)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("%s: %d, %d"), *i->GetPlayerName(), FMath::FloorToInt(i->GetScore()), i->GetDefeats()));
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("%s: %d, %d"), *i->GetPlayerNameCustom(), FMath::FloorToInt(i->GetScore()), i->GetDefeats()));
 		}
 		GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("-----------------------------")));
 	}
@@ -392,14 +403,14 @@ void AGunfightPlayerController::HandleCooldown()
 				}
 				else if (TopPlayers.Num() == 1)
 				{
-					InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
+					InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerNameCustom());
 				}
 				else if (TopPlayers.Num() > 1)
 				{
 					InfoTextString = FString("Players tied for the win:\n");
 					for (auto TiedPlayer : TopPlayers)
 					{
-						InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerName()));
+						InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerNameCustom()));
 					}
 				}
 
@@ -455,14 +466,14 @@ void AGunfightPlayerController::HandleCooldown2()
 			}
 			else if (TopPlayers.Num() == 1)
 			{
-				InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
+				InfoTextString = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerNameCustom());
 			}
 			else if (TopPlayers.Num() > 1)
 			{
 				InfoTextString = FString("Players tied for the win:\n");
 				for (auto TiedPlayer : TopPlayers)
 				{
-					InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerName()));
+					InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerNameCustom()));
 				}
 			}
 
@@ -529,7 +540,8 @@ void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
 		GunfightHUD->CharacterOverlay->HealthBar &&
-		GunfightHUD->CharacterOverlay->HealthText;
+		GunfightHUD->CharacterOverlay->HealthText &&
+		StereoLayer;
 
 	if (bHUDValid)
 	{
@@ -541,6 +553,7 @@ void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
 		const float HealthBlueColor = FMath::GetMappedRangeValueClamped(FVector2d(50, 100.f), FVector2d(0, 255.f), Health);
 		const float HealthGreenColor = Health >= 50.f ? 255.f : FMath::GetMappedRangeValueClamped(FVector2d(25.f, 50.f), FVector2d(0.f, 255.f), Health);
 		GunfightHUD->CharacterOverlay->HealthText->SetColorAndOpacity(FSlateColor(FLinearColor(255.f, HealthGreenColor, HealthBlueColor)));
+		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
@@ -555,11 +568,13 @@ void AGunfightPlayerController::SetHUDScore(float Score)
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->ScoreAmount;
+		GunfightHUD->CharacterOverlay->ScoreAmount &&
+		StereoLayer;
 	if (bHUDValid)
 	{
 		FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
 		GunfightHUD->CharacterOverlay->ScoreAmount->SetText(FText::FromString(ScoreText));
+		StereoLayer->MarkTextureForUpdate();
 		//UpdateScoreboard();
 	}
 	else
@@ -574,11 +589,13 @@ void AGunfightPlayerController::SetHUDDefeats(int32 Defeats)
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->DefeatsAmount;
+		GunfightHUD->CharacterOverlay->DefeatsAmount &&
+		StereoLayer;
 	if (bHUDValid)
 	{
 		FString DefeatsText = FString::Printf(TEXT("%d"), Defeats);
 		GunfightHUD->CharacterOverlay->DefeatsAmount->SetText(FText::FromString(DefeatsText));
+		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
@@ -592,11 +609,13 @@ void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo)
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmount && 
+		StereoLayer;
 	if (bHUDValid)
 	{
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
 		GunfightHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(AmmoText));
+		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
@@ -611,11 +630,13 @@ void AGunfightPlayerController::SetHUDCarriedAmmo(int32 Ammo)
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
+		GunfightHUD->CharacterOverlay->CarriedAmmoAmount &&
+		StereoLayer;
 	if (bHUDValid)
 	{
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
 		GunfightHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(AmmoText));
+		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
@@ -629,7 +650,8 @@ void AGunfightPlayerController::SetHUDMatchCountdown(float CountdownTime)
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->MatchCountdownText;
+		GunfightHUD->CharacterOverlay->MatchCountdownText &&
+		StereoLayer;
 	if (bHUDValid)
 	{
 		if (CountdownTime < 0.f)
@@ -642,6 +664,7 @@ void AGunfightPlayerController::SetHUDMatchCountdown(float CountdownTime)
 
 		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 		GunfightHUD->CharacterOverlay->MatchCountdownText->SetText(FText::FromString(CountdownText));
+		StereoLayer->MarkTextureForUpdate();
 	}
 }
 
@@ -658,7 +681,8 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
 	bool bHUDValid = CharacterOverlay &&
-		CharacterOverlay->WarmupTime;
+		CharacterOverlay->WarmupTime &&
+		StereoLayer;
 
 	if (bHUDValid)
 	{
@@ -673,6 +697,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 
 		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 		CharacterOverlay->WarmupTime->SetText(FText::FromString(CountdownText));
+		StereoLayer->MarkTextureForUpdate();
 	}
 }
 

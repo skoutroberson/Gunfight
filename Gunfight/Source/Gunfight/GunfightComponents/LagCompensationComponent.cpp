@@ -67,7 +67,7 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(AGunfightChara
 			UDamageType::StaticClass()
 		);
 
-		const FVector BloodSpawnLocation = ((TraceStart - Confirm.HitLocation).GetSafeNormal() * 10.f) + Confirm.HitLocation;
+		const FVector BloodSpawnLocation = ((TraceStart - Confirm.HitLocation).GetSafeNormal() * 3.f) + Confirm.HitLocation;
 		HitCharacter->MulticastSpawnBlood(BloodSpawnLocation);
 	}
 }

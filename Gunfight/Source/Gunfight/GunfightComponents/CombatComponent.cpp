@@ -10,6 +10,7 @@
 #include "Engine/SkeletalMeshSocket.h"
 #include "Gunfight/Weapon/FullMagazine.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "Gunfight/Gunfight.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -76,6 +77,7 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 		LeftEquippedWeapon->SetOwner(Character);
 		LeftEquippedWeapon->SetCharacterOwner(Character);
 		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		LeftEquippedWeapon->SetWeaponSide(ESide::ES_Left);
 		AttachActorToHand(LeftEquippedWeapon, bLeftHand);
 	}
 	else
@@ -84,6 +86,7 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 		RightEquippedWeapon->SetOwner(Character);
 		RightEquippedWeapon->SetCharacterOwner(Character);
 		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
+		RightEquippedWeapon->SetWeaponSide(ESide::ES_Right);
 		AttachActorToHand(RightEquippedWeapon, bLeftHand);
 	}
 	Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
@@ -184,7 +187,7 @@ void UCombatComponent::Fire(bool bLeft)
 	if (CanFire(bLeft))
 	{
 		const AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
-		if (CurrentWeapon)
+		if (CurrentWeapon && Character)
 		{
 			bCanFire = false;
 
@@ -195,8 +198,8 @@ void UCombatComponent::Fire(bool bLeft)
 				break;
 			}
 			StartFireTimer(CurrentWeapon->FireDelay);
+			Character->FireWeaponHaptic(bLeft);
 		}
-
 	}
 }
 
@@ -311,6 +314,8 @@ bool UCombatComponent::CanFire(bool bLeft)
 
 void UCombatComponent::DropWeapon(bool bLeftHand)
 {
+	if (Character == nullptr) return;
+
 	if (bLeftHand && LeftEquippedWeapon)
 	{
 		LeftEquippedWeapon->Dropped(true);
@@ -366,7 +371,24 @@ void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
 	if (HolsterSocket)
 	{
 		HolsterSocket->AttachActor(WeaponToAttach, Character->GetMesh());
+		WeaponToAttach->SetActorRelativeLocation(FVector::ZeroVector);
+		WeaponToAttach->SetActorRelativeRotation(FRotator::ZeroRotator);
+		WeaponToAttach->GetWeaponMesh()->SetSimulatePhysics(false);
+		WeaponToAttach->GetWeaponMesh()->SetEnableGravity(false);
 	}
+}
+
+void UCombatComponent::MulticastAttachToHolster_Implementation()
+{
+	if (Character == nullptr || Character->GetMesh() == nullptr || Character->GetDefaultWeapon() == nullptr) return;
+	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
+	AWeapon* Weapon = Character->GetDefaultWeapon();
+	Weapon->GetWeaponMesh()->SetEnableGravity(false);
+	Weapon->GetWeaponMesh()->SetSimulatePhysics(false);
+	Weapon->AttachToComponent(Character->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+	Weapon->SetActorRelativeLocation(FVector::ZeroVector);
+	Weapon->SetActorRelativeRotation(FRotator::ZeroRotator);
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)

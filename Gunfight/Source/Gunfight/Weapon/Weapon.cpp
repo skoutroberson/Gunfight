@@ -24,7 +24,7 @@ AWeapon::AWeapon()
 	SetRootComponent(WeaponMesh);
 	WeaponMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
 	AreaSphere->SetupAttachment(GetRootComponent());
@@ -55,6 +55,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, WeaponState);
 	DOREPLIFETIME_CONDITION(AWeapon, CarriedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AWeapon, bUseServerSideRewind, COND_OwnerOnly);
+	DOREPLIFETIME(AWeapon, WeaponSide);
 }
 
 void AWeapon::Fire(const FVector& HitTarget)
@@ -114,6 +115,11 @@ void AWeapon::BeginPlay()
 
 	// initialize on spawn sphere overlaps
 	SetActorTickEnabled(true);
+
+	if (HasAuthority())
+	{
+		GetWorldTimerManager().SetTimer(ShouldHolsterTimer, this, &AWeapon::ShouldAttachToHolster, 1.f, true, 1.f);
+	}
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -269,8 +275,18 @@ void AWeapon::DropMag()
 			if (World)
 			{
 				AEmptyMagazine* EmptyMag = World->SpawnActor<AEmptyMagazine>(EmptyMagazineClass, SocketTransform);
-				if (EmptyMag)
+				if (EmptyMag && CharacterOwner && CharacterOwner->GetCombat())
 				{
+					if (CharacterOwner->GetCombat()->GetEquippedWeapon(true))
+					{
+						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 75.f);
+						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity);
+					}
+					else if (CharacterOwner->GetCombat()->GetEquippedWeapon(false))
+					{
+						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 75.f);
+						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 50.f);
+					}
 					EmptyMag->GetMagazineMesh()->AddImpulse(FVector(ImpulseDir * MagDropImpulse));
 				}
 			}
@@ -310,7 +326,8 @@ void AWeapon::OnEquipped()
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetSimulatePhysics(false);
 	WeaponMesh->SetEnableGravity(false);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Ignore);
 
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
 	if (CharacterOwner)
@@ -328,7 +345,6 @@ void AWeapon::Dropped(bool bLeftHand)
 	SetWeaponState(EWeaponState::EWS_Dropped);
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	WeaponMesh->DetachFromComponent(DetachRules);
-
 }
 
 void AWeapon::OnDropped()
@@ -337,20 +353,42 @@ void AWeapon::OnDropped()
 	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
-	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	//WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
-	if (CharacterOwner)
+	if (CharacterOwner == nullptr) return;
+
+	GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
+	if (GunfightOwnerController && HasAuthority() && GunfightOwnerController->HighPingDelegate.IsBound())
 	{
-		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
-		if (GunfightOwnerController && HasAuthority() && GunfightOwnerController->HighPingDelegate.IsBound())
-		{
-			GunfightOwnerController->HighPingDelegate.RemoveDynamic(this, &AWeapon::OnPingTooHigh);
-		}
+		GunfightOwnerController->HighPingDelegate.RemoveDynamic(this, &AWeapon::OnPingTooHigh);
 	}
+
+	// apply hand controller velocities on drop
+	if (WeaponSide == ESide::ES_Left)
+	{
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 75.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity);
+	}
+	else if (WeaponSide == ESide::ES_Right)
+	{
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 75.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 75.f);
+	}
+	else
+	{
+		if (CharacterOwner)
+		{
+			CharacterOwner->DebugLogMessage(FString("Dropped weapon WeaponSide is not set"));
+		}
+		UE_LOG(LogTemp, Warning, TEXT("Dropped weapon WeaponSide is not set"));
+	}
+
+	WeaponSide = ESide::ES_None;
 }
 
 void AWeapon::OnPingTooHigh(bool bPingTooHigh)
@@ -381,23 +419,18 @@ void AWeapon::SetServerSideRewind(bool bUseSSR)
 
 void AWeapon::ShouldAttachToHolster()
 {
-	if (CharacterOwner)
+	if (HasAuthority() && CharacterOwner)
 	{
 		UCombatComponent* Combat = CharacterOwner->GetCombat();
 		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
 		{
 			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
-			if (DistSquared > 14400.f)
+			if (DistSquared > 40000.f)
 			{
-				Combat->AttachWeaponToHolster(this);
-				return;
+				Combat->MulticastAttachToHolster();
 			}
 		}
-		else
-		{
-			return;
-		}
-		GetWorldTimerManager().SetTimer(ShouldHolsterTimerHandle, this, &AWeapon::ShouldAttachToHolster, 0.5f, false, 0.5f);
+		//GetWorldTimerManager().SetTimer(ShouldHolsterTimer, this, &AWeapon::ShouldAttachToHolster, 0.5f, false, 0.5f);
 	}
 }
 
@@ -424,4 +457,10 @@ void AWeapon::GetSpawnOverlaps()
 			}
 		}
 	}
+}
+
+void AWeapon::ApplyVelocityOnDropped()
+{
+	WeaponMesh->SetPhysicsAngularVelocityInRadians(DropAngularVelocity.Vector());
+	WeaponMesh->SetPhysicsLinearVelocity(DropVelocity);
 }

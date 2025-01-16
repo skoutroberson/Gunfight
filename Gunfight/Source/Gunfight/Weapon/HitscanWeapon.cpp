@@ -42,7 +42,7 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 					UDamageType::StaticClass()
 				);
 
-				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 10.f) + FireHit.ImpactPoint;
+				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 3.f) + FireHit.ImpactPoint;
 				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation);
 			}
 			if (!HasAuthority() && bUseServerSideRewind)

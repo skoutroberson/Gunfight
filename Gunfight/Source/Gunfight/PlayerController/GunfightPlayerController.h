@@ -130,6 +130,9 @@ private:
 	class UCharacterOverlay* CharacterOverlay;
 	bool bInitializeCharacterOverlay = false;
 
+	UPROPERTY()
+	class UStereoLayerComponent* StereoLayer;
+
 	float HUDHealth;
 	float HUDMaxHealth;
 	float HUDScore;

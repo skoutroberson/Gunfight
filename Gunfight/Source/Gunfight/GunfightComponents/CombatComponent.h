@@ -36,6 +36,10 @@ public:
 
 	bool bLocallyReloading = false;
 
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastAttachToHolster();
+	void MulticastAttachToHolster_Implementation();
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -28,6 +28,10 @@ public:
 	void AddToScore(float ScoreAmount);
 	void AddToDefeats(int32 DefeatsAmount);
 
+	// For the blueprint to set the PlayerState PlayerName to the oculus platform player name in OnRep_CharacterName().
+	UFUNCTION(BlueprintCallable)
+	void SetPlayerNameBP(const FString& NewName);
+
 private:
 
 	UPROPERTY()

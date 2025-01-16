@@ -22,6 +22,8 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	if (GunfightCharacter == nullptr) GunfightCharacter = Cast<AGunfightCharacter>(TryGetPawnOwner());
 	if (GunfightCharacter == nullptr) return;
 
+	bLocallyControlled = GunfightCharacter->IsLocallyControlled(); // better to do this once on initialization
+
 	bElimmed = GunfightCharacter->IsEliminated();
 
 	if (bElimmed) return;

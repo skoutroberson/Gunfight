@@ -26,6 +26,8 @@
 #include "Gunfight/HUD/CharacterOverlay.h"
 #include "Sound/SoundCue.h"
 #include "Gunfight/HUD/GunfightHUD.h"
+#include "Gunfight/EOS/EOSSubsystem.h"
+#include "Kismet/KismetMathLibrary.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -190,6 +192,7 @@ void AGunfightCharacter::Tick(float DeltaTime)
 
 	UpdateAnimation();
 	PollInit();
+	UpdateAverageMotionControllerVelocities();
 }
 
 void AGunfightCharacter::MoveForward(float Throttle)
@@ -310,7 +313,7 @@ void AGunfightCharacter::AButtonPressed(bool bLeftController)
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
-		if (CurrentWeapon && CurrentWeapon->IsMagInserted())
+		if (CurrentWeapon && CurrentWeapon->IsMagInserted() && CurrentWeapon->GetAmmo() != CurrentWeapon->GetMagCapacity())
 		{
 			CurrentWeapon->EjectMagazine();
 			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass());
@@ -467,6 +470,7 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
 	UpdateHUDHealth();
 	//PlayHitReactMontage();
+	ReceiveDamageHaptic();
 
 	if (Health == 0.f && !bElimmed)
 	{
@@ -544,7 +548,7 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 		ElimTimer,
 		this,
 		&AGunfightCharacter::ElimTimerFinished,
-		2.f
+		5.f
 	);
 }
 
@@ -572,12 +576,21 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 
 	SetActorLocationAndRotationVR(SpawnLocation, SpawnRotation, true, true, true);
 
-	if (DefaultWeapon)
+	if (DefaultWeapon && Combat)
 	{
-		Combat->AttachWeaponToHolster(DefaultWeapon);
+		DefaultWeapon->GetWeaponMesh()->SetEnableGravity(false);
+		DefaultWeapon->GetWeaponMesh()->SetSimulatePhysics(false);
+
+		const FName SocketName = GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+
+		DefaultWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		DefaultWeapon->SetActorRelativeLocation(FVector::ZeroVector);
+		DefaultWeapon->SetActorRelativeRotation(FRotator::ZeroRotator);
+
+		//Combat->AttachWeaponToHolster(DefaultWeapon);
+
 		DefaultWeapon->SetAmmo(DefaultWeapon->GetMagCapacity());
 		DefaultWeapon->SetCarriedAmmo(100);
-
 		if (GunfightPlayerController)
 		{
 			GunfightPlayerController->SetHUDWeaponAmmo(DefaultWeapon->GetMagCapacity());
@@ -606,26 +619,26 @@ void AGunfightCharacter::ElimTimerFinished()
 
 void AGunfightCharacter::Ragdoll()
 {
-	SetReplicateMovement(false);
+	//SetReplicateMovement(false);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECR_Block);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Ignore);
 	GetMesh()->SetAllBodiesSimulatePhysics(true);
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->WakeAllRigidBodies();
 	GetMesh()->bBlendPhysics = true;
-	GetCharacterMovement()->SetComponentTickEnabled(false);
+	//GetCharacterMovement()->SetComponentTickEnabled(false);
 }
 
 void AGunfightCharacter::UnRagdoll()
 {
-	SetReplicateMovement(true);
+	//SetReplicateMovement(true);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Block);
 	GetMesh()->SetAllBodiesSimulatePhysics(false);
 	GetMesh()->SetSimulatePhysics(false);
 	GetMesh()->PutAllRigidBodiesToSleep();
 	GetMesh()->bBlendPhysics = false;
-	GetCharacterMovement()->SetComponentTickEnabled(true);
+	//GetCharacterMovement()->SetComponentTickEnabled(true);
 	GetMesh()->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 }
 
@@ -739,6 +752,41 @@ void AGunfightCharacter::SetupUI()
 	
 }
 
+void AGunfightCharacter::UpdateAverageMotionControllerVelocities()
+{
+	const FVector LeftHCLocation = LeftMotionController->GetComponentLocation();
+	const FVector RightHCLocation = RightMotionController->GetComponentLocation();
+	const FVector LeftVelocity = LeftHCLocation - LastLeftMotionControllerLocation;
+	const FVector RightVelocity = RightHCLocation - LastRightMotionControllerLocation;
+
+	const FVector LeftHCRotation = LeftMotionController->GetComponentQuat().Vector();
+	const FVector RightHCRotation = RightMotionController->GetComponentQuat().Vector();
+	LeftMotionControllerAverageAngularVelocity = LeftHCRotation - LastLeftMotionControllerRotation;
+	RightMotionControllerAverageAngularVelocity = RightHCRotation - LastRightMotionControllerRotation;
+
+	if (LeftMotionControllerVelocities.Num() < 4)
+	{
+		LeftMotionControllerVelocities.Push(LeftVelocity);
+		RightMotionControllerVelocities.Push(RightVelocity);
+	}
+	else
+	{
+		LeftMotionControllerVelocities.Pop();
+		RightMotionControllerVelocities.Pop();
+
+		LeftMotionControllerVelocities.Insert(LeftVelocity, 0);
+		RightMotionControllerVelocities.Insert(RightVelocity, 0);
+	}
+
+	//const FVector TraceStart = VRReplicatedCamera->GetComponentLocation() + VRReplicatedCamera->GetForwardVector() * 10.f;
+	//DrawDebugLine(GetWorld(), TraceStart, TraceStart + RightMotionControllerAverageVelocity, FColor::Cyan, false, GetWorld()->DeltaTimeSeconds * 1.1f);
+	
+	LastLeftMotionControllerLocation = LeftHCLocation;
+	LastRightMotionControllerLocation = RightHCLocation;
+	LastLeftMotionControllerRotation = LeftHCRotation;
+	LastRightMotionControllerRotation = RightHCRotation;
+}
+
 void AGunfightCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 {
 	OverlappingWeapon = Weapon;
@@ -761,6 +809,38 @@ void AGunfightCharacter::SetHandState(bool bLeftHand, EHandState NewState)
 	}
 }
 
+FVector AGunfightCharacter::GetLeftMotionControllerAverageVelocity()
+{
+	LeftMotionControllerAverageVelocity = FVector::ZeroVector;
+
+	int Num = LeftMotionControllerVelocities.Num();
+	for (int i = 0; i < Num; i++)
+	{
+		LeftMotionControllerAverageVelocity += LeftMotionControllerVelocities[i];
+	}
+	LeftMotionControllerAverageVelocity /= Num;
+
+	return LeftMotionControllerAverageVelocity;
+}
+
+FVector AGunfightCharacter::GetRightMotionControllerAverageVelocity()
+{
+	RightMotionControllerAverageVelocity = FVector::ZeroVector;
+
+	int Num = RightMotionControllerVelocities.Num();
+	for (int i = 0; i < Num; i++)
+	{
+		RightMotionControllerAverageVelocity += RightMotionControllerVelocities[i];
+	}
+
+	RightMotionControllerAverageVelocity /= Num;
+
+	DebugLogMessage(FString("Right MC Average Velocity on Drop: "));
+	DebugLogMessage(FString::Printf(TEXT("%f, %f, %f"), RightMotionControllerAverageVelocity.X, RightMotionControllerAverageVelocity.Y, RightMotionControllerAverageVelocity.Z));
+
+	return RightMotionControllerAverageVelocity;
+}
+
 void AGunfightCharacter::MoveMeshToCamera()
 {
 	const FVector Delta = GetVRHeadLocation() - GetMesh()->GetSocketLocation(FName("CameraSocket"));
@@ -780,9 +860,14 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 	//DrawDebugLine(World, TraceStart, TraceEnd, FColor::Green, false, World->DeltaTimeSeconds * 1.1f);
 	FCollisionShape SphereShape; SphereShape.SetSphere(1.f);
 	FHitResult HitResult;
-	bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);
+	//bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);
+	bool bTraceHit = World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_WorldStatic, IKQueryParams);
+
 	if (bTraceHit)
 	{
+		//Debug.Log
+		//DebugLogMessage(FString::Printf(TEXT("%d Trace hit"), bLeft));
+
 		return HitResult.ImpactPoint;
 	}
 

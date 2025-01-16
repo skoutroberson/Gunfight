@@ -1,13 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-using System.IO;
 using UnrealBuildTool;
+using System.IO;
 
 public class Gunfight : ModuleRules
 {
 	public Gunfight(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        //MinFilesUsingPrecompiledHeaderOverride = 1;
 
         PublicDependencyModuleNames.AddRange(
 			new string[] {
@@ -35,6 +36,12 @@ public class Gunfight : ModuleRules
                 "OnlineSubsystemEOS",
                 "OnlineSubsystemUtils",
             });
+
+        if (Target.Platform == UnrealTargetPlatform.Android && Target.Configuration == UnrealTargetConfiguration.Shipping)
+        {
+            var manifestFile = Path.Combine(ModuleDirectory, "AndroidSanitizePermissions_UPL.xml");
+            AdditionalPropertiesForReceipt.Add("AndroidPlugin", manifestFile);
+        }
 
         // Uncomment if you are using Slate UI
         // PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

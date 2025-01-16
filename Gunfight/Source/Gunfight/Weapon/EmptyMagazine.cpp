@@ -22,7 +22,7 @@ void AEmptyMagazine::BeginPlay()
 	Super::BeginPlay();
 	
 	MagazineMesh->OnComponentHit.AddDynamic(this, &AEmptyMagazine::OnHit);
-	GetWorldTimerManager().SetTimer(DestroyTimerHandle, this, &AEmptyMagazine::DestroyMagazine, 1.5f, false, 1.5f);
+	GetWorldTimerManager().SetTimer(DestroyTimerHandle, this, &AEmptyMagazine::DestroyMagazine, 3.f, false, 3.f);
 }
 
 void AEmptyMagazine::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)

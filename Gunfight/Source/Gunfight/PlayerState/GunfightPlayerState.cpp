@@ -52,6 +52,18 @@ void AGunfightPlayerState::AddToDefeats(int32 DefeatsAmount)
 	}
 }
 
+void AGunfightPlayerState::SetPlayerNameBP(const FString& NewName)
+{
+	bUseCustomPlayerNames = true;
+	SetPlayerName(NewName);
+
+	AGunfightPlayerController* LocalController = GetWorld()->GetFirstPlayerController<AGunfightPlayerController>();
+	if (LocalController)
+	{
+		LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death); // ESU_Death so we only update the line in the scoreboard for this player
+	}
+}
+
 void AGunfightPlayerState::OnRep_Score()
 {
 	Super::OnRep_Score();
