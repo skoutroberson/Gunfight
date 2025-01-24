@@ -44,6 +44,11 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 
 				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 3.f) + FireHit.ImpactPoint;
 				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation);
+
+				if (CharacterOwner && FireHit.GetComponent())
+				{
+					CharacterOwner->DebugLogMessage(FString::Printf(TEXT("Auth FireHit: %s"), *FireHit.GetComponent()->GetName()));
+				}
 			}
 			if (!HasAuthority() && bUseServerSideRewind)
 			{

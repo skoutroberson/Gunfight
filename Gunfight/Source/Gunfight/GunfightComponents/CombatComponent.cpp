@@ -46,10 +46,20 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("WTE: %d"), WeaponToEquip));
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Overlap: %d"), Character->GetOverlappingWeapon()));
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Default: %d"), Character->GetDefaultWeapon()));
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString("---------"));
+
+		bool bIsOverlappingHand = Character->GetDefaultWeapon()->IsOverlappingHand(bLeftController);
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("IsOverlappingHand: %d"), bIsOverlappingHand));
+	}
+
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	if (!Character->GetOverlappingWeapon() || !Character->GetOverlappingWeapon()->CheckHandOverlap(bLeftController) || CheckEquippedWeapon(!bLeftController)) return;
-
 	if (bLeftController && LeftEquippedWeapon == nullptr)
 	{
 		EquipPrimaryWeapon(WeaponToEquip, true);

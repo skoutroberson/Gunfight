@@ -79,7 +79,6 @@ public:
 
 	FVector TraceEndWithScatter(const FVector& HitTarget);
 
-
 	bool bLeftControllerOverlap = false;
 	bool bRightControllerOverlap = false;
 
@@ -288,6 +287,9 @@ private:
 	void ApplyVelocityOnDropped();
 
 public:
+
+	bool IsOverlappingHand(bool bLeftHand);
+
 	inline bool IsBeingGripped() { return bBeingGripped; }
 	inline void SetBeingGripped(bool bGripped) { bBeingGripped = bGripped; }
 	inline void SetEquipState(EEquipState NewState) { EquipState = NewState; }

@@ -14,6 +14,7 @@
 #include "Gunfight/Weapon/EmptyMagazine.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "GripMotionControllerComponent.h"
 
 AWeapon::AWeapon()
 {
@@ -130,6 +131,8 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 		if (OtherComp == GunfightCharacter->GetLeftHandSphere()) bLeftControllerOverlap = true;
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
+
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Overlap: %d"), GunfightCharacter->GetOverlappingWeapon()));
 	}
 }
 
@@ -148,6 +151,8 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 			if(!bLeftControllerOverlap) CharacterOwner->SetOverlappingWeapon(nullptr);
 		}
 		//GunfightCharacter->SetOverlappingWeapon(nullptr);
+
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("End Overlap: %d"), CharacterOwner->GetOverlappingWeapon()));
 	}
 }
 
@@ -372,19 +377,15 @@ void AWeapon::OnDropped()
 	if (WeaponSide == ESide::ES_Left)
 	{
 		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 75.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else if (WeaponSide == ESide::ES_Right)
 	{
 		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 75.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 75.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else
 	{
-		if (CharacterOwner)
-		{
-			CharacterOwner->DebugLogMessage(FString("Dropped weapon WeaponSide is not set"));
-		}
 		UE_LOG(LogTemp, Warning, TEXT("Dropped weapon WeaponSide is not set"));
 	}
 
@@ -425,7 +426,7 @@ void AWeapon::ShouldAttachToHolster()
 		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
 		{
 			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
-			if (DistSquared > 40000.f)
+			if (DistSquared > 160000.f) // 13ft
 			{
 				Combat->MulticastAttachToHolster();
 			}
@@ -457,6 +458,29 @@ void AWeapon::GetSpawnOverlaps()
 			}
 		}
 	}
+}
+
+bool AWeapon::IsOverlappingHand(bool bLeftHand)
+{
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetOwner());
+	if (GunfightCharacter == nullptr) return false;
+	USphereComponent* HandSphere = bLeftHand ? GunfightCharacter->GetLeftHandSphere() : GunfightCharacter->GetRightHandSphere();
+	if (HandSphere == nullptr) return false;
+	const float Distance = FVector::DistSquared(HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation());
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IsOverlappingDist: %f"), FMath::Sqrt(Distance)));
+
+	DrawDebugLine(GetWorld(), HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation(), FColor::Cyan, true);
+	DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), HandSphere->GetComponentLocation(), FColor::Red, true);
+	DrawDebugSphere(GetWorld(), HandSphere->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::White, true);
+	DrawDebugSphere(GetWorld(), AreaSphere->GetComponentLocation(), AreaSphere->GetScaledSphereRadius(), 12.f, FColor::Orange, true);
+	DrawDebugSphere(GetWorld(), GunfightCharacter->RightMotionController->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::Black, true);
+
+
+	if (Distance <= FMath::Square(HandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
+	{
+		return true;
+	}
+	return false;
 }
 
 void AWeapon::ApplyVelocityOnDropped()

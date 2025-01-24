@@ -32,7 +32,7 @@ void UEOSSubsystem::CreateSession(const FName& SessionName)
 	{
 		FOnlineSessionSettings SessionSettings{};
 		SessionSettings.bAllowInvites = false;
-		SessionSettings.bAllowJoinInProgress = false;
+		SessionSettings.bAllowJoinInProgress = true;
 		SessionSettings.bAllowJoinViaPresence = false;
 		SessionSettings.bAllowJoinViaPresenceFriendsOnly = false;
 		SessionSettings.bIsDedicated = false;
@@ -59,6 +59,19 @@ void UEOSSubsystem::FindSession(const FName& SessionName)
 		SessionSearch->MaxSearchResults = 1;
 		SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 		SessionSearch->QuerySettings.Set("LobbyName", SessionName.ToString(), EOnlineComparisonOp::Equals);
+		SessionPtr->FindSessions(0, SessionSearch.ToSharedRef());
+	}
+}
+
+void UEOSSubsystem::FindSessions(int32 MaxSearchResults)
+{
+	if (SessionPtr)
+	{
+		SessionSearch = MakeShareable(new FOnlineSessionSearch);
+		SessionSearch->bIsLanQuery = false;
+		SessionSearch->MaxSearchResults = MaxSearchResults;
+		//SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+		SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 		SessionPtr->FindSessions(0, SessionSearch.ToSharedRef());
 	}
 }

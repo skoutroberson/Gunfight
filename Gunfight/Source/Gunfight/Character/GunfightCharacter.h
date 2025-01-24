@@ -102,6 +102,9 @@ public:
 	// Average angular velocity of the last 4 frames
 	FVector RightMotionControllerAverageAngularVelocity = FVector::ZeroVector;
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void ToggleMenu();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -134,6 +137,8 @@ protected:
 	void LeftTriggerPressedUI();
 
 	void MenuButtonPressed();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bMenuOpen = false;
 
 	UFUNCTION()

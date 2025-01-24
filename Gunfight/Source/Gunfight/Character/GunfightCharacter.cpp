@@ -181,6 +181,7 @@ void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	PlayerInputComponent->BindAction<FLeftRightButtonDelegate>("BButton", IE_Released, this, &AGunfightCharacter::BButtonReleased, false);
 	PlayerInputComponent->BindAction<FLeftRightButtonDelegate>("YButton", IE_Pressed, this, &AGunfightCharacter::BButtonPressed, true);
 	PlayerInputComponent->BindAction<FLeftRightButtonDelegate>("YButton", IE_Released, this, &AGunfightCharacter::BButtonReleased, true);
+	PlayerInputComponent->BindAction("MenuButton", IE_Pressed, this, &AGunfightCharacter::MenuButtonPressed);
 
 	PlayerInputComponent->BindAction("LeftStickPressed", IE_Pressed, this, &AGunfightCharacter::LeftStickPressed);
 	PlayerInputComponent->BindAction("LeftStickPressed", IE_Released, this, &AGunfightCharacter::LeftStickReleased);
@@ -193,6 +194,8 @@ void AGunfightCharacter::Tick(float DeltaTime)
 	UpdateAnimation();
 	PollInit();
 	UpdateAverageMotionControllerVelocities();
+
+	//if(GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Overlap: %d"), GetOverlappingWeapon()));
 }
 
 void AGunfightCharacter::MoveForward(float Throttle)
@@ -235,10 +238,6 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 	{
 		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && OverlappingWeapon->GetWeaponState() != EWeaponState::EWS_Equipped) // weapon check
 		{
-			if (GEngine)
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("EquipWeapon"));
-			}
 			if (HasAuthority())
 			{
 				Combat->EquipWeapon(OverlappingWeapon, bLeftController);
@@ -252,10 +251,6 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 		}
 		else if (OverlappingMagazine && !OverlappingMagazine->bEquipped && OverlappingMagazine->CheckHandOverlap(bLeftController)) // magazine check
 		{
-			if (GEngine)
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("EquipMagazine"));
-			}
 			Combat->EquipMagazine(OverlappingMagazine, bLeftController);
 		}
 	}
@@ -293,7 +288,8 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 	if (bLeftController) LeftTriggerPressedUI();
 	else RightTriggerPressedUI();
 
-	if (bDisableGameplay) return;
+	if (bDisableGameplay || bMenuOpen) return;
+
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
@@ -313,7 +309,7 @@ void AGunfightCharacter::AButtonPressed(bool bLeftController)
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
-		if (CurrentWeapon && CurrentWeapon->IsMagInserted() && CurrentWeapon->GetAmmo() != CurrentWeapon->GetMagCapacity())
+		if (CurrentWeapon && CurrentWeapon->IsMagInserted() && CurrentWeapon->GetAmmo() != CurrentWeapon->GetMagCapacity() && CurrentWeapon->GetCarriedAmmo() > 0)
 		{
 			CurrentWeapon->EjectMagazine();
 			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass());
@@ -352,16 +348,7 @@ void AGunfightCharacter::LeftStickReleased()
 
 void AGunfightCharacter::MenuButtonPressed()
 {
-	bMenuOpen = !bMenuOpen;
-
-	if (bMenuOpen)
-	{
-		// show menu
-	}
-	else
-	{
-		// hide menu
-	}
+	ToggleMenu();
 }
 
 void AGunfightCharacter::UpdateAnimInstanceIK()
@@ -834,9 +821,6 @@ FVector AGunfightCharacter::GetRightMotionControllerAverageVelocity()
 	}
 
 	RightMotionControllerAverageVelocity /= Num;
-
-	DebugLogMessage(FString("Right MC Average Velocity on Drop: "));
-	DebugLogMessage(FString::Printf(TEXT("%f, %f, %f"), RightMotionControllerAverageVelocity.X, RightMotionControllerAverageVelocity.Y, RightMotionControllerAverageVelocity.Z));
 
 	return RightMotionControllerAverageVelocity;
 }
