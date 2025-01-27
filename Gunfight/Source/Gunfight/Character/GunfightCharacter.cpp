@@ -288,7 +288,7 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 	if (bLeftController) LeftTriggerPressedUI();
 	else RightTriggerPressedUI();
 
-	if (bDisableGameplay || bMenuOpen) return;
+	if (bDisableGameplay) return;
 
 	if (Combat)
 	{

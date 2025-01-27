@@ -54,6 +54,8 @@ void UEOSSubsystem::FindSession(const FName& SessionName)
 {
 	if (SessionPtr)
 	{
+		FindSessionType = EFindSessionType::EFST_Private;
+
 		SessionSearch = MakeShareable(new FOnlineSessionSearch);
 		SessionSearch->bIsLanQuery = false;
 		SessionSearch->MaxSearchResults = 1;
@@ -67,6 +69,8 @@ void UEOSSubsystem::FindSessions(int32 MaxSearchResults)
 {
 	if (SessionPtr)
 	{
+		FindSessionType = EFindSessionType::EFST_Public;
+
 		SessionSearch = MakeShareable(new FOnlineSessionSearch);
 		SessionSearch->bIsLanQuery = false;
 		SessionSearch->MaxSearchResults = MaxSearchResults;
@@ -120,6 +124,32 @@ FString UEOSSubsystem::GetHostAddress()
 	}
 
 	return TravelURL;
+}
+
+FString UEOSSubsystem::GetMatchSessionID()
+{
+	return CurrentSessionName.ToString();
+}
+
+FString UEOSSubsystem::GetDestinationAPINameFromSessionID(FString CurrentSessionID)
+{
+	FString DestinationAPIName;
+
+	int32 Start;
+	int32 End;
+
+	CurrentSessionID.FindChar(FString::ElementType('_'), Start);
+	CurrentSessionID.FindLastChar(FString::ElementType('_'), End);
+
+	if (Start == INDEX_NONE || End == INDEX_NONE || Start == End) return FString();
+
+	Start += 1;
+	End += 1;
+
+	DestinationAPIName = CurrentSessionID.Mid(Start, End - Start - 1);
+	DestinationAPIName += FString("Public");
+
+	return DestinationAPIName;
 }
 
 void UEOSSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -212,28 +242,62 @@ void UEOSSubsystem::OnCreateSessionComplete(FName NewSessionName, bool bWasSucce
 void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	++BackgroundCounter;
-	if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
+	if (FindSessionType == EFindSessionType::EFST_Private)
 	{
-		int32 Index = 0;
-		for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
+		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
 		{
-			LogEntry(FString::Printf(TEXT("Found session with id: %s"), *Lobby.GetSessionIdStr()));
-
-			auto CompareInt = CurrentSessionName.Compare(FName(*Lobby.GetSessionIdStr()));
-			if (CompareInt != 0)
+			int32 Index = 0;
+			for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
 			{
-				SearchResult = SessionSearch->SearchResults[Index];
-				CurrentSessionName = FName(*SearchResult.GetSessionIdStr());
+				LogEntry(FString::Printf(TEXT("Found session with id: %s"), *Lobby.GetSessionIdStr()));
+
+				auto CompareInt = CurrentSessionName.Compare(FName(*Lobby.GetSessionIdStr()));
+				if (CompareInt != 0)
+				{
+					SearchResult = SessionSearch->SearchResults[Index];
+					CurrentSessionName = FName(*SearchResult.GetSessionIdStr());
+				}
+
+				++Index;
 			}
 
-			++Index;
+			OnRoomFound.Broadcast(true);
 		}
-
-		OnRoomFound.Broadcast(true);
+		else
+		{
+			LogError(FString::Printf(TEXT("Couldn't find any private sessions")));
+			OnRoomFound.Broadcast(false);
+		}
 	}
-	else
+	else if (FindSessionType == EFindSessionType::EFST_Public) // TODO, sort the search results by ping before we try joining
 	{
-		LogError(FString::Printf(TEXT("Couldn't find any sessions")));
+		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
+		{
+			int32 Index = 0;
+			for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
+			{
+				LogEntry(FString::Printf(TEXT("Found session with id: %s"), *Lobby.GetSessionIdStr()));
+
+				auto CompareInt = CurrentSessionName.Compare(FName(*Lobby.GetSessionIdStr()));
+				if (CompareInt != 0)
+				{
+					SearchResult = SessionSearch->SearchResults[Index];
+					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
+
+					//SearchResult.Session.NumOpenPublicConnections > 0;
+
+					if (FoundSessionName.GetStringLength() > 8 && !FoundSessionName.ToString().Contains(FString("Lobby")) && SearchResult.Session.NumOpenPublicConnections > 0)
+					{
+						CurrentSessionName = FName(*SearchResult.GetSessionIdStr());
+						OnRoomFound.Broadcast(true);
+						return;
+					}
+				}
+
+				++Index;
+			}
+		}
+		LogError(FString::Printf(TEXT("Couldn't find any public sessions")));
 		OnRoomFound.Broadcast(false);
 	}
 }

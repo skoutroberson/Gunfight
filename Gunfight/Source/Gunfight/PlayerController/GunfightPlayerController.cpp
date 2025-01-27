@@ -496,6 +496,12 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 	{
 		HandleGunfightCooldownStarted();
 	}
+
+	AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
+	if (GChar && GChar->IsLocallyControlled())
+	{
+		GChar->DebugLogMessage(FString::Printf(TEXT("Gunfight Match State: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
+	}
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()

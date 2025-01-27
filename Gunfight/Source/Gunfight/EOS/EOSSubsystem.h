@@ -24,6 +24,15 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FEOSOnPlayerLeft, FString, playerNet
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FEOSOnCreateRoom, bool, bWasSuccessful, bool, isMasterClient);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FEOSOnJoinRoom, bool, bWasSuccessful, FString, hostAddress);
 
+UENUM(BlueprintType)
+enum class EFindSessionType : uint8
+{
+	EFST_Private			UMETA(DisplayName = "Private"),
+	EFST_Public				UMETA(DisplayName = "Public"),
+
+	EFST_MAX				UMETA(DisplayName = "DefaultMAX")
+};
+
 /**
  * 
  */
@@ -63,6 +72,20 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "EOS|General")
 	FEOSOnAppEntersForeground OnAppEntersForeground;
+
+	/**
+	* Set in FindSession() and FindSessions(), reset to private in OnRoomFound() in BP_SharedSpacesGameInstance.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	EFindSessionType FindSessionType = EFindSessionType::EFST_Private;
+
+	// called in OnRoomFound in BP_SharedSpacesGameInstance to set the group presence match session id.
+	UFUNCTION(BlueprintCallable)
+	FString GetMatchSessionID();
+
+	// Used for getting the Destination API name from a PUBLIC session ID.
+	UFUNCTION(BlueprintCallable)
+	FString GetDestinationAPINameFromSessionID(FString CurrentSessionID);
 
 protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
