@@ -79,7 +79,9 @@ void AGunfightGameMode::TickGunfightMatchState(float DeltaTime)
 		CountdownTime = GunfightCooldownTime + GunfightMatchTime + GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
-			SetMatchState(MatchState::Cooldown);
+			RestartGame();
+			//SetMatchState(MatchState::Cooldown);
+			// RestartGunfightMatch();
 		}
 	}
 }
@@ -111,6 +113,28 @@ void AGunfightGameMode::StartGunfightMatch()
 {
 	// spawn all players at random spawn points, allow combat
 
+	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
+	if (GunfightGameState)
+	{
+		GunfightGameState->TopScoringPlayers.Empty();
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			AGunfightCharacter* GunfightPlayerCharacter = Cast<AGunfightCharacter>(GunfightPlayer->GetPawn());
+			AGunfightPlayerState* GunfightPlayerState = Cast<AGunfightPlayerState>(GunfightPlayer->PlayerState);
+			if (GunfightPlayerState && GunfightPlayerCharacter)
+			{
+				GunfightPlayerState->SetDefeats(0);
+				GunfightPlayerState->SetScore(0.f);
+				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer);
+			}
+		}
+	}
+
 	SetGunfightMatchState(EGunfightMatchState::EGMS_MatchInProgress);
 }
 
@@ -119,6 +143,11 @@ void AGunfightGameMode::EndGunfightMatch()
 	// show scoreboard and play announcement for Win/Loss
 
 	SetGunfightMatchState(EGunfightMatchState::EGMS_MatchCooldown);
+}
+
+void AGunfightGameMode::RestartGunfightMatch()
+{
+	SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
 }
 
 void AGunfightGameMode::SetGunfightMatchState(EGunfightMatchState NewState)
@@ -272,12 +301,16 @@ void AGunfightGameMode::PostLogin(APlayerController* NewPlayer)
 	AGunfightPlayerState* NewPlayerState = NewPlayer->GetPlayerState<AGunfightPlayerState>();
 	AGunfightPlayerController* GunfightPlayerController = Cast<AGunfightPlayerController>(NewPlayer);
 
-	if (GunfightGameState && NewPlayerState && GunfightPlayerController)
+	if (GunfightGameState && NewPlayerState)
 	{
 		GunfightGameState->SortedPlayers.AddUnique(NewPlayerState);
 		GunfightGameState->OnRep_SortedPlayers();
-
+	}
+	if (GunfightPlayerController)
+	{
 		// call client RPC on GunfightPlayerController to setup the HUD
+		GunfightPlayerController->SetGunfightMatchState(GunfightMatchState);
+		//GunfightPlayerController->ClientPostLoginSetMatchState(GunfightMatchState);
 	}
 }
 

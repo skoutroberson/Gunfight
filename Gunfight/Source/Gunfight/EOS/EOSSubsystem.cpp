@@ -273,6 +273,31 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 	{
 		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
 		{
+			ConstructSortedSessions(SessionSearch->SearchResults);
+
+			int32 Index = 0;
+			for (const FOnlineSessionSearchResult* Lobby : SortedSessions)
+			{
+				auto CompareInt = CurrentSessionName.Compare(FName(*Lobby->GetSessionIdStr()));
+				if (CompareInt != 0)
+				{
+					SearchResult = *SortedSessions[Index];
+					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
+
+					if (FoundSessionName.GetStringLength() > 8 && !FoundSessionName.ToString().Contains(FString("Lobby")) && SearchResult.Session.NumOpenPublicConnections > 0)
+					{
+						LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
+						CurrentSessionName = FName(*SearchResult.GetSessionIdStr());
+						OnRoomFound.Broadcast(true);
+						SortedSessions.Empty();
+						return;
+					}
+				}
+
+				++Index;
+			}
+
+			/*
 			int32 Index = 0;
 			for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
 			{
@@ -296,9 +321,51 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 
 				++Index;
 			}
+			*/
 		}
 		LogError(FString::Printf(TEXT("Couldn't find any public sessions")));
 		OnRoomFound.Broadcast(false);
+	}
+}
+
+void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchResult>& Sessions)
+{
+	if (Sessions.IsEmpty()) return;
+
+	SortedSessions.Empty();
+
+	SortedSessions.Add(&Sessions[0]);
+
+	int Min = 0, Max = 1;
+
+	for (int i = 1; i < Sessions.Num(); i++)
+	{
+		const FOnlineSessionSearchResult& Session = Sessions[i];
+		bool bPlaced = false;
+
+		while (!bPlaced)
+		{
+			int Mid = (Min + Max) >> 1;
+			const FOnlineSessionSearchResult* MidSession = SortedSessions[Mid];
+			bool bLessThan = Session.PingInMs < MidSession->PingInMs;
+
+			if (Min == Mid || Max == Mid)
+			{
+				bPlaced = true;
+				if (bLessThan)
+				{
+					SortedSessions.Insert(&Session, i);
+				}
+				else
+				{
+					if (i < Sessions.Num() - 1) SortedSessions.Insert(&Session, i + 1);
+					else SortedSessions.Add(&Session);
+				}
+			}
+
+			if (bLessThan) Max = Mid;
+			else Min = Mid;
+		}
 	}
 }
 

@@ -40,8 +40,8 @@ const static TMap<FName, EHitbox> HitboxTypes =
 	{FName("foot_r"), EHitbox::EH_Legs }
 };
 
-#define LEG_DAMAGE_MULTIPLIER 0.85f
-#define BODY_DAMAGE_MULTIPLIER 1.25f
+#define LEG_DAMAGE_MULTIPLIER 0.62f	// 7 leg shots kills
+#define BODY_DAMAGE_MULTIPLIER 1.1f	// 4 body shots kills, 3 body shots and 2 leg shots kills
 #define HEAD_DAMAGE_MULTIPLIER 5.f
 
 struct FHitbox

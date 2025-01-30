@@ -44,5 +44,5 @@ private:
 
 public:
 	FORCEINLINE int32 GetDefeats() const { return Defeats; }
-	
+	FORCEINLINE void SetDefeats(int32 NewDefeats) { Defeats = NewDefeats; }
 };

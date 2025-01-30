@@ -66,6 +66,8 @@ protected:
 	void StartGunfightWarmup();
 	void StartGunfightMatch();
 	void EndGunfightMatch();
+	void RestartGunfightMatch();
+
 	void SetGunfightMatchState(EGunfightMatchState NewState);
 	void OnGunfightMatchStateSet();
 	

@@ -284,13 +284,13 @@ void AWeapon::DropMag()
 				{
 					if (CharacterOwner->GetCombat()->GetEquippedWeapon(true))
 					{
-						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 75.f);
-						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity);
+						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 60.f);
+						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 5.f);
 					}
 					else if (CharacterOwner->GetCombat()->GetEquippedWeapon(false))
 					{
-						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 75.f);
-						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 50.f);
+						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 60.f);
+						EmptyMag->GetMagazineMesh()->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 5.f);
 					}
 					EmptyMag->GetMagazineMesh()->AddImpulse(FVector(ImpulseDir * MagDropImpulse));
 				}
@@ -376,13 +376,13 @@ void AWeapon::OnDropped()
 	// apply hand controller velocities on drop
 	if (WeaponSide == ESide::ES_Left)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 75.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 10.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 60.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 5.f);
 	}
 	else if (WeaponSide == ESide::ES_Right)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 75.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 10.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 60.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 5.f);
 	}
 	else
 	{
@@ -426,7 +426,7 @@ void AWeapon::ShouldAttachToHolster()
 		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
 		{
 			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
-			if (DistSquared > 160000.f) // 13ft
+			if (DistSquared > 45522.f) // 7ft
 			{
 				Combat->MulticastAttachToHolster();
 			}

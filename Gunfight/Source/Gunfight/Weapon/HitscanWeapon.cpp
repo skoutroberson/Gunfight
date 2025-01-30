@@ -10,6 +10,7 @@
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Gunfight/GunfightComponents/LagCompensationComponent.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "Sound/SoundCue.h"
 
 void AHitscanWeapon::Fire(const FVector& HitTarget)
 {
@@ -27,6 +28,9 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 
 		FHitResult FireHit;
 		WeaponTraceHit(Start, HitTarget, FireHit);
+
+		DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Magenta, true);
+		DrawDebugSphere(GetWorld(), HitTarget, 3.f, 20, FColor::Green, true);
 
 		AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(FireHit.GetActor());
 		if (GunfightCharacter && InstigatorController)
@@ -65,6 +69,26 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 						this
 					);
 				}
+			}
+		}
+		if (!GunfightCharacter) // for client-side blood prediction, spawn blood if we hit a player client-side (if GunfightCharacter is not null here).
+		{
+			if (ImpactParticles)
+			{
+				UGameplayStatics::SpawnEmitterAtLocation(
+					GetWorld(),
+					ImpactParticles,
+					FireHit.ImpactPoint + FireHit.ImpactNormal,
+					FireHit.ImpactNormal.Rotation()
+				);
+			}
+			if (HitSound)
+			{
+				UGameplayStatics::PlaySoundAtLocation(
+					this,
+					HitSound,
+					FireHit.ImpactPoint
+				);
 			}
 		}
 

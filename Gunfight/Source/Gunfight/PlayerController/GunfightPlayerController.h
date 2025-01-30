@@ -27,6 +27,7 @@ public:
 	void SetHUDMatchCountdown(float CountdownTime);
 	void SetHUDAnnouncementCountdown(float CountdownTime);
 	void SetHUDScoreboard();
+	void SetHUDPing();
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -52,6 +53,10 @@ public:
 	void SetScoreboardVisibility(bool bVisible);
 
 	void SetGunfightMatchState(EGunfightMatchState NewState);
+
+	UFUNCTION(Client, Reliable)
+	void ClientPostLoginSetMatchState(EGunfightMatchState NewState);
+	void ClientPostLoginSetMatchState_Implementation(EGunfightMatchState NewState);
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -96,7 +101,7 @@ protected:
 	void ShowReturnToMainMenu();
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)
-	EGunfightMatchState GunfightMatchState;
+	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Warmup;
 
 	UFUNCTION()
 	void OnRep_GunfightMatchState();

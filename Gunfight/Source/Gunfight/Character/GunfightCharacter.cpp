@@ -565,6 +565,11 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 
 	if (DefaultWeapon && Combat)
 	{
+		Combat->DropWeapon(true);
+		Combat->DropWeapon(false);
+		Combat->DropMagazine(true);
+		Combat->DropMagazine(false);
+
 		DefaultWeapon->GetWeaponMesh()->SetEnableGravity(false);
 		DefaultWeapon->GetWeaponMesh()->SetSimulatePhysics(false);
 

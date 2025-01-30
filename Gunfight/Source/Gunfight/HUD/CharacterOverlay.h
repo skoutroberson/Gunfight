@@ -182,6 +182,9 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* Player9DeathsText;
 
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* PingText;
+
 private:
 	void InitializeScoreboardInfo();
 };

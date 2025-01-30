@@ -94,13 +94,14 @@ void AGunfightPlayerController::PollInit()
 	{
 		bPlayerStateInitialized = true;
 		UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
+		//GetPlayerState<AGunfightPlayerState>()->
 	}
 }
 
 void AGunfightPlayerController::InitializeHUD()
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
-	if (GunfightCharacter && GunfightHUD)
+	if (GunfightCharacter && GunfightHUD && GunfightCharacter->CharacterOverlayWidget)
 	{
 		CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
 		if (CharacterOverlay && GunfightCharacter->VRStereoLayer)
@@ -108,6 +109,9 @@ void AGunfightPlayerController::InitializeHUD()
 			GunfightHUD->CharacterOverlay = CharacterOverlay;
 			GunfightHUD->StereoLayer = GunfightCharacter->VRStereoLayer;
 			StereoLayer = GunfightCharacter->VRStereoLayer;
+
+			OnRep_GunfightMatchState();
+			
 			//SetHUDScoreboardScores(0, 9); // hardcoded 10 players
 		}
 	}
@@ -168,6 +172,15 @@ void AGunfightPlayerController::SetGunfightMatchState(EGunfightMatchState NewSta
 		// Call the onrep to make sure the callbacks happen
 		OnRep_GunfightMatchState();
 	}
+}
+
+void AGunfightPlayerController::ClientPostLoginSetMatchState_Implementation(EGunfightMatchState NewState)
+{
+	GunfightMatchState = NewState;
+
+	OnRep_GunfightMatchState();
+
+	// need to update the HUD correctly once the HUD widget is created.
 }
 
 void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 EndIndex)
@@ -256,7 +269,7 @@ void AGunfightPlayerController::CheckPing(float DeltaTime)
 		PlayerState = PlayerState == nullptr ? TObjectPtr<APlayerState>(GetPlayerState<APlayerState>()) : PlayerState;
 		if (PlayerState)
 		{
-			if (PlayerState->GetPingInMilliseconds() > HighPingThreshold)
+			if (PlayerState->GetCompressedPing() * 4 > HighPingThreshold)
 			{
 				HighPingWarning();
 				PingAnimationRunningTime = 0.f;
@@ -290,6 +303,9 @@ void AGunfightPlayerController::CheckTimeSync(float DeltaTime)
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
 		TimeSyncRunningTime = 0.f;
+
+		// update ping for UI
+		SetHUDPing();
 	}
 }
 
@@ -354,6 +370,8 @@ void AGunfightPlayerController::HandleMatchHasStarted()
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
+
+	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
 
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightHUD == nullptr) return;
@@ -429,7 +447,7 @@ void AGunfightPlayerController::HandleCooldown()
 void AGunfightPlayerController::HandleCooldown2()
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
-	if (GunfightCharacter == nullptr) return;
+	if (GunfightCharacter == nullptr || GunfightCharacter->CharacterOverlayWidget == nullptr) return;
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
 	if (CharacterOverlay == nullptr) return;
 
@@ -496,18 +514,12 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 	{
 		HandleGunfightCooldownStarted();
 	}
-
-	AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
-	if (GChar && GChar->IsLocallyControlled())
-	{
-		GChar->DebugLogMessage(FString::Printf(TEXT("Gunfight Match State: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
-	}
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
-	if (GunfightCharacter == nullptr) return;
+	if (GunfightCharacter == nullptr || GunfightCharacter->CharacterOverlayWidget == nullptr) return;
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
 	if (CharacterOverlay == nullptr) return;
 
@@ -704,6 +716,27 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 		FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 		CharacterOverlay->WarmupTime->SetText(FText::FromString(CountdownText));
 		StereoLayer->MarkTextureForUpdate();
+	}
+}
+
+void AGunfightPlayerController::SetHUDPing()
+{
+	// could call a server RPC to update ping for all players and show it on scoreboard...
+
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	bool bHUDValid = GunfightHUD &&
+		GunfightHUD->CharacterOverlay &&
+		GunfightHUD->CharacterOverlay->PingText &&
+		StereoLayer;
+
+	AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
+
+	if (bHUDValid && GunfightPlayerState)
+	{
+		//int32 Ping = (int)SingleTripTime * 2;
+		int32 Ping = GunfightPlayerState->GetCompressedPing() * 4;
+		FString PingText = FString::Printf(TEXT("%dms"), Ping);
+		GunfightHUD->CharacterOverlay->PingText->SetText(FText::FromString(PingText));
 	}
 }
 

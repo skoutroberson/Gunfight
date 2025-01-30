@@ -130,6 +130,11 @@ private:
 	FOnlineSessionSearchResult SearchResult;
 	FName CurrentSessionName;
 
+	TArray<const FOnlineSessionSearchResult*> SortedSessions;
+
+	// Fills SortedSessions using binary search with SessionSearch->SearchResults sorted by ping.
+	void ConstructSortedSessions(const TArray<FOnlineSessionSearchResult>& Sessions);
+
 	bool bIsMasterClient;
 	bool bEnterForegroundFirstTime;
 	int32 BackgroundCounter;
