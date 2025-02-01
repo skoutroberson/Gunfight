@@ -23,6 +23,12 @@
 #include "Components/Widget.h"
 #include "Components/StereoLayerComponent.h"
 
+AGunfightPlayerController::AGunfightPlayerController()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	bReplicates = true;
+}
+
 void AGunfightPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -413,11 +419,11 @@ void AGunfightPlayerController::HandleCooldown()
 				FString InfoTextString;
 				if (TopPlayers.Num() == 0)
 				{
-					InfoTextString = FString("There is no winner.");
+					InfoTextString = FString("Match Draw.");
 				}
 				else if (TopPlayers.Num() == 1 && TopPlayers[0] == GunfightPlayerState)
 				{
-					InfoTextString = FString("You are the winner!");
+					InfoTextString = FString("You Are The Winner!");
 				}
 				else if (TopPlayers.Num() == 1)
 				{
@@ -425,7 +431,7 @@ void AGunfightPlayerController::HandleCooldown()
 				}
 				else if (TopPlayers.Num() > 1)
 				{
-					InfoTextString = FString("Players tied for the win:\n");
+					InfoTextString = FString("Players Tied For The Win:\n");
 					for (auto TiedPlayer : TopPlayers)
 					{
 						InfoTextString.Append(FString::Printf(TEXT("%s\n"), *TiedPlayer->GetPlayerNameCustom()));
@@ -465,7 +471,7 @@ void AGunfightPlayerController::HandleCooldown2()
 		CharacterOverlay->InfoText->SetRenderOpacity(1.f);
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
 
-		FString AnnouncementText("New Match Starts In:");
+		FString AnnouncementText("Restarting match in:");
 		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 
 		GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
@@ -502,6 +508,11 @@ void AGunfightPlayerController::HandleCooldown2()
 
 void AGunfightPlayerController::OnRep_GunfightMatchState()
 {
+	if (!HasAuthority() && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString::Printf(TEXT("OnRep GunfightMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
+	}
+
 	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
 	{
 		HandleGunfightWarmupStarted();
@@ -523,6 +534,18 @@ void AGunfightPlayerController::HandleGunfightWarmupStarted()
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
 	if (CharacterOverlay == nullptr) return;
 
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+
+	if (!HasAuthority() && World->TimeSeconds > 30) 
+	{
+		ServerCheckMatchState();
+	}
+	else if (HasAuthority() && World->TimeSeconds > 30)
+	{
+		LevelStartingTime = World->TimeSeconds;
+	}
+
 	// TODO Hide all components like healthbar, ammo, health, timer
 
 	bool bHUDValid = CharacterOverlay->AnnouncementText &&
@@ -535,8 +558,9 @@ void AGunfightPlayerController::HandleGunfightWarmupStarted()
 		CharacterOverlay->AnnouncementText->SetRenderOpacity(1.f);
 		CharacterOverlay->WarmupTime->SetRenderOpacity(1.f);
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
+		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
 
-		FString AnnouncementText("Match starts in:");
+		FString AnnouncementText("Match begins in:");
 		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 	}
 }
@@ -777,13 +801,33 @@ void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchS
 	CooldownTime = Cooldown;
 	LevelStartingTime = StartingTime;
 	SetGunfightMatchState(StateOfMatch);
-
 	/*
 	if (GunfightHUD && MatchState == MatchState::WaitingToStart)
 	{
 		GunfightHUD->AddAnnouncement();
 	}
 	*/
+}
+
+void AGunfightPlayerController::ClientRestartGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)
+{
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	World->TimeSeconds = 0.f;
+
+	WarmupTime = WaitingToStart;
+	MatchTime = Match;
+	CooldownTime = Cooldown;
+	LevelStartingTime = StartingTime;
+
+	GunfightMatchState = StateOfMatch;
+	OnRep_GunfightMatchState();
+}
+
+void AGunfightPlayerController::ClientUpdateMatchState_Implementation(EGunfightMatchState StateOfMatch)
+{
+	GunfightMatchState = StateOfMatch;
+	OnRep_GunfightMatchState();
 }
 
 void AGunfightPlayerController::HighPingWarning()

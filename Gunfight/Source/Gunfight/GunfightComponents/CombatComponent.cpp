@@ -375,7 +375,7 @@ void UCombatComponent::HandleReload()
 
 void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
 {
-	if (Character == nullptr || Character->GetMesh() == nullptr) return;
+	if (Character == nullptr || Character->GetMesh() == nullptr || WeaponToAttach == nullptr || WeaponToAttach->GetWeaponMesh() == nullptr) return;
 	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
 	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
 	if (HolsterSocket)
@@ -385,6 +385,7 @@ void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
 		WeaponToAttach->SetActorRelativeRotation(FRotator::ZeroRotator);
 		WeaponToAttach->GetWeaponMesh()->SetSimulatePhysics(false);
 		WeaponToAttach->GetWeaponMesh()->SetEnableGravity(false);
+		WeaponToAttach->GetWeaponMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	}
 }
 
@@ -394,8 +395,12 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
 	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
 	AWeapon* Weapon = Character->GetDefaultWeapon();
+
+	if (Weapon->GetWeaponMesh() == nullptr) return;
+
 	Weapon->GetWeaponMesh()->SetEnableGravity(false);
 	Weapon->GetWeaponMesh()->SetSimulatePhysics(false);
+	Weapon->GetWeaponMesh()->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	Weapon->AttachToComponent(Character->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 	Weapon->SetActorRelativeLocation(FVector::ZeroVector);
 	Weapon->SetActorRelativeRotation(FRotator::ZeroRotator);

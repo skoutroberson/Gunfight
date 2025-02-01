@@ -79,9 +79,7 @@ void AGunfightGameMode::TickGunfightMatchState(float DeltaTime)
 		CountdownTime = GunfightCooldownTime + GunfightMatchTime + GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
-			RestartGame();
-			//SetMatchState(MatchState::Cooldown);
-			// RestartGunfightMatch();
+			RestartGunfightMatch();
 		}
 	}
 }
@@ -131,6 +129,7 @@ void AGunfightGameMode::StartGunfightMatch()
 				GunfightPlayerState->SetDefeats(0);
 				GunfightPlayerState->SetScore(0.f);
 				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer);
+				//GunfightPlayer->ClientUpdateMatchState(EGunfightMatchState::EGMS_MatchInProgress);
 			}
 		}
 	}
@@ -147,7 +146,27 @@ void AGunfightGameMode::EndGunfightMatch()
 
 void AGunfightGameMode::RestartGunfightMatch()
 {
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->GetTimeSeconds();
+
 	SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			//GunfightPlayer->ClientRestartGame(EGunfightMatchState::EGMS_Warmup, GunfightWarmupTime, GunfightMatchTime, GunfightCooldownTime, 0.f);
+
+			AGunfightPlayerState* GunfightPlayerState = GunfightPlayer->GetPlayerState<AGunfightPlayerState>();
+			if (GunfightPlayerState)
+			{
+				GunfightPlayerState->SetScore(0.f);
+				GunfightPlayerState->SetDefeats(0);
+			}
+		}
+	}
 }
 
 void AGunfightGameMode::SetGunfightMatchState(EGunfightMatchState NewState)

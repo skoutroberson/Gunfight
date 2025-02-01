@@ -132,7 +132,7 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
 
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Overlap: %d"), GunfightCharacter->GetOverlappingWeapon()));
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Overlap: %d"), GunfightCharacter->GetOverlappingWeapon()));
 	}
 }
 
@@ -152,7 +152,7 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 		}
 		//GunfightCharacter->SetOverlappingWeapon(nullptr);
 
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("End Overlap: %d"), CharacterOwner->GetOverlappingWeapon()));
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("End Overlap: %d"), CharacterOwner->GetOverlappingWeapon()));
 	}
 }
 
@@ -356,13 +356,13 @@ void AWeapon::OnDropped()
 {
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	WeaponMesh->SetSimulatePhysics(true);
-	WeaponMesh->SetEnableGravity(true);
 	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	//WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetSimulatePhysics(true);
+	WeaponMesh->SetEnableGravity(true);
 	
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
 	if (CharacterOwner == nullptr) return;
@@ -467,7 +467,7 @@ bool AWeapon::IsOverlappingHand(bool bLeftHand)
 	USphereComponent* HandSphere = bLeftHand ? GunfightCharacter->GetLeftHandSphere() : GunfightCharacter->GetRightHandSphere();
 	if (HandSphere == nullptr) return false;
 	const float Distance = FVector::DistSquared(HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation());
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IsOverlappingDist: %f"), FMath::Sqrt(Distance)));
+	//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IsOverlappingDist: %f"), FMath::Sqrt(Distance)));
 
 	DrawDebugLine(GetWorld(), HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation(), FColor::Cyan, true);
 	DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), HandSphere->GetComponentLocation(), FColor::Red, true);

@@ -19,6 +19,7 @@ class GUNFIGHT_API AGunfightPlayerController : public AVRPlayerController
 	GENERATED_BODY()
 	
 public:
+	AGunfightPlayerController();
 	void SetHUDHealth(float Health, float MaxHealth);
 	void SetHUDScore(float Score);
 	void SetHUDDefeats(int32 Defeats);
@@ -57,6 +58,22 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientPostLoginSetMatchState(EGunfightMatchState NewState);
 	void ClientPostLoginSetMatchState_Implementation(EGunfightMatchState NewState);
+
+	UFUNCTION(Client, Reliable)
+	void ClientJoinMidGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
+	void ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
+
+	UFUNCTION(Client, Reliable)
+	void ClientRestartGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
+	void ClientRestartGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
+
+	// gunfight match state is not getting replicated after the first match for some reason so I'm using this client RPC to correctly replicate match state... wtf
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateMatchState(EGunfightMatchState StateOfMatch);
+	void ClientUpdateMatchState_Implementation(EGunfightMatchState StateOfMatch);
+
+	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere)
+	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Warmup;
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -90,18 +107,11 @@ protected:
 	void ServerCheckMatchState();
 	void ServerCheckMatchState_Implementation();
 
-	UFUNCTION(Client, Reliable)
-	void ClientJoinMidGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
-	void ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
-
 	void HighPingWarning();
 	void StopHighPingWarning();
 	void CheckPing(float DeltaTime);
 
 	void ShowReturnToMainMenu();
-
-	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)
-	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Warmup;
 
 	UFUNCTION()
 	void OnRep_GunfightMatchState();

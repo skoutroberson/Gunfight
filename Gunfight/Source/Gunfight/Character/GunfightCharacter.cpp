@@ -562,6 +562,17 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 	*/
 
 	SetActorLocationAndRotationVR(SpawnLocation, SpawnRotation, true, true, true);
+	
+	if (GetCapsuleComponent())
+	{
+		GetCapsuleComponent()->SetPhysicsLinearVelocity(FVector::ZeroVector);
+		GetCapsuleComponent()->SetPhysicsAngularVelocityInRadians(FVector::ZeroVector);
+	}
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	}
 
 	if (DefaultWeapon && Combat)
 	{
@@ -854,9 +865,6 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 
 	if (bTraceHit)
 	{
-		//Debug.Log
-		//DebugLogMessage(FString::Printf(TEXT("%d Trace hit"), bLeft));
-
 		return HitResult.ImpactPoint;
 	}
 
