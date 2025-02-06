@@ -45,6 +45,56 @@ void AGunfightPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(AGunfightPlayerController, GunfightMatchState);
 }
 
+void AGunfightPlayerController::HostMatchGo(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName)
+{
+	if (GetWorld() == nullptr) return;
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer && !GunfightPlayer->IsLocalController())
+		{
+			GunfightPlayer->ClientGiveHostMatchDetails(HostMatchId, HostLobbyId, HostDestinationApiName, HostLevelName);
+		}
+	}
+}
+
+void AGunfightPlayerController::ClientGiveHostMatchDetails_Implementation(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName)
+{
+	UpdateGameInstanceMatchDetails(HostMatchId, HostLobbyId, HostDestinationApiName, HostLevelName);
+	ServerReceivedHostMatchDetails();
+
+	AGunfightCharacter* GC = Cast<AGunfightCharacter>(GetPawn());
+	if(GC)
+	{
+		GC->DebugLogMessage(FString("Client Give Host Match Details."));
+	}
+}
+
+void AGunfightPlayerController::ServerReceivedHostMatchDetails_Implementation()
+{
+	++ClientsReceivedMatchDetails;
+
+	AGunfightCharacter* GC = Cast<AGunfightCharacter>(GetPawn());
+	if (GC)
+	{
+		GC->DebugLogMessage(FString("Server Receive Host Match Details."));
+	}
+
+	int32 PlayersInGame = 0;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		++PlayersInGame;
+	}
+	
+	if (ClientsReceivedMatchDetails >= PlayersInGame - 1)
+	{
+		AllClientsReady();
+		ClientsReceivedMatchDetails = 0;
+	}
+	
+}
+
 void AGunfightPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -342,6 +392,17 @@ void AGunfightPlayerController::ReceivedPlayer()
 	{
 		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
 	}
+}
+
+void AGunfightPlayerController::PawnLeavingGame()
+{
+	AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
+	if (GChar)
+	{
+		GChar->DestroyDefaultWeapon();
+	}
+
+	Super::PawnLeavingGame();
 }
 
 void AGunfightPlayerController::OnMatchStateSet(FName State)

@@ -15,6 +15,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "GripMotionControllerComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 AWeapon::AWeapon()
 {
@@ -101,6 +103,22 @@ void AWeapon::AddAmmo(int32 AmmoToAdd)
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	SetHUDAmmo();
 	ClientAddAmmo(AmmoToAdd);
+}
+
+void AWeapon::PlayReloadSound()
+{
+	if (ReloadSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ReloadSound, GetActorLocation());
+	}
+}
+
+void AWeapon::PlayHolsterSound()
+{
+	if (HolsterSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, HolsterSound, GetActorLocation());
+	}
 }
 
 void AWeapon::BeginPlay()
@@ -342,7 +360,44 @@ void AWeapon::OnEquipped()
 		{
 			GunfightOwnerController->HighPingDelegate.AddDynamic(this, &AWeapon::OnPingTooHigh);
 		}
+
+		if (CharacterOwner->IsLocallyControlled())
+		{
+			if (EquipSound)
+			{
+				UGameplayStatics::PlaySoundAtLocation(this, EquipSound, GetActorLocation());
+			}
+		}
 	}
+}
+
+void AWeapon::MulticastDropWeapon_Implementation(FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity)
+{
+	if (WeaponMesh == nullptr || AreaSphere == nullptr) return;
+
+	WeaponState = EWeaponState::EWS_Dropped;
+	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+	WeaponMesh->DetachFromComponent(DetachRules);
+
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetSimulatePhysics(true);
+	WeaponMesh->SetEnableGravity(true);
+
+	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
+	if (CharacterOwner == nullptr) return;
+
+	GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
+	if (GunfightOwnerController && HasAuthority() && GunfightOwnerController->HighPingDelegate.IsBound())
+	{
+		GunfightOwnerController->HighPingDelegate.RemoveDynamic(this, &AWeapon::OnPingTooHigh);
+	}
+
+	SetActorLocationAndRotation(StartLocation, StartRotation);
+	WeaponMesh->SetPhysicsLinearVelocity(LinearVelocity);
+	WeaponMesh->SetPhysicsAngularVelocityInRadians(AngularVelocity);
 }
 
 void AWeapon::Dropped(bool bLeftHand)
@@ -426,7 +481,7 @@ void AWeapon::ShouldAttachToHolster()
 		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
 		{
 			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
-			if (DistSquared > 45522.f) // 7ft
+			if (DistSquared > 23104.f) // 100ft
 			{
 				Combat->MulticastAttachToHolster();
 			}
@@ -469,11 +524,11 @@ bool AWeapon::IsOverlappingHand(bool bLeftHand)
 	const float Distance = FVector::DistSquared(HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation());
 	//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IsOverlappingDist: %f"), FMath::Sqrt(Distance)));
 
-	DrawDebugLine(GetWorld(), HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation(), FColor::Cyan, true);
-	DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), HandSphere->GetComponentLocation(), FColor::Red, true);
-	DrawDebugSphere(GetWorld(), HandSphere->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::White, true);
-	DrawDebugSphere(GetWorld(), AreaSphere->GetComponentLocation(), AreaSphere->GetScaledSphereRadius(), 12.f, FColor::Orange, true);
-	DrawDebugSphere(GetWorld(), GunfightCharacter->RightMotionController->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::Black, true);
+	//DrawDebugLine(GetWorld(), HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation(), FColor::Cyan, true);
+	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), HandSphere->GetComponentLocation(), FColor::Red, true);
+	//DrawDebugSphere(GetWorld(), HandSphere->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::White, true);
+	//DrawDebugSphere(GetWorld(), AreaSphere->GetComponentLocation(), AreaSphere->GetScaledSphereRadius(), 12.f, FColor::Orange, true);
+	//DrawDebugSphere(GetWorld(), GunfightCharacter->RightMotionController->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::Black, true);
 
 
 	if (Distance <= FMath::Square(HandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))

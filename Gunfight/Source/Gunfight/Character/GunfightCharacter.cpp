@@ -105,6 +105,14 @@ void AGunfightCharacter::PostInitializeComponents()
 	}
 }
 
+void AGunfightCharacter::DestroyDefaultWeapon()
+{
+	if (DefaultWeapon) 
+		DefaultWeapon->Destroy();
+	if (DefaultMagazine) 
+		DefaultMagazine->Destroy();
+}
+
 void AGunfightCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -265,6 +273,30 @@ void AGunfightCharacter::GripReleased(bool bLeftController)
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
 		if (CurrentWeapon)
 		{
+			/*
+			FVector LinearVelocity;
+			FVector AngularVelocity;
+
+			if (bLeftController)
+			{
+				LinearVelocity = LeftMotionControllerAverageVelocity * 60.f;
+				AngularVelocity = LeftMotionControllerAverageAngularVelocity * 5.f;
+			}
+			else
+			{
+				LinearVelocity = RightMotionControllerAverageVelocity * 60.f;
+				LinearVelocity = RightMotionControllerAverageAngularVelocity * 5.f;
+			}
+
+			Combat->ServerDropWeapon(
+				bLeftController,
+				CurrentWeapon->GetActorLocation(),
+				CurrentWeapon->GetActorRotation(),
+				LeftMotionControllerAverageVelocity,
+				LeftMotionControllerAverageAngularVelocity
+			);
+			*/
+			
 			if (HasAuthority())
 			{
 				Combat->DropWeapon(bLeftController);
@@ -514,6 +546,16 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 	bDisableGameplay = true;
 	Ragdoll();
 
+	/*
+	//if killed while reloading
+	if (DefaultMagazine && DefaultWeapon && Combat)
+	{
+		DefaultMagazine->Destroy();
+		DefaultWeapon->UnhideMag();
+		Combat->Reload();
+	}
+	*/
+
 	//PlayElimMontage()
 
 	/*
@@ -546,9 +588,7 @@ void AGunfightCharacter::MulticastRespawn_Implementation(FVector_NetQuantize Spa
 
 void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation)
 {
-	bElimmed = false;
 	bDisableGameplay = false;
-
 	UnRagdoll();
 
 	Health = 100.f;
@@ -574,7 +614,7 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 	}
 
-	if (DefaultWeapon && Combat)
+	if (Combat && DefaultWeapon && DefaultWeapon->GetWeaponMesh())
 	{
 		Combat->DropWeapon(true);
 		Combat->DropWeapon(false);
@@ -592,8 +632,16 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 
 		//Combat->AttachWeaponToHolster(DefaultWeapon);
 
+		if (DefaultMagazine)
+		{
+			DefaultMagazine->Destroy();
+			DefaultWeapon->UnhideMag();
+		}
+
 		DefaultWeapon->SetAmmo(DefaultWeapon->GetMagCapacity());
 		DefaultWeapon->SetCarriedAmmo(100);
+		Combat->HandleReload();
+
 		if (GunfightPlayerController)
 		{
 			GunfightPlayerController->SetHUDWeaponAmmo(DefaultWeapon->GetMagCapacity());
@@ -601,6 +649,7 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 			GunfightPlayerController->SetHUDHealth(MaxHealth, MaxHealth);
 		}
 	}
+	bElimmed = false;
 }
 
 void AGunfightCharacter::ElimTimerFinished()

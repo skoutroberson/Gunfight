@@ -46,6 +46,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
+	/*
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("WTE: %d"), WeaponToEquip));
@@ -56,6 +57,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 		bool bIsOverlappingHand = Character->GetDefaultWeapon()->IsOverlappingHand(bLeftController);
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("IsOverlappingHand: %d"), bIsOverlappingHand));
 	}
+	*/
 
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
@@ -338,6 +340,20 @@ void UCombatComponent::DropWeapon(bool bLeftHand)
 	}
 }
 
+void UCombatComponent::ServerDropWeapon_Implementation(bool bLeft, FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity)
+{
+	if (bLeft && LeftEquippedWeapon)
+	{
+		LeftEquippedWeapon->MulticastDropWeapon(StartLocation, StartRotation, LinearVelocity, AngularVelocity);
+		LeftEquippedWeapon = nullptr;
+	}
+	else if (!bLeft && RightEquippedWeapon)
+	{
+		RightEquippedWeapon->MulticastDropWeapon(StartLocation, StartRotation, LinearVelocity, AngularVelocity);
+		RightEquippedWeapon = nullptr;
+	}
+}
+
 void UCombatComponent::Reload()
 {
 	if (Character && Character->GetDefaultWeapon() && Character->GetDefaultWeapon()->GetCarriedAmmo() > 0 && CombatState == ECombatState::ECS_Unoccupied && !Character->GetDefaultWeapon()->IsFull() && !bLocallyReloading)
@@ -371,6 +387,11 @@ void UCombatComponent::HandleReload()
 	CombatState = ECombatState::ECS_Unoccupied;
 	Character->GetDefaultWeapon()->SetMagInserted(true);
 	Character->GetDefaultWeapon()->PlaySlideForwardAnimation();
+
+	if (!Character->IsEliminated())
+	{
+		Character->GetDefaultWeapon()->PlayReloadSound();
+	}
 }
 
 void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
@@ -404,6 +425,8 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	Weapon->AttachToComponent(Character->GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
 	Weapon->SetActorRelativeLocation(FVector::ZeroVector);
 	Weapon->SetActorRelativeRotation(FRotator::ZeroRotator);
+
+	Weapon->PlayHolsterSound();
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)

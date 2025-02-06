@@ -343,6 +343,7 @@ void AGunfightGameMode::Logout(AController* Exiting)
 	{
 		GunfightGameState->SortedPlayers.RemoveSingle(ExitingPlayerState);
 		GunfightGameState->OnRep_SortedPlayers();
+		GunfightGameState->PlayerArray.RemoveSingle(ExitingPlayerState);
 	}
 
 	Super::Logout(Exiting);

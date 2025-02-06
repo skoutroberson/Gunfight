@@ -40,7 +40,7 @@ void UEOSSubsystem::CreateSession(const FName& SessionName)
 		SessionSettings.bShouldAdvertise = true;
 		SessionSettings.bUseLobbiesIfAvailable = true;
 		SessionSettings.bUseLobbiesVoiceChatIfAvailable = false;
-		SessionSettings.NumPublicConnections = 8;
+		SessionSettings.NumPublicConnections = MaxPublicConnections;
 		SessionSettings.SessionIdOverride = SessionName.ToString();
 		SessionSettings.Set(SEARCH_LOBBIES, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 		SessionSettings.Set("LobbyName", SessionName.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);

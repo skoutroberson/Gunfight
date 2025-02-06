@@ -112,6 +112,19 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite)
 	ESide WeaponSide = ESide::ES_None;
 
+	void PlayReloadSound();
+	void PlayHolsterSound();
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* ReloadSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* HolsterSound;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastDropWeapon(FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity);
+	void MulticastDropWeapon_Implementation(FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity);
+
 protected:
 	virtual void BeginPlay() override;
 

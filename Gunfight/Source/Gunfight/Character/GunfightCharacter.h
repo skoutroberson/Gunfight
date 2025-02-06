@@ -105,6 +105,8 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void ToggleMenu();
 
+	void DestroyDefaultWeapon();
+
 protected:
 	virtual void BeginPlay() override;
 

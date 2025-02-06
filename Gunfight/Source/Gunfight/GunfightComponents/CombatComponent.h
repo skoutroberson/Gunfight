@@ -40,6 +40,22 @@ public:
 	void MulticastAttachToHolster();
 	void MulticastAttachToHolster_Implementation();
 
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeapon(
+		bool bLeft, 
+		FVector_NetQuantize StartLocation, 
+		FRotator StartRotation,
+		FVector_NetQuantize LinearVelocity,
+		FVector_NetQuantize AngularVelocity
+	);
+	void ServerDropWeapon_Implementation(
+		bool bLeft,
+		FVector_NetQuantize StartLocation,
+		FRotator StartRotation,
+		FVector_NetQuantize LinearVelocity,
+		FVector_NetQuantize AngularVelocity
+	);
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -36,6 +36,8 @@ public:
 	virtual float GetServerTime(); // Synced with server world clock
 	virtual void ReceivedPlayer() override; // Sync with server clock as soon as possible
 
+	virtual void PawnLeavingGame();
+
 	void OnMatchStateSet(FName State);
 	void HandleMatchHasStarted();
 	void HandleCooldown();
@@ -74,6 +76,51 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere)
 	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Warmup;
+
+	/**
+	* Matchmaking
+	* 
+	* This works with the GameInstance and BP_GunfightPlayerController.
+	* 
+	* This is so the clients can reconnect to the new public/private match session once they disconnect from the host. 
+	* 
+	* When the Listen Server host decides to "Host" a new match, if other clients are in the same session as them: 
+	* 
+	* Each client saves the lobby/match session info, sets the game instance variable: bJoiningHost to true, 
+	* and confirms with the Host, Once all of the clients have confirmed:
+	* 
+	* The host destroys the current session and creates the new session with the match id.
+	* 
+	* Each Client disconnects from the host and because bJoiningSession is true, OnDisconnectError and OnRoomFound(false) will try to NetworkTravel to
+	* the new match session. 
+	*
+	* A client will try to connect to the new session MaxHostJoinTries times.
+	* 
+	* TODO: Make functionality for returning back to the lobby if the host quits out of the match (Low priority because even CS2 doesn't have this).
+	* TODO: Put this shit in a component UMatchmakingComponent
+	*/
+
+	UFUNCTION(BlueprintCallable)
+	void HostMatchGo(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void AllClientsReady();
+
+	UFUNCTION(Client, Reliable, BlueprintCallable)
+	void ClientGiveHostMatchDetails(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName);
+	void ClientGiveHostMatchDetails_Implementation(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName);
+
+	UFUNCTION(Server, Reliable)
+	void ServerReceivedHostMatchDetails();
+	void ServerReceivedHostMatchDetails_Implementation();
+
+	// Once all clients confirm they received the new match details, the server will create and travel to the new match session, and the clients will travel to it.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite);
+	int32 ClientsReceivedMatchDetails = 0;
+
+	// Called by the clients so after they disconnect from the host, they still have Lobby / Match info
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateGameInstanceMatchDetails(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName);
 	
 protected:
 	virtual void SetupInputComponent() override;

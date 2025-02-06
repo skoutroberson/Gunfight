@@ -87,6 +87,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FString GetDestinationAPINameFromSessionID(FString CurrentSessionID);
 
+	// set by the main menu when we host a match.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 MaxPublicConnections = 8;
+
 protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 
