@@ -426,7 +426,10 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	Weapon->SetActorRelativeLocation(FVector::ZeroVector);
 	Weapon->SetActorRelativeRotation(FRotator::ZeroRotator);
 
-	Weapon->PlayHolsterSound();
+	if (!Character->IsEliminated())
+	{
+		Weapon->PlayHolsterSound();
+	}
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)

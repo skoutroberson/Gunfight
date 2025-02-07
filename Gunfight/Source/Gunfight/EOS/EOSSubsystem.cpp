@@ -269,7 +269,7 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 			OnRoomFound.Broadcast(false);
 		}
 	}
-	else if (FindSessionType == EFindSessionType::EFST_Public) // TODO, sort the search results by ping before we try joining
+	else if (FindSessionType == EFindSessionType::EFST_Public)
 	{
 		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
 		{
@@ -284,7 +284,7 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 					SearchResult = *SortedSessions[Index];
 					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
 
-					if (FoundSessionName.GetStringLength() > 8 && !FoundSessionName.ToString().Contains(FString("Lobby")) && SearchResult.Session.NumOpenPublicConnections > 0)
+					if (FoundSessionName.GetStringLength() > 8 && !FoundSessionName.ToString().Contains(FString("Lobby")) && SearchResult.Session.NumOpenPublicConnections > LobbySize - 1)
 					{
 						LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
 						CurrentSessionName = FName(*SearchResult.GetSessionIdStr());

@@ -91,6 +91,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 MaxPublicConnections = 8;
 
+	// Used when we want to find a QuickMatch and find a session with this many public connections open
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 LobbySize = 1;
+
 protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 

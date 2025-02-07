@@ -432,12 +432,12 @@ void AWeapon::OnDropped()
 	if (WeaponSide == ESide::ES_Left)
 	{
 		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 60.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 5.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else if (WeaponSide == ESide::ES_Right)
 	{
 		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 60.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 5.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else
 	{

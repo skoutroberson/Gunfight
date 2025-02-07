@@ -95,6 +95,20 @@ void AGunfightPlayerController::ServerReceivedHostMatchDetails_Implementation()
 	
 }
 
+int32 AGunfightPlayerController::GetLobbySize()
+{
+	int32 PlayerCount = 0;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			++PlayerCount;
+		}
+	}
+	return PlayerCount;
+}
+
 void AGunfightPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();

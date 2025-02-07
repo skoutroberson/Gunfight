@@ -121,6 +121,12 @@ public:
 	// Called by the clients so after they disconnect from the host, they still have Lobby / Match info
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateGameInstanceMatchDetails(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName);
+
+	// Quick match
+
+	// Returns the number of players in the lobby
+	UFUNCTION(BlueprintCallable)
+	int32 GetLobbySize();
 	
 protected:
 	virtual void SetupInputComponent() override;
