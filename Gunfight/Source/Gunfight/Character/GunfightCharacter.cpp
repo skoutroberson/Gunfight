@@ -28,6 +28,8 @@
 #include "Gunfight/HUD/GunfightHUD.h"
 #include "Gunfight/EOS/EOSSubsystem.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
+#include "Gunfight/SaveGame/GunfightSaveGame.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -478,10 +480,22 @@ void AGunfightCharacter::PollInit()
 
 void AGunfightCharacter::OnRep_DefaultWeapon()
 {
-	if (DefaultWeapon)
-	{
-		DefaultWeapon->CharacterOwner = this;
-	}
+	if (DefaultWeapon == nullptr || DefaultWeapon->GetWeaponMesh() == nullptr) return;
+	
+	DefaultWeapon->CharacterOwner = this;
+
+	if (!IsLocallyControlled()) return;
+
+	// Set Weapon Skin
+
+	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+	if (GameInstance == nullptr) return;
+	UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+	if (GunfightSubsystem == nullptr || GunfightSubsystem->GunfightSaveGame == nullptr) return;
+
+	int32 SkinIndex = GunfightSubsystem->GunfightSaveGame->EquippedWeaponSkin;
+
+	DefaultWeapon->SetWeaponSkin(SkinIndex);
 }
 
 void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
@@ -503,8 +517,22 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 	}
 }
 
-void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location)
+void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, EHitbox HitType)
 {
+	if (HitType == EHitbox::EH_Head)
+	{
+		if (BloodParticles)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, Location, FRotator::ZeroRotator, ((FVector)((2.f))));
+		}
+		if (ImpactHeadSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, ImpactHeadSound, Location);
+		}
+		
+		return;
+	}
+
 	if (BloodParticles)
 	{
 		UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, Location);
@@ -728,6 +756,8 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 		Combat->AttachWeaponToHolster(DefaultWeapon);
 		DefaultWeapon->SetOwner(this);
 		DefaultWeapon->CharacterOwner = this;
+
+		OnRep_DefaultWeapon();
 	}
 }
 

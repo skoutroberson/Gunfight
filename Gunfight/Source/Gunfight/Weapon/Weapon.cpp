@@ -121,6 +121,13 @@ void AWeapon::PlayHolsterSound()
 	}
 }
 
+void AWeapon::SetWeaponSkin(int32 SkinIndex)
+{
+	if (SkinIndex >= WeaponSkins.Num()) return;
+
+	WeaponMesh->SetMaterial(0, WeaponSkins[SkinIndex]);
+}
+
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();

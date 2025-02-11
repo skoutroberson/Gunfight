@@ -22,6 +22,7 @@
 #include "Components/GridPanel.h"
 #include "Components/Widget.h"
 #include "Components/StereoLayerComponent.h"
+#include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 
 AGunfightPlayerController::AGunfightPlayerController()
 {
@@ -35,6 +36,8 @@ void AGunfightPlayerController::BeginPlay()
 
 	GunfightHUD = Cast<AGunfightHUD>(GetHUD());
 	ServerCheckMatchState();
+
+
 }
 
 void AGunfightPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -164,6 +167,7 @@ void AGunfightPlayerController::PollInit()
 	{
 		bPlayerStateInitialized = true;
 		UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
+
 		//GetPlayerState<AGunfightPlayerState>()->
 	}
 }
@@ -553,6 +557,8 @@ void AGunfightPlayerController::HandleCooldown2()
 		AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
 		if (GunfightGameState && GunfightPlayerState)
 		{
+			bool bWon = false;
+
 			TArray<AGunfightPlayerState*> TopPlayers = GunfightGameState->TopScoringPlayers;
 			FString InfoTextString;
 			if (TopPlayers.Num() == 0)
@@ -562,6 +568,7 @@ void AGunfightPlayerController::HandleCooldown2()
 			else if (TopPlayers.Num() == 1 && TopPlayers[0] == GunfightPlayerState)
 			{
 				InfoTextString = FString("You are the winner!");
+				bWon = true;
 			}
 			else if (TopPlayers.Num() == 1)
 			{
@@ -577,6 +584,8 @@ void AGunfightPlayerController::HandleCooldown2()
 			}
 
 			CharacterOverlay->InfoText->SetText(FText::FromString(InfoTextString));
+
+			UpdateSaveGameData(bWon);
 		}
 	}
 }
@@ -588,18 +597,33 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString::Printf(TEXT("OnRep GunfightMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
 	}
 
+	// get TimeLeft to set the soundtrack start time
+	float TimeLeft = 0.f;
+
 	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
 	{
 		HandleGunfightWarmupStarted();
+		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
 	}
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
 	{
 		HandleGunfightMatchStarted();
+		TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
 	}
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
 	{
 		HandleGunfightCooldownStarted();
+		TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
 	}
+
+	//UpdateMatchSoundtrack(GunfightMatchState, TimeLeft);
+
+	
+	/*
+	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress) TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown) TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+	*/
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()
@@ -648,6 +672,34 @@ void AGunfightPlayerController::HandleGunfightMatchStarted()
 void AGunfightPlayerController::HandleGunfightCooldownStarted()
 {
 	HandleCooldown2();
+}
+
+void AGunfightPlayerController::UpdateSaveGameData(bool bWon)
+{
+	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+	if (GameInstance == nullptr) return;
+	UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+	if (GunfightSubsystem == nullptr) return;
+
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	
+	if (bWon)
+	{
+		GunfightSubsystem->AddToWins();
+	}
+
+	if (UGameplayStatics::SaveGameToSlot(GunfightSubsystem->GunfightSaveGame, GunfightSubsystem->GunfightSaveGame->SaveSlotName, 0)) 
+	{
+		// Save succeeded
+		if (GunfightCharacter == nullptr) return;
+		GunfightCharacter->DebugLogMessage(FString("UpdateSaveGameData Gunfight save succeeded"));
+	}
+	else
+	{
+		// Save failed
+		if (GunfightCharacter == nullptr) return;
+		GunfightCharacter->DebugLogMessage(FString("UpdateSaveGameData Gunfight save failed"));
+	}
 }
 
 void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
@@ -876,6 +928,7 @@ void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchS
 	CooldownTime = Cooldown;
 	LevelStartingTime = StartingTime;
 	SetGunfightMatchState(StateOfMatch);
+
 	/*
 	if (GunfightHUD && MatchState == MatchState::WaitingToStart)
 	{

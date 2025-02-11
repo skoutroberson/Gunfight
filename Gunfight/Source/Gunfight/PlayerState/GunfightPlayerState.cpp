@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 
 void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -17,39 +18,13 @@ void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 void AGunfightPlayerState::AddToScore(float ScoreAmount)
 {
 	SetScore(GetScore() + ScoreAmount);
-	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetPawn()) : Character;
-	if (Character)
-	{
-		Controller = Controller == nullptr ? Cast<AGunfightPlayerController>(Character->Controller) : Controller;
-		if (Controller)
-		{
-			Controller->SetHUDScore(GetScore());
-		}
-		AGunfightPlayerController* LocalController = GetWorld()->GetFirstPlayerController<AGunfightPlayerController>();
-		if (LocalController)
-		{
-			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Score);
-		}
-	}
+	OnRep_Score();
 }
 
 void AGunfightPlayerState::AddToDefeats(int32 DefeatsAmount)
 {
 	Defeats += DefeatsAmount;
-	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetPawn()) : Character;
-	if (Character)
-	{
-		Controller = Controller == nullptr ? Cast<AGunfightPlayerController>(Character->Controller) : Controller;
-		if (Controller)
-		{
-			Controller->SetHUDDefeats(Defeats);
-		}
-		AGunfightPlayerController* LocalController = GetWorld()->GetFirstPlayerController<AGunfightPlayerController>();
-		if (LocalController)
-		{
-			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death);
-		}
-	}
+	OnRep_Defeats();
 }
 
 void AGunfightPlayerState::SetPlayerNameBP(const FString& NewName)
@@ -71,21 +46,27 @@ void AGunfightPlayerState::OnRep_Score()
 	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetPawn()) : Character;
 	if (Character)
 	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::White, FString::Printf(TEXT("OnRep_Score")));
-		}
 		Controller = Controller == nullptr ? Cast<AGunfightPlayerController>(Character->Controller) : Controller;
 		if (Controller)
 		{
 			Controller->SetHUDScore(GetScore());
 		}
+
 		// update scoreboard
 		AGunfightPlayerController* LocalController = GetWorld()->GetFirstPlayerController<AGunfightPlayerController>();
 		if (LocalController)
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Score);
 		}
+	}
+
+	// update save game
+	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+	if (GameInstance == nullptr) return;
+	UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+	if (GunfightSubsystem)
+	{
+		GunfightSubsystem->AddToKills();
 	}
 }
 
@@ -105,5 +86,13 @@ void AGunfightPlayerState::OnRep_Defeats()
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death);
 		}
+	}
+
+	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+	if (GameInstance == nullptr) return;
+	UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+	if (GunfightSubsystem)
+	{
+		GunfightSubsystem->AddToDefeats();
 	}
 }

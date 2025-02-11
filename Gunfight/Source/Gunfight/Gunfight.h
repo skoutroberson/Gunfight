@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Gunfight/SaveGame/GunfightSaveGame.h"
+#include "Kismet/GameplayStatics.h"
 
 #define ECC_HandController ECollisionChannel::ECC_GameTraceChannel1
 #define ECC_Weapon ECollisionChannel::ECC_GameTraceChannel2

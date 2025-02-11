@@ -125,6 +125,13 @@ public:
 	void MulticastDropWeapon(FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity);
 	void MulticastDropWeapon_Implementation(FVector_NetQuantize StartLocation, FRotator StartRotation, FVector_NetQuantize LinearVelocity, FVector_NetQuantize AngularVelocity);
 
+	// Skins
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<UMaterialInterface*> WeaponSkins;
+
+	void SetWeaponSkin(int32 SkinIndex);
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -47,7 +47,7 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 				);
 
 				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 3.f) + FireHit.ImpactPoint;
-				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation);
+				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation, FHitbox::GetHitboxType(FireHit.BoneName));
 
 				if (CharacterOwner && FireHit.GetComponent())
 				{

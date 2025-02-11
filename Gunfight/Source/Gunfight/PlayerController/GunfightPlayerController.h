@@ -84,12 +84,12 @@ public:
 	* 
 	* This is so the clients can reconnect to the new public/private match session once they disconnect from the host. 
 	* 
-	* When the Listen Server host decides to "Host" a new match, if other clients are in the same session as them: 
+	* When the Listen Server host decides to "Host" a new match or join a QuickMatch, if other clients are in the same session as them: 
 	* 
 	* Each client saves the lobby/match session info, sets the game instance variable: bJoiningHost to true, 
 	* and confirms with the Host, Once all of the clients have confirmed:
 	* 
-	* The host destroys the current session and creates the new session with the match id.
+	* The host destroys the current session and creates the new session with the match id, or joins the QuickMatch session id.
 	* 
 	* Each Client disconnects from the host and because bJoiningSession is true, OnDisconnectError and OnRoomFound(false) will try to NetworkTravel to
 	* the new match session. 
@@ -172,6 +172,8 @@ protected:
 	virtual void HandleGunfightWarmupStarted();
 	virtual void HandleGunfightMatchStarted();
 	virtual void HandleGunfightCooldownStarted();
+
+	void UpdateSaveGameData(bool bWon);
 
 private:
 	UPROPERTY()

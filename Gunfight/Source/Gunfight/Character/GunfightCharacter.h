@@ -6,6 +6,7 @@
 #include "VRCharacter.h"
 #include "Gunfight/GunfightTypes/HandState.h"
 #include "Gunfight/Gunfight.h"
+#include "Gunfight/GunfightTypes/Hitbox.h"
 #include "GunfightCharacter.generated.h"
 
 /**
@@ -49,8 +50,8 @@ public:
 	void MultiCastElim_Implementation(bool bPlayerLeftGame);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSpawnBlood(const FVector_NetQuantize Location);
-	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location);
+	void MulticastSpawnBlood(const FVector_NetQuantize Location, EHitbox HitType);
+	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, EHitbox HitType);
 
 	// resets
 	void Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
@@ -205,6 +206,9 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ImpactBodySound;
+
+	UPROPERTY(EditAnywhere)
+	class USoundCue* ImpactHeadSound;
 
 	bool bElimmed = false;
 	FTimerHandle ElimTimer;

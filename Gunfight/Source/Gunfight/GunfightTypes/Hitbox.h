@@ -67,6 +67,15 @@ struct FHitbox
 		else if (Type == EHitbox::EH_Head) { Damage = WeaponDamage * HEAD_DAMAGE_MULTIPLIER; }
 		return Damage;
 	}
+	static inline EHitbox GetHitboxType(FName& BoneHit)
+	{
+		EHitbox Type = EHitbox::EH_None;
+		if (HitboxTypes.Contains(BoneHit))
+		{
+			Type = HitboxTypes[BoneHit];
+		}
+		return Type;
+	}
 };
 
 class GUNFIGHT_API Hitbox
