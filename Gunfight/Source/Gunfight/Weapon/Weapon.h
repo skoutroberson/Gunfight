@@ -27,6 +27,7 @@ enum class EWeaponState : uint8
 	EWS_Dropped			UMETA(DisplayName = "Dropped"),
 	EWS_Ready			UMETA(DisplayName = "Ready"),
 	EWS_Empty			UMETA(DisplayName = "Empty"),
+	EWS_Holstered		UMETA(DisplayName = "Holstered"),
 
 	EWS_MAX				UMETA(DisplayName = "DefaultMAX"),
 };
@@ -39,6 +40,15 @@ enum class EFireType : uint8
 	EFT_Shotgun		UMETA(DisplayName = "Shotgun Weapon"),
 
 	EFT_MAX			UMETA(DisplayName = "DefaultMAX"),
+};
+
+// variables we need to replicate to a client on join session
+USTRUCT(BlueprintType)
+struct FWeaponReplicate
+{
+	GENERATED_BODY()
+
+	int32 SkinIndex;
 };
 
 UCLASS()
@@ -68,6 +78,9 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	class USoundCue* EquipSound;
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* DryFireSound;
 
 	bool bDestroyWeapon = false;
 
@@ -114,6 +127,7 @@ public:
 
 	void PlayReloadSound();
 	void PlayHolsterSound();
+	void PlayDryFireSound();
 
 	UPROPERTY(EditAnywhere)
 	USoundCue* ReloadSound;
@@ -131,6 +145,10 @@ public:
 	TArray<UMaterialInterface*> WeaponSkins;
 
 	void SetWeaponSkin(int32 SkinIndex);
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetWeaponSkin(int32 SkinIndex);
+	void ServerSetWeaponSkin_Implementation(int32 SkinIndex);
 
 protected:
 	virtual void BeginPlay() override;
@@ -306,6 +324,16 @@ private:
 
 	void ApplyVelocityOnDropped();
 
+	void EquipSoundTimerEnd();
+	FTimerHandle EquipSoundTimer;
+	bool bPlayingEquipSound = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentSkinIndex)
+	int32 CurrentSkinIndex = -1;
+
+	UFUNCTION()
+	void OnRep_CurrentSkinIndex();
+
 public:
 
 	bool IsOverlappingHand(bool bLeftHand);
@@ -340,4 +368,6 @@ public:
 	FORCEINLINE void SetDropVelocity(FVector NewVelocity) { DropVelocity = NewVelocity; }
 	FORCEINLINE void SetDropAngularVelocity(FQuat NewAngularVelocity) { DropAngularVelocity = NewAngularVelocity; }
 	FORCEINLINE void SetWeaponSide(ESide NewSide) { WeaponSide = NewSide; }
+	FORCEINLINE USphereComponent* GetAreaSphere() { return AreaSphere; }
+	FORCEINLINE int32 GetCurrentSkinIndex() { return CurrentSkinIndex; }
 };

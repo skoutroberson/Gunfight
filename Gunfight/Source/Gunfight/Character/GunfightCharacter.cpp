@@ -30,6 +30,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 #include "Gunfight/SaveGame/GunfightSaveGame.h"
+#include "VRRootComponent.h"
+#include "Gunfight/SaveGame/GunfightSaveGame.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -121,6 +123,10 @@ void AGunfightCharacter::BeginPlay()
 	SetActorTickEnabled(true);
 	IKQueryParams.AddIgnoredActor(this);
 
+	IKQueryParams.IgnoreMask = 1 << 3;
+
+	VRRootReference.Get()->SetMaskFilterOnBodyInstance(1 << 3); // so IK ignores this component when walking through other characters
+
 	if (HasAuthority())
 	{
 		OnTakeAnyDamage.AddDynamic(this, &AGunfightCharacter::ReceiveDamage);
@@ -145,25 +151,6 @@ void AGunfightCharacter::BeginPlay()
 	{
 		bStereoLayerInitialized = true;
 	}
-
-	/*
-	if (!Controller)
-	{
-		bStereoLayerInitialized = true; // so non locally controlled players don't try to set up the stereo layer in the blueprint
-		VRStereoLayer->DestroyComponent();
-		CharacterOverlayWidget->DestroyComponent();
-	}
-	else
-	{
-		AGunfightPlayerController* GPlayer = Cast<AGunfightPlayerController>(Controller);
-		if (GPlayer && !GPlayer->GetGunfightHUD())
-		{
-			bStereoLayerInitialized = true; // so non locally controlled players don't try to set up the stereo layer in the blueprint
-			VRStereoLayer->DestroyComponent();
-			CharacterOverlayWidget->DestroyComponent();
-		}
-	}
-	*/
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -343,10 +330,10 @@ void AGunfightCharacter::AButtonPressed(bool bLeftController)
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
-		if (CurrentWeapon && CurrentWeapon->IsMagInserted() && CurrentWeapon->GetAmmo() != CurrentWeapon->GetMagCapacity() && CurrentWeapon->GetCarriedAmmo() > 0)
+		if (CurrentWeapon && CurrentWeapon->IsMagInserted() && CurrentWeapon->GetAmmo() != CurrentWeapon->GetMagCapacity() && CurrentWeapon->GetCarriedAmmo() > 0 && CurrentWeapon->GetWeaponMesh())
 		{
 			CurrentWeapon->EjectMagazine();
-			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass());
+			SpawnFullMagazine(CurrentWeapon->GetFullMagazineClass(), CurrentWeapon->GetCurrentSkinIndex());
 		}
 	}
 }
@@ -438,6 +425,7 @@ void AGunfightCharacter::ServerDropWeaponRight_Implementation()
 	}
 }
 
+// I would like to clean this mess up
 void AGunfightCharacter::PollInit()
 {
 	if (GunfightAnimInstance && !GunfightAnimInstance->GetCharacter() && GetMesh())
@@ -480,22 +468,19 @@ void AGunfightCharacter::PollInit()
 
 void AGunfightCharacter::OnRep_DefaultWeapon()
 {
-	if (DefaultWeapon == nullptr || DefaultWeapon->GetWeaponMesh() == nullptr) return;
-	
+	if (DefaultWeapon == nullptr) return;
 	DefaultWeapon->CharacterOwner = this;
 
+	// Update the server with my weapon skin
 	if (!IsLocallyControlled()) return;
 
-	// Set Weapon Skin
-
-	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
-	if (GameInstance == nullptr) return;
-	UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
+	if (GI == nullptr) return;
+	UGunfightGameInstanceSubsystem* GunfightSubsystem = GI->GetSubsystem<UGunfightGameInstanceSubsystem>();
 	if (GunfightSubsystem == nullptr || GunfightSubsystem->GunfightSaveGame == nullptr) return;
 
 	int32 SkinIndex = GunfightSubsystem->GunfightSaveGame->EquippedWeaponSkin;
-
-	DefaultWeapon->SetWeaponSkin(SkinIndex);
+	DefaultWeapon->ServerSetWeaponSkin(SkinIndex);
 }
 
 void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
@@ -755,13 +740,11 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 		DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
 		Combat->AttachWeaponToHolster(DefaultWeapon);
 		DefaultWeapon->SetOwner(this);
-		DefaultWeapon->CharacterOwner = this;
-
 		OnRep_DefaultWeapon();
 	}
 }
 
-void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass)
+void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex)
 {
 	World = World == nullptr ? GetWorld() : World;
 	if (World)
@@ -769,6 +752,8 @@ void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagCla
 		AFullMagazine* FullMagazine = World->SpawnActor<AFullMagazine>(FullMagClass);
 		if (FullMagazine)
 		{
+			FullMagazine->SetWeaponSkin(SkinIndex);
+
 			DefaultMagazine = FullMagazine;
 			FullMagazine->SetOwner(this);
 			FullMagazine->SetCharacterOwner(this);
@@ -867,6 +852,14 @@ void AGunfightCharacter::UpdateAverageMotionControllerVelocities()
 	LastRightMotionControllerLocation = RightHCLocation;
 	LastLeftMotionControllerRotation = LeftHCRotation;
 	LastRightMotionControllerRotation = RightHCRotation;
+}
+
+void AGunfightCharacter::SetDefaultWeaponSkin(int32 SkinIndex)
+{
+	if (DefaultWeapon)
+	{
+		DefaultWeapon->SetWeaponSkin(SkinIndex);
+	}
 }
 
 void AGunfightCharacter::SetOverlappingWeapon(AWeapon* Weapon)

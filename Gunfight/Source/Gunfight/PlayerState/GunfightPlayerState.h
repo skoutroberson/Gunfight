@@ -42,13 +42,6 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Defeats)
 	int32 Defeats;
 
-	/**
-	* Save Game
-	*/
-	void UpdateSaveScore();
-	void UpdateSaveDefeats();
-
-
 public:
 	FORCEINLINE int32 GetDefeats() const { return Defeats; }
 	FORCEINLINE void SetDefeats(int32 NewDefeats) { Defeats = NewDefeats; }

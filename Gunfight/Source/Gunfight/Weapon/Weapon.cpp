@@ -22,6 +22,7 @@ AWeapon::AWeapon()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+	bAlwaysRelevant = true; // this needs to be set true so a late joining player has OnRep_CurrentSkinIndex called for weapons already in the game.
 
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMesh);
@@ -59,6 +60,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME_CONDITION(AWeapon, CarriedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AWeapon, bUseServerSideRewind, COND_OwnerOnly);
 	DOREPLIFETIME(AWeapon, WeaponSide);
+	DOREPLIFETIME(AWeapon, CurrentSkinIndex);
 }
 
 void AWeapon::Fire(const FVector& HitTarget)
@@ -121,16 +123,32 @@ void AWeapon::PlayHolsterSound()
 	}
 }
 
+void AWeapon::PlayDryFireSound()
+{
+	if (DryFireSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, DryFireSound, GetActorLocation());
+	}
+}
+
 void AWeapon::SetWeaponSkin(int32 SkinIndex)
 {
-	if (SkinIndex >= WeaponSkins.Num()) return;
+	if (SkinIndex >= WeaponSkins.Num() || SkinIndex < 0) return;
 
+	CurrentSkinIndex = SkinIndex;
 	WeaponMesh->SetMaterial(0, WeaponSkins[SkinIndex]);
+}
+
+void AWeapon::ServerSetWeaponSkin_Implementation(int32 SkinIndex)
+{
+	SetWeaponSkin(SkinIndex);
 }
 
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
+
+	WeaponMesh->SetMaskFilterOnBodyInstance(1 << 3); // Player leg IK will ignore the weapon mesh
 
 	BulletQueryParams.bReturnPhysicalMaterial = true;
 
@@ -307,6 +325,11 @@ void AWeapon::DropMag()
 				AEmptyMagazine* EmptyMag = World->SpawnActor<AEmptyMagazine>(EmptyMagazineClass, SocketTransform);
 				if (EmptyMag && CharacterOwner && CharacterOwner->GetCombat())
 				{
+					if (EmptyMag->GetMagazineMesh() && WeaponMesh)
+					{
+						EmptyMag->GetMagazineMesh()->SetMaterial(0, WeaponMesh->GetMaterial(0));
+					}
+
 					if (CharacterOwner->GetCombat()->GetEquippedWeapon(true))
 					{
 						EmptyMag->GetMagazineMesh()->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 60.f);
@@ -322,9 +345,6 @@ void AWeapon::DropMag()
 			}
 		}
 	}
-
-	// spawn a full mag on opposite preferred holster
-
 }
 
 void AWeapon::SetWeaponState(EWeaponState NewState)
@@ -368,11 +388,13 @@ void AWeapon::OnEquipped()
 			GunfightOwnerController->HighPingDelegate.AddDynamic(this, &AWeapon::OnPingTooHigh);
 		}
 
-		if (CharacterOwner->IsLocallyControlled())
+		if (CharacterOwner->IsLocallyControlled() && bPlayingEquipSound == false)
 		{
 			if (EquipSound)
 			{
+				bPlayingEquipSound = true;
 				UGameplayStatics::PlaySoundAtLocation(this, EquipSound, GetActorLocation());
+				GetWorldTimerManager().SetTimer(EquipSoundTimer, this, &AWeapon::EquipSoundTimerEnd, 0.5f, false, 0.5f);
 			}
 		}
 	}
@@ -482,18 +504,21 @@ void AWeapon::SetServerSideRewind(bool bUseSSR)
 
 void AWeapon::ShouldAttachToHolster()
 {
-	if (HasAuthority() && CharacterOwner)
+	if (HasAuthority() && CharacterOwner && CharacterOwner->GetMesh())
 	{
 		UCombatComponent* Combat = CharacterOwner->GetCombat();
-		if (Combat && !Combat->GetEquippedWeapon(true) || !Combat->GetEquippedWeapon(false))
+		if (Combat && !Combat->GetEquippedWeapon(true) && !Combat->GetEquippedWeapon(false))
 		{
-			const float DistSquared = FVector::DistSquared(CharacterOwner->GetActorLocation(), GetActorLocation());
-			if (DistSquared > 23104.f) // 100ft
+			const FName SocketName = CharacterOwner->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+			const USkeletalMeshSocket* HolsterSocket = CharacterOwner->GetMesh()->GetSocketByName(SocketName);
+			if (HolsterSocket == nullptr) return;
+
+			const float DistSquared = FVector::DistSquared(HolsterSocket->GetSocketLocation(CharacterOwner->GetMesh()), GetActorLocation());
+			if (DistSquared > 45522.f) // 7ft
 			{
 				Combat->MulticastAttachToHolster();
 			}
 		}
-		//GetWorldTimerManager().SetTimer(ShouldHolsterTimer, this, &AWeapon::ShouldAttachToHolster, 0.5f, false, 0.5f);
 	}
 }
 
@@ -522,6 +547,11 @@ void AWeapon::GetSpawnOverlaps()
 	}
 }
 
+void AWeapon::OnRep_CurrentSkinIndex()
+{
+	SetWeaponSkin(CurrentSkinIndex);
+}
+
 bool AWeapon::IsOverlappingHand(bool bLeftHand)
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetOwner());
@@ -529,14 +559,6 @@ bool AWeapon::IsOverlappingHand(bool bLeftHand)
 	USphereComponent* HandSphere = bLeftHand ? GunfightCharacter->GetLeftHandSphere() : GunfightCharacter->GetRightHandSphere();
 	if (HandSphere == nullptr) return false;
 	const float Distance = FVector::DistSquared(HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation());
-	//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("IsOverlappingDist: %f"), FMath::Sqrt(Distance)));
-
-	//DrawDebugLine(GetWorld(), HandSphere->GetComponentLocation(), AreaSphere->GetComponentLocation(), FColor::Cyan, true);
-	//DrawDebugLine(GetWorld(), GunfightCharacter->GetActorLocation(), HandSphere->GetComponentLocation(), FColor::Red, true);
-	//DrawDebugSphere(GetWorld(), HandSphere->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::White, true);
-	//DrawDebugSphere(GetWorld(), AreaSphere->GetComponentLocation(), AreaSphere->GetScaledSphereRadius(), 12.f, FColor::Orange, true);
-	//DrawDebugSphere(GetWorld(), GunfightCharacter->RightMotionController->GetComponentLocation(), HandSphere->GetScaledSphereRadius(), 12.f, FColor::Black, true);
-
 
 	if (Distance <= FMath::Square(HandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
 	{
@@ -549,4 +571,9 @@ void AWeapon::ApplyVelocityOnDropped()
 {
 	WeaponMesh->SetPhysicsAngularVelocityInRadians(DropAngularVelocity.Vector());
 	WeaponMesh->SetPhysicsLinearVelocity(DropVelocity);
+}
+
+void AWeapon::EquipSoundTimerEnd()
+{
+	bPlayingEquipSound = false;
 }

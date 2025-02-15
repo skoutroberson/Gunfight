@@ -92,6 +92,9 @@ protected:
 	void MulticastReload();
 	void MulticastReload_Implementation();
 
+	// returns true if we holstered the weapon
+	bool HolsterWeaponDontDrop(AWeapon* WeaponToDrop, FVector HolsterLocation);
+
 private:
 
 	UPROPERTY();

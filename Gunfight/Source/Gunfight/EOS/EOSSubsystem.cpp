@@ -284,7 +284,10 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 					SearchResult = *SortedSessions[Index];
 					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
 
-					if (FoundSessionName.GetStringLength() > 8 && !FoundSessionName.ToString().Contains(FString("Lobby")) && SearchResult.Session.NumOpenPublicConnections > LobbySize - 1)
+					if (FoundSessionName.GetStringLength() > 8 && 
+						!FoundSessionName.ToString().Contains(FString("Lobby")) &&
+						!FoundSessionName.ToString().Contains(FString("Hideout")) &&
+						SearchResult.Session.NumOpenPublicConnections > LobbySize - 1)
 					{
 						LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
 						CurrentSessionName = FName(*SearchResult.GetSessionIdStr());

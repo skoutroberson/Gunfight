@@ -28,6 +28,13 @@ AFullMagazine::AFullMagazine()
 	AreaSphere->SetUseCCD(true);
 }
 
+void AFullMagazine::SetWeaponSkin(int32 SkinIndex)
+{
+	if (SkinIndex >= WeaponSkins.Num() || MagazineMesh == nullptr) return;
+
+	MagazineMesh->SetMaterial(0, WeaponSkins[SkinIndex]);
+}
+
 void AFullMagazine::BeginPlay()
 {
 	Super::BeginPlay();
@@ -38,6 +45,8 @@ void AFullMagazine::BeginPlay()
 	AreaSphere->SetCollisionResponseToChannel(ECC_HandController, ECollisionResponse::ECR_Overlap);
 	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AFullMagazine::OnSphereOverlap);
 	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AFullMagazine::OnSphereEndOverlap);
+
+	MagazineMesh->SetMaskFilterOnBodyInstance(1 << 3); // so player leg IK ignores this
 
 	GetWorldTimerManager().SetTimer(InitializeCollisionHandle, this, &AFullMagazine::InitializeCollision, 0.02f, false, 0.1f);
 }

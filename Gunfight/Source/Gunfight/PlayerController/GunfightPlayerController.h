@@ -127,6 +127,17 @@ public:
 	// Returns the number of players in the lobby
 	UFUNCTION(BlueprintCallable)
 	int32 GetLobbySize();
+
+	/**
+	* Replicate a weapon's variables on joining a session; e.g. the weapon skin.
+	*/
+	UFUNCTION(Server, Reliable)
+	void ServerReplicateWeapon(AWeapon* ClientWeapon);
+	void ServerReplicateWeapon_Implementation(AWeapon* ClientWeapon);
+
+	UFUNCTION(Client, Reliable)
+	void ClientReplicateWeapon(AWeapon* ClientWeapon, FWeaponReplicate ReplicatedWeapon);
+	void ClientReplicateWeapon_Implementation(AWeapon* ClientWeapon, FWeaponReplicate ReplicatedWeapon);
 	
 protected:
 	virtual void SetupInputComponent() override;

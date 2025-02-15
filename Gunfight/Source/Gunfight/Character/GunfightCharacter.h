@@ -274,7 +274,7 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_DefaultWeapon)
 	AWeapon* DefaultWeapon;
 
-	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass);
+	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex);
 
 	void DebugMagOverlap(bool bLeft);
 
@@ -314,10 +314,15 @@ private:
 	FVector LastRightMotionControllerLocation = FVector::ZeroVector;
 	FVector LastRightMotionControllerRotation = FVector::ZeroVector;
 
-
 	void UpdateAverageMotionControllerVelocities();
 
+	UPROPERTY()
+	class UGunfightSaveGame* GSaveGame;
+
+	bool bSaveInit = false;
+
 public:
+	void SetDefaultWeaponSkin(int32 SkinIndex);
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }

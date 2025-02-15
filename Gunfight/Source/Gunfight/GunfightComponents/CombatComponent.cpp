@@ -11,6 +11,7 @@
 #include "Gunfight/Weapon/FullMagazine.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/Gunfight.h"
+#include "Components/SphereComponent.h"
 
 UCombatComponent::UCombatComponent()
 {
@@ -46,19 +47,6 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 
 void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 {
-	/*
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("WTE: %d"), WeaponToEquip));
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Overlap: %d"), Character->GetOverlappingWeapon()));
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Default: %d"), Character->GetDefaultWeapon()));
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString("---------"));
-
-		bool bIsOverlappingHand = Character->GetDefaultWeapon()->IsOverlappingHand(bLeftController);
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("IsOverlappingHand: %d"), bIsOverlappingHand));
-	}
-	*/
-
 	if (Character == nullptr || WeaponToEquip == nullptr) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	if (!Character->GetOverlappingWeapon() || !Character->GetOverlappingWeapon()->CheckHandOverlap(bLeftController) || CheckEquippedWeapon(!bLeftController)) return;
@@ -75,14 +63,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController)
 void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand)
 {
 	if (WeaponToEquip == nullptr || Character == nullptr) return;
-	/*
-	AWeapon& EquippedWeapon = bLeftHand ? *LeftEquippedWeapon : *RightEquippedWeapon;
-	EquippedWeapon = WeaponToEquip;
-	EquippedWeapon->SetOwner(Character);
-	EquippedWeapon->SetCharacterOwner(Character);
-	EquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-	*/
-	UE_LOG(LogTemp, Warning, TEXT("Equip Primary Weapon"));
+	
 	if (bLeftHand)
 	{
 		LeftEquippedWeapon = WeaponToEquip;
@@ -172,7 +153,7 @@ void UCombatComponent::OnRep_LeftEquippedWeapon()
 	{
 		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 		AttachActorToHand(LeftEquippedWeapon, true);
-		PlayEquipWeaponSound(LeftEquippedWeapon);
+		//PlayEquipWeaponSound(LeftEquippedWeapon);
 		Character->SetHandState(true, EHandState::EHS_HoldingPistol);
 		//LeftEquippedWeapon->SetHUDAmmo();
 		return;
@@ -186,7 +167,7 @@ void UCombatComponent::OnRep_RightEquippedWeapon()
 	{
 		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 		AttachActorToHand(RightEquippedWeapon, false);
-		PlayEquipWeaponSound(RightEquippedWeapon);
+		//PlayEquipWeaponSound(RightEquippedWeapon);
 		Character->SetHandState(false, EHandState::EHS_HoldingPistol);
 		//RightEquippedWeapon->SetHUDAmmo();
 		return;
@@ -211,6 +192,15 @@ void UCombatComponent::Fire(bool bLeft)
 			}
 			StartFireTimer(CurrentWeapon->FireDelay);
 			Character->FireWeaponHaptic(bLeft);
+		}
+	}
+	else if(bCanFire)
+	{
+		AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
+		if (CurrentWeapon)
+		{
+			CurrentWeapon->PlayDryFireSound();
+			StartFireTimer(CurrentWeapon->FireDelay);
 		}
 	}
 }
@@ -326,16 +316,27 @@ bool UCombatComponent::CanFire(bool bLeft)
 
 void UCombatComponent::DropWeapon(bool bLeftHand)
 {
-	if (Character == nullptr) return;
+	if (Character == nullptr || Character->GetMesh() == nullptr) return;
+
+	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
+	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
+	if (HolsterSocket == nullptr) return;
+	const FVector HolsterLocation = HolsterSocket->GetSocketLocation(Character->GetMesh());
 
 	if (bLeftHand && LeftEquippedWeapon)
 	{
-		LeftEquippedWeapon->Dropped(true);
+		if (!HolsterWeaponDontDrop(LeftEquippedWeapon, HolsterLocation))
+		{
+			LeftEquippedWeapon->Dropped(true);
+		}
 		LeftEquippedWeapon = nullptr;
 	}
 	else if (!bLeftHand && RightEquippedWeapon)
 	{
-		RightEquippedWeapon->Dropped(false);
+		if (!HolsterWeaponDontDrop(RightEquippedWeapon, HolsterLocation))
+		{
+			RightEquippedWeapon->Dropped(true);
+		}
 		RightEquippedWeapon = nullptr;
 	}
 }
@@ -374,6 +375,21 @@ void UCombatComponent::ServerReload_Implementation()
 void UCombatComponent::MulticastReload_Implementation()
 {
 	HandleReload();
+}
+
+bool UCombatComponent::HolsterWeaponDontDrop(AWeapon* WeaponToDrop, FVector HolsterLocation)
+{
+	if (WeaponToDrop)
+	{
+		FVector WeaponLocation = WeaponToDrop->GetActorLocation();
+		float DistSquared = FVector::DistSquared(HolsterLocation, WeaponLocation);
+		if (DistSquared < 1600) // 1.5ft
+		{
+			MulticastAttachToHolster();
+			return true;
+		}
+	}
+	return false;
 }
 
 void UCombatComponent::HandleReload()
@@ -417,7 +433,9 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	const USkeletalMeshSocket* HolsterSocket = Character->GetMesh()->GetSocketByName(SocketName);
 	AWeapon* Weapon = Character->GetDefaultWeapon();
 
-	if (Weapon->GetWeaponMesh() == nullptr) return;
+	if (Weapon->GetWeaponMesh() == nullptr || Weapon->GetAreaSphere() == nullptr) return;
+
+	Weapon->GetAreaSphere()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
 	Weapon->GetWeaponMesh()->SetEnableGravity(false);
 	Weapon->GetWeaponMesh()->SetSimulatePhysics(false);
@@ -430,6 +448,8 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	{
 		Weapon->PlayHolsterSound();
 	}
+
+	Weapon->SetWeaponState(EWeaponState::EWS_Holstered);
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
