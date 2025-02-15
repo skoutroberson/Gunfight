@@ -30,4 +30,5 @@ UGunfightSaveGame::UGunfightSaveGame()
 
 	GunSkinMap.Add(FString("Default"), {true, 0});
 	GunSkinMap.Add(FString("GOLD-1911"), {false, 1});
+	GunSkinMap.Add(FString("FreeTest"), { true, 2 });
 }

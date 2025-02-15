@@ -36,6 +36,9 @@ public:
 	void AddToDefeats();
 	void AddToWins();
 
+	UFUNCTION(BlueprintCallable)
+	void ResetStats();
+
 protected:
 	void NotifyGameInstanceThatGunfightInitialized(bool bGunfightInit) const;
 

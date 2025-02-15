@@ -75,6 +75,24 @@ void UGunfightGameInstanceSubsystem::AddToWins()
 	}
 }
 
+void UGunfightGameInstanceSubsystem::ResetStats()
+{
+	if(GunfightSaveGame)
+	{
+		GunfightSaveGame->Wins = 0;
+		GunfightSaveGame->Kills = 0;
+		GunfightSaveGame->Deaths = 0;
+		GunfightSaveGame->EquippedWeaponSkin = 0;
+		
+		GunfightSaveGame->GunSkinMap.Empty();
+		GunfightSaveGame->GunSkinMap.Add(FString("Default"), { true, 0 });
+		GunfightSaveGame->GunSkinMap.Add(FString("GOLD-1911"), { false, 1 });
+		GunfightSaveGame->GunSkinMap.Add(FString("FreeTest"), { true, 2 });
+
+		UGameplayStatics::SaveGameToSlot(GunfightSaveGame, GunfightSaveGame->SaveSlotName, 0);
+	}
+}
+
 void UGunfightGameInstanceSubsystem::NotifyGameInstanceThatGunfightInitialized(bool bGunfightInit) const
 {
 	FOutputDeviceNull OutputDeviceNull;
