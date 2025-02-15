@@ -112,30 +112,6 @@ int32 AGunfightPlayerController::GetLobbySize()
 	return PlayerCount;
 }
 
-void AGunfightPlayerController::ServerReplicateWeapon_Implementation(AWeapon* ClientWeapon)
-{
-	if (ClientWeapon)
-	{
-		FWeaponReplicate ReplicatedWeapon;
-		ReplicatedWeapon.SkinIndex = ClientWeapon->GetCurrentSkinIndex();
-		ClientReplicateWeapon(ClientWeapon, ReplicatedWeapon);
-	}
-}
-
-void AGunfightPlayerController::ClientReplicateWeapon_Implementation(AWeapon* ClientWeapon, FWeaponReplicate ReplicatedWeapon)
-{
-	if (ClientWeapon && !HasAuthority())
-	{
-		AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
-		if (GChar)
-		{
-			GChar->DebugLogMessage(FString::Printf(TEXT("Client Replicate Weapon Index: %d"), ReplicatedWeapon.SkinIndex));
-		}
-
-		ClientWeapon->SetWeaponSkin(ReplicatedWeapon.SkinIndex);
-	}
-}
-
 void AGunfightPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();

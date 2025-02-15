@@ -57,17 +57,17 @@ void AGunfightPlayerState::OnRep_Score()
 		if (LocalController)
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Score);
-		}
 
-		if (!Character->IsLocallyControlled()) return;
+			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress) return;
 
-		// update save game
-		UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
-		if (GameInstance == nullptr) return;
-		UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
-		if (GunfightSubsystem)
-		{
-			GunfightSubsystem->AddToKills();
+			// update stat
+			UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+			if (GameInstance == nullptr) return;
+			UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+			if (GunfightSubsystem)
+			{
+				GunfightSubsystem->AddToKills();
+			}
 		}
 	}
 }
@@ -87,16 +87,17 @@ void AGunfightPlayerState::OnRep_Defeats()
 		if (LocalController)
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death);
-		}
 
-		if (!Character->IsLocallyControlled()) return;
+			// update stat
+			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress) return;
 
-		UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
-		if (GameInstance == nullptr) return;
-		UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
-		if (GunfightSubsystem)
-		{
-			GunfightSubsystem->AddToDefeats();
+			UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
+			if (GameInstance == nullptr) return;
+			UGunfightGameInstanceSubsystem* GunfightSubsystem = GameInstance->GetSubsystem<UGunfightGameInstanceSubsystem>();
+			if (GunfightSubsystem)
+			{
+				GunfightSubsystem->AddToDefeats();
+			}
 		}
 	}
 }
