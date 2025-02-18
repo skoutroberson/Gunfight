@@ -117,6 +117,16 @@ void AGunfightCharacter::DestroyDefaultWeapon()
 		DefaultMagazine->Destroy();
 }
 
+void AGunfightCharacter::DeathPP()
+{
+	DeathPostProcess();
+}
+
+void AGunfightCharacter::SpawnPP()
+{
+	SpawnPostProcess();
+}
+
 void AGunfightCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -592,6 +602,11 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 		&AGunfightCharacter::ElimTimerFinished,
 		5.f
 	);
+
+	if (IsLocallyControlled())
+	{
+		DeathPP();
+	}
 }
 
 void AGunfightCharacter::MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation)
@@ -663,6 +678,11 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 		}
 	}
 	bElimmed = false;
+
+	if (IsLocallyControlled())
+	{
+		SpawnPP();
+	}
 }
 
 void AGunfightCharacter::ElimTimerFinished()
@@ -675,7 +695,7 @@ void AGunfightCharacter::ElimTimerFinished()
 		DefaultWeapon->Destroy();
 	}
 	*/
-	if (GunfightGameMode && !bLeftGame)
+	if (GunfightGameMode && !bLeftGame && bElimmed)
 	{
 		GunfightGameMode->RequestRespawn(this, Controller);
 	}

@@ -108,6 +108,14 @@ public:
 
 	void DestroyDefaultWeapon();
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void DeathPostProcess();
+	void DeathPP();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void SpawnPostProcess();
+	void SpawnPP();
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -185,6 +185,13 @@ void AGunfightPlayerController::InitializeHUD()
 			StereoLayer = GunfightCharacter->VRStereoLayer;
 
 			OnRep_GunfightMatchState();
+
+			// I Will need to check other gamemodes if I don't derive the next gamemodes from AGunfightGameMode
+			AGunfightGameMode* GM = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
+			if (GM == nullptr)
+			{
+				CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+			}
 			
 			//SetHUDScoreboardScores(0, 9); // hardcoded 10 players
 		}
@@ -599,6 +606,12 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 	if (!HasAuthority() && GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString::Printf(TEXT("OnRep GunfightMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
+	}
+
+	AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
+	if (GChar)
+	{
+		GChar->DebugLogMessage(FString::Printf(TEXT("OnRep GunfightMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
 	}
 
 	// get TimeLeft to set the soundtrack start time

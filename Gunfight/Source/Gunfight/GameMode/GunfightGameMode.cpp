@@ -18,6 +18,7 @@ namespace MatchState
 AGunfightGameMode::AGunfightGameMode()
 {
 	bDelayedStart = true;
+	GunfightMatchState = EGunfightMatchState::EGMS_Uninitialized;
 }
 
 void AGunfightGameMode::BeginPlay()
@@ -27,6 +28,8 @@ void AGunfightGameMode::BeginPlay()
 	LevelStartingTime = GetWorld()->GetTimeSeconds();
 
 	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Spawnpoints);
+
+	SetGunfightMatchState(EGunfightMatchState::EGMS_WaitingForPlayers);
 }
 
 void AGunfightGameMode::Tick(float DeltaTime)
@@ -39,7 +42,7 @@ void AGunfightGameMode::Tick(float DeltaTime)
 		if (CountdownTime <= 0.f)
 		{
 			StartMatch();
-			SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
+			SetGunfightMatchState(EGunfightMatchState::EGMS_WaitingForPlayers);
 		}
 	}
 	else if (MatchState == MatchState::InProgress)
@@ -151,6 +154,8 @@ void AGunfightGameMode::RestartGunfightMatch()
 	LevelStartingTime = World->GetTimeSeconds();
 
 	SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
+
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Red, FString("RestartGunfightMatch"));
 
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -330,6 +335,12 @@ void AGunfightGameMode::PostLogin(APlayerController* NewPlayer)
 		// call client RPC on GunfightPlayerController to setup the HUD
 		GunfightPlayerController->SetGunfightMatchState(GunfightMatchState);
 		//GunfightPlayerController->ClientPostLoginSetMatchState(GunfightMatchState);
+	}
+
+	int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+	if (GunfightMatchState == EGunfightMatchState::EGMS_WaitingForPlayers && NumberOfPlayers > 1)
+	{
+		RestartGunfightMatch();
 	}
 }
 
