@@ -81,6 +81,22 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int32 UpdateSkinMapPurchase(FString SKU, bool bPurchased);
 
+	/**
+	* Settings Options
+	*/
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float TurnSensitivity = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float BlindersSensitivity = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bSnapTurning = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 MaxFPS = 90;
+
 	//
 
 	UPROPERTY(VisibleAnywhere)

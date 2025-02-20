@@ -28,6 +28,11 @@ UGunfightSaveGame::UGunfightSaveGame()
 	Deaths = 0;
 	Wins = 0;
 
+	TurnSensitivity = 5.f;
+	BlindersSensitivity = 0.f;
+	bSnapTurning = false;
+	MaxFPS = 90;
+
 	GunSkinMap.Add(FString("Default"), {true, 0});
 	GunSkinMap.Add(FString("GOLD-1911"), {false, 1});
 	GunSkinMap.Add(FString("FreeTest"), { true, 2 });

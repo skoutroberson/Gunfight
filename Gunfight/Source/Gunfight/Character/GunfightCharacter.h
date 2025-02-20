@@ -147,6 +147,13 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void LeftTriggerPressedUI();
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void RightTriggerReleasedUI();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void LeftTriggerReleasedUI();
+
+
 	void MenuButtonPressed();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
@@ -329,6 +336,21 @@ private:
 
 	bool bSaveInit = false;
 
+	// Settings
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	bool bSnapTurning = false;
+	bool bSnapped = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	float TurnSensitivity = 5.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	int32 MaxFPS = 90.f;
+
+	// load saved game and apply saved settings
+	void InitializeSettings();
+
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -347,6 +369,9 @@ public:
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
 	FORCEINLINE bool IsEliminated() const { return bElimmed; }
+
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE void SetSnapTurning(bool bShouldSnap) { bSnapTurning = bShouldSnap; }
 
 	UFUNCTION(BlueprintCallable)
 	FVector GetLeftMotionControllerAverageVelocity();

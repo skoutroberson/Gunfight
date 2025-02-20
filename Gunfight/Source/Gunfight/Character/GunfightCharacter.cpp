@@ -227,8 +227,27 @@ void AGunfightCharacter::MoveRight(float Throttle)
 
 void AGunfightCharacter::TurnRight(float Throttle)
 {
-	if (World == nullptr) return;
-	AddControllerYawInput(Throttle * GetWorld()->DeltaTimeSeconds * 100.f);
+	if (World == nullptr || VRMovementReference == nullptr) return;
+
+	if (bSnapTurning)
+	{
+		float AbsThrottle = FMath::Abs(Throttle);
+		if (bSnapped && AbsThrottle < 0.2f)
+		{
+			bSnapped = false;
+		}
+		else if(!bSnapped && AbsThrottle > 0.65f)
+		{
+			bSnapped = true;
+			const float AngleSign = Throttle > 0 ? 1.f : -1.f;
+			VRMovementReference->PerformMoveAction_SnapTurn(45.f * AngleSign);
+		}
+	}
+	else
+	{
+		float ScaledSens = TurnSensitivity * 16.f + 20.f; // TurnSensitivity of 5 is ScaledSens = 100.f;
+		AddControllerYawInput(Throttle * GetWorld()->DeltaTimeSeconds * ScaledSens);
+	}
 }
 
 void AGunfightCharacter::LookUp(float Throttle)
@@ -333,6 +352,14 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 
 void AGunfightCharacter::TriggerReleased(bool bLeftController)
 {
+	if (bLeftController)
+	{
+		LeftTriggerReleasedUI();
+	}
+	else
+	{
+		RightTriggerReleasedUI();
+	}
 }
 
 void AGunfightCharacter::AButtonPressed(bool bLeftController)
@@ -466,6 +493,10 @@ void AGunfightCharacter::PollInit()
 			InitializeHUD();
 			UpdateHUDAmmo();
 			UpdateHUDHealth();
+			if (IsLocallyControlled())
+			{
+				InitializeSettings();
+			}
 		}
 	}
 	else if(!GunfightPlayerController->GetCharacterOverlay())
@@ -872,6 +903,20 @@ void AGunfightCharacter::UpdateAverageMotionControllerVelocities()
 	LastRightMotionControllerLocation = RightHCLocation;
 	LastLeftMotionControllerRotation = LeftHCRotation;
 	LastRightMotionControllerRotation = RightHCRotation;
+}
+
+void AGunfightCharacter::InitializeSettings()
+{
+	GSaveGame = Cast<UGunfightSaveGame>(UGameplayStatics::LoadGameFromSlot(FString("GunfightSaveSlot"), 0));
+	if (GSaveGame)
+	{
+		TurnSensitivity = GSaveGame->TurnSensitivity;
+		bSnapTurning = GSaveGame->bSnapTurning;
+	}
+	else
+	{
+		DebugLogMessage(FString("Failed to load save game :("));
+	}
 }
 
 void AGunfightCharacter::SetDefaultWeaponSkin(int32 SkinIndex)
