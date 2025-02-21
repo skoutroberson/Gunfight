@@ -31,7 +31,7 @@
 #include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 #include "Gunfight/SaveGame/GunfightSaveGame.h"
 #include "VRRootComponent.h"
-#include "Gunfight/SaveGame/GunfightSaveGame.h"
+#include "Engine/GameInstance.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -125,6 +125,31 @@ void AGunfightCharacter::DeathPP()
 void AGunfightCharacter::SpawnPP()
 {
 	SpawnPostProcess();
+}
+
+void AGunfightCharacter::ReInitializeSubsystem()
+{
+	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
+	if (GI == nullptr) return;
+	DebugLogMessage(FString("=======Init Game Instance======="));
+	
+
+}
+
+void AGunfightCharacter::ShutDownGameInstance()
+{
+	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
+	if (GI == nullptr) return;
+	DebugLogMessage(FString("=======Shutdown Game Instance======="));
+	GI->Shutdown();
+}
+
+void AGunfightCharacter::RestartGameInstance()
+{
+	UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
+	if (GI == nullptr) return;
+	DebugLogMessage(FString("=======Restart Game Instance======="));
+	GI->RestartSubsystems();
 }
 
 void AGunfightCharacter::BeginPlay()

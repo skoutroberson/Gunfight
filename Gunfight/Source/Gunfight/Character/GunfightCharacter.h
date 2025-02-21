@@ -116,6 +116,15 @@ public:
 	void SpawnPostProcess();
 	void SpawnPP();
 
+	UFUNCTION(BlueprintCallable)
+	void ReInitializeSubsystem();
+
+	UFUNCTION(BlueprintCallable)
+	void ShutDownGameInstance();
+
+	UFUNCTION(BlueprintCallable)
+	void RestartGameInstance();
+
 protected:
 	virtual void BeginPlay() override;
 
