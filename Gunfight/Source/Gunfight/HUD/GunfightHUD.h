@@ -16,6 +16,9 @@ class GUNFIGHT_API AGunfightHUD : public AHUD
 	
 public:
 	AGunfightHUD();
+	virtual void Tick(float DeltaTime) override;
+
+	void PollInit();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USceneComponent* HUDRoot;
@@ -48,8 +51,29 @@ public:
 	UPROPERTY(EditAnywhere)
 	class UTextureRenderTarget2D* StereoLayerRenderTarget;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAudioComponent* Soundtrack;
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void UpdateSoundtrack(EGunfightMatchState NewMatchState, float StartTime = 0.f);
+
 protected:
 	virtual void BeginPlay() override;
+
+private:
+
+	UPROPERTY()
+	class AGunfightCharacter* GunfightCharacter;
+
+	bool bCharacterHUDInit = false;
+
+	/**
+	* Audio
+	* 
+	* Warmup
+	* Cooldown Win/Loss
+	* Game almost over?
+	*/
 	
 	
 };

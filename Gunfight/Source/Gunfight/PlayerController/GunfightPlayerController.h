@@ -127,6 +127,9 @@ public:
 	// Returns the number of players in the lobby
 	UFUNCTION(BlueprintCallable)
 	int32 GetLobbySize();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bWon = false;
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -174,6 +177,12 @@ protected:
 	virtual void HandleGunfightCooldownStarted();
 
 	void UpdateSaveGameData(bool bWon);
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void UpdateLeaderboardKills();
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void UpdateLeaderboardWins();
 
 private:
 	UPROPERTY()

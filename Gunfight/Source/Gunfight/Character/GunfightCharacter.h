@@ -180,6 +180,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	bool bStereoLayerInitialized = false;
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void InitializeStereoLayer();
+
 private:
 
 	/**

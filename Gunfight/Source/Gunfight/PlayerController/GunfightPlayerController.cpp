@@ -175,6 +175,11 @@ void AGunfightPlayerController::PollInit()
 void AGunfightPlayerController::InitializeHUD()
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter)
+	{
+		GunfightCharacter->DebugLogMessage(FString("InitializeHUD"));
+	}
+
 	if (GunfightCharacter && GunfightHUD && GunfightCharacter->CharacterOverlayWidget)
 	{
 		CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
@@ -186,12 +191,19 @@ void AGunfightPlayerController::InitializeHUD()
 
 			OnRep_GunfightMatchState();
 
+			if (GetWorld() && GetWorld()->GetMapName().Contains(FString("Hideout")))
+			{
+				CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+			}
+
+			/*
 			// I Will need to check other gamemodes if I don't derive the next gamemodes from AGunfightGameMode
 			AGunfightGameMode* GM = Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this));
 			if (GM == nullptr)
 			{
 				CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
 			}
+			*/
 			
 			//SetHUDScoreboardScores(0, 9); // hardcoded 10 players
 		}
@@ -460,6 +472,8 @@ void AGunfightPlayerController::OnRep_MatchState()
 
 void AGunfightPlayerController::HandleMatchHasStarted()
 {
+	bWon = false;
+
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
 
@@ -564,7 +578,7 @@ void AGunfightPlayerController::HandleCooldown2()
 		AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
 		if (GunfightGameState && GunfightPlayerState)
 		{
-			bool bWon = false;
+			bWon = false;
 
 			TArray<AGunfightPlayerState*> TopPlayers = GunfightGameState->TopScoringPlayers;
 			FString InfoTextString;
@@ -620,21 +634,27 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup)
 	{
 		HandleGunfightWarmupStarted();
-		TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+		TimeLeft = WarmupTime - (WarmupTime - GetServerTime() + LevelStartingTime);
 	}
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
 	{
 		HandleGunfightMatchStarted();
-		TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+		TimeLeft = MatchTime - (MatchTime + WarmupTime - GetServerTime() + LevelStartingTime);
 	}
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown)
 	{
 		HandleGunfightCooldownStarted();
-		TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+		TimeLeft = CooldownTime - (CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime);
+	}
+
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+
+	if (GunfightHUD)
+	{
+		GunfightHUD->UpdateSoundtrack(GunfightMatchState, TimeLeft);
 	}
 
 	//UpdateMatchSoundtrack(GunfightMatchState, TimeLeft);
-
 	
 	/*
 	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
@@ -691,7 +711,7 @@ void AGunfightPlayerController::HandleGunfightCooldownStarted()
 	HandleCooldown2();
 }
 
-void AGunfightPlayerController::UpdateSaveGameData(bool bWon)
+void AGunfightPlayerController::UpdateSaveGameData(bool bWonTheGame)
 {
 	UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
 	if (GameInstance == nullptr) return;
@@ -700,7 +720,7 @@ void AGunfightPlayerController::UpdateSaveGameData(bool bWon)
 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	
-	if (bWon)
+	if (bWonTheGame)
 	{
 		GunfightSubsystem->AddToWins();
 	}

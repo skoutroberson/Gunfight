@@ -184,8 +184,10 @@ void AGunfightCharacter::BeginPlay()
 	}
 	else
 	{
-		bStereoLayerInitialized = true;
+		//bStereoLayerInitialized = true;
 	}
+
+
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -735,6 +737,7 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 	}
 	bElimmed = false;
 
+	// turn off death post process
 	if (IsLocallyControlled())
 	{
 		SpawnPP();

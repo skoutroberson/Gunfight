@@ -29,8 +29,8 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 		FHitResult FireHit;
 		WeaponTraceHit(Start, HitTarget, FireHit);
 
-		DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Magenta, true);
-		DrawDebugSphere(GetWorld(), HitTarget, 3.f, 20, FColor::Green, true);
+		//DrawDebugLine(GetWorld(), Start, HitTarget, FColor::Magenta, true);
+		//DrawDebugSphere(GetWorld(), HitTarget, 3.f, 20, FColor::Green, true);
 
 		AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(FireHit.GetActor());
 		if (GunfightCharacter && InstigatorController)

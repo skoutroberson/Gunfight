@@ -103,6 +103,7 @@ void AGunfightGameMode::HandleGunfightMatchStarted()
 
 void AGunfightGameMode::HandleGunfightMatchEnded()
 {
+	
 }
 
 void AGunfightGameMode::StartGunfightWarmup()
