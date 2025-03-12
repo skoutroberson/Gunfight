@@ -75,7 +75,7 @@ public:
 	void ClientUpdateMatchState_Implementation(EGunfightMatchState StateOfMatch);
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere)
-	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_WaitingForPlayers;
+	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Uninitialized;
 
 	/**
 	* Matchmaking

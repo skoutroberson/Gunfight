@@ -336,9 +336,63 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 	if (Sessions.IsEmpty()) return;
 
 	SortedSessions.Empty();
-
 	SortedSessions.Add(&Sessions[0]);
 
+	for (int i = 1; i < Sessions.Num(); ++i)
+	{
+		const FOnlineSessionSearchResult& CurrentSession = Sessions[i];
+		int32 CurrentPing = CurrentSession.PingInMs;
+
+		int32 Min = 0; 
+		int32 Max = SortedSessions.Num() - 1;
+		int32 Mid = Max == 0 ? 0 : (Max + Min) >> 1;
+		int MidPing = SortedSessions[Mid]->PingInMs;
+
+		// base cases
+		if (CurrentPing < SortedSessions[Min]->PingInMs)
+		{
+			SortedSessions.Insert(&CurrentSession, 0);
+			continue;
+		}
+		else if (CurrentPing > SortedSessions[Max]->PingInMs)
+		{
+			SortedSessions.Add(&CurrentSession);
+			continue;
+		}
+		
+		while (Min != Max && (Max - Min) > 1)
+		{
+			Mid = (Max + Min) >> 1;
+			MidPing = SortedSessions[Mid]->PingInMs;
+
+			if (CurrentPing < MidPing)
+			{
+				Max = Mid;
+			}
+			else
+			{
+				Min = Mid;
+			}
+		}
+
+		if (CurrentPing < MidPing)
+		{
+			SortedSessions.Insert(&CurrentSession, Mid);
+		}
+		else
+		{
+			if (Mid == SortedSessions.Num() - 1)
+			{
+				SortedSessions.Add(&CurrentSession);
+			}
+			else
+			{
+				SortedSessions.Insert(&CurrentSession, Mid + 1);
+			}
+		}
+	}
+
+	/*
 	int Min = 0, Max = 1;
 
 	for (int i = 1; i < Sessions.Num(); i++)
@@ -370,6 +424,7 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 			else Min = Mid;
 		}
 	}
+	*/
 }
 
 void UEOSSubsystem::OnJoinSessionComplete(FName JoinedSessionName, EOnJoinSessionCompleteResult::Type Result)
