@@ -391,40 +391,6 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 			}
 		}
 	}
-
-	/*
-	int Min = 0, Max = 1;
-
-	for (int i = 1; i < Sessions.Num(); i++)
-	{
-		const FOnlineSessionSearchResult& Session = Sessions[i];
-		bool bPlaced = false;
-
-		while (!bPlaced)
-		{
-			int Mid = (Min + Max) >> 1;
-			const FOnlineSessionSearchResult* MidSession = SortedSessions[Mid];
-			bool bLessThan = Session.PingInMs < MidSession->PingInMs;
-
-			if (Min == Mid || Max == Mid)
-			{
-				bPlaced = true;
-				if (bLessThan)
-				{
-					SortedSessions.Insert(&Session, i);
-				}
-				else
-				{
-					if (i < Sessions.Num() - 1) SortedSessions.Insert(&Session, i + 1);
-					else SortedSessions.Add(&Session);
-				}
-			}
-
-			if (bLessThan) Max = Mid;
-			else Min = Mid;
-		}
-	}
-	*/
 }
 
 void UEOSSubsystem::OnJoinSessionComplete(FName JoinedSessionName, EOnJoinSessionCompleteResult::Type Result)

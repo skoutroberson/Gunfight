@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "Gunfight/GunfightTypes/Team.h"
 #include "GunfightPlayerState.generated.h"
 
 /**
@@ -42,7 +43,15 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Defeats)
 	int32 Defeats;
 
+	UPROPERTY(ReplicatedUsing = OnRep_Team)
+	ETeam Team = ETeam::ET_NoTeam;
+
+	UFUNCTION()
+	void OnRep_Team();
+
 public:
 	FORCEINLINE int32 GetDefeats() const { return Defeats; }
 	FORCEINLINE void SetDefeats(int32 NewDefeats) { Defeats = NewDefeats; }
+	FORCEINLINE ETeam GetTeam() const { return Team; }
+	void SetTeam(ETeam TeamToSet);
 };

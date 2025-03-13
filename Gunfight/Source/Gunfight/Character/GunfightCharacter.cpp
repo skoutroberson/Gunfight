@@ -152,6 +152,24 @@ void AGunfightCharacter::RestartGameInstance()
 	GI->RestartSubsystems();
 }
 
+void AGunfightCharacter::SetTeamColor(ETeam Team)
+{
+	if (GetMesh() == nullptr || OriginalMaterial == nullptr || RedMaterial == nullptr || BlueMaterial == nullptr) return;
+
+	switch (Team)
+	{
+	case ETeam::ET_NoTeam:
+		GetMesh()->SetMaterial(0, OriginalMaterial);
+		break;
+	case ETeam::ET_RedTeam:
+		GetMesh()->SetMaterial(0, RedMaterial);
+		break;
+	case ETeam::ET_BlueTeam:
+		GetMesh()->SetMaterial(0, BlueMaterial);
+		break;
+	}
+}
+
 void AGunfightCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -492,6 +510,14 @@ void AGunfightCharacter::ServerDropWeaponRight_Implementation()
 // I would like to clean this mess up
 void AGunfightCharacter::PollInit()
 {
+	if (GunfightPlayerState == nullptr)
+	{
+		GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
+		if (GunfightPlayerState)
+		{
+			SetTeamColor(GunfightPlayerState->GetTeam());
+		}
+	}
 	if (GunfightAnimInstance && !GunfightAnimInstance->GetCharacter() && GetMesh())
 	{
 		GunfightAnimInstance = Cast<UGunfightAnimInstance>(GetMesh()->GetAnimInstance());

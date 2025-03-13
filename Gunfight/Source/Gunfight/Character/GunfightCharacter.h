@@ -7,6 +7,7 @@
 #include "Gunfight/GunfightTypes/HandState.h"
 #include "Gunfight/Gunfight.h"
 #include "Gunfight/GunfightTypes/Hitbox.h"
+#include "Gunfight/GunfightTypes/Team.h"
 #include "GunfightCharacter.generated.h"
 
 /**
@@ -124,6 +125,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RestartGameInstance();
+
+	void SetTeamColor(ETeam Team);
 
 protected:
 	virtual void BeginPlay() override;
@@ -362,6 +365,19 @@ private:
 
 	// load saved game and apply saved settings
 	void InitializeSettings();
+
+	/**
+	* Team colors
+	*/
+
+	UPROPERTY(EditAnywhere)
+	UMaterialInstance* RedMaterial;
+
+	UPROPERTY(EditAnywhere)
+	UMaterialInstance* BlueMaterial;
+
+	UPROPERTY(EditAnywhere)
+	UMaterialInstance* OriginalMaterial;
 
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);

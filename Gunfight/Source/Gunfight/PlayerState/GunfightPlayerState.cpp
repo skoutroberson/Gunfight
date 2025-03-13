@@ -12,7 +12,7 @@ void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AGunfightPlayerState, Defeats);
-	//DOREPLIFETIME(AGunfightPlayerState, Team);
+	DOREPLIFETIME(AGunfightPlayerState, Team);
 }
 
 void AGunfightPlayerState::AddToScore(float ScoreAmount)
@@ -36,6 +36,26 @@ void AGunfightPlayerState::SetPlayerNameBP(const FString& NewName)
 	if (LocalController)
 	{
 		LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death); // ESU_Death so we only update the line in the scoreboard for this player
+	}
+}
+
+void AGunfightPlayerState::SetTeam(ETeam TeamToSet)
+{
+	Team = TeamToSet;
+
+	AGunfightCharacter* GCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GCharacter)
+	{
+		GCharacter->SetTeamColor(Team);
+	}
+}
+
+void AGunfightPlayerState::OnRep_Team()
+{
+	AGunfightCharacter* GCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GCharacter)
+	{
+		GCharacter->SetTeamColor(Team);
 	}
 }
 
