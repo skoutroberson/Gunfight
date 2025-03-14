@@ -5,6 +5,7 @@
 #include "Gunfight/GameState/GunfightGameState.h"
 #include "Gunfight/PlayerState/GunfightPlayerState.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
+#include "Gunfight/Character/GunfightCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
 ATeamsGameMode::ATeamsGameMode()
@@ -53,6 +54,115 @@ void ATeamsGameMode::Logout(AController* Exiting)
 	}
 
 	Super::Logout(Exiting);
+}
+
+void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
+{
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+	{
+		CountdownTime = GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			StartGunfightRoundMatch();
+		}
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
+	{
+
+	}
+}
+
+void ATeamsGameMode::StartGunfightRoundMatch()
+{
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			AGunfightCharacter* GunfightPlayerCharacter = Cast<AGunfightCharacter>(GunfightPlayer->GetPawn());
+			AGunfightPlayerState* GunfightPlayerState = Cast<AGunfightPlayerState>(GunfightPlayer->PlayerState);
+			if (GunfightPlayerState && GunfightPlayerCharacter)
+			{
+				GunfightPlayerState->SetDefeats(0);
+				GunfightPlayerState->SetScore(0.f);
+				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer);
+				//GunfightPlayer->ClientUpdateMatchState(EGunfightMatchState::EGMS_MatchInProgress);
+			}
+		}
+	}
+}
+
+void ATeamsGameMode::SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState)
+{
+	if (GunfightRoundMatchState == NewRoundMatchState)
+	{
+		return;
+	}
+
+	GunfightRoundMatchState = NewRoundMatchState;
+
+	OnGunfightRoundMatchStateSet();
+}
+
+void ATeamsGameMode::OnGunfightRoundMatchStateSet()
+{
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+	{
+		
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
+	{
+
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
+	{
+
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			GunfightPlayer->SetGunfightRoundMatchState(GunfightRoundMatchState);
+		}
+	}
+}
+
+float ATeamsGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
+{
+	AGunfightPlayerState* AttackerPlayerState = Attacker->GetPlayerState<AGunfightPlayerState>();
+	AGunfightPlayerState* VictimPlayerState = Victim->GetPlayerState<AGunfightPlayerState>();
+	if (AttackerPlayerState == nullptr || VictimPlayerState == nullptr) return BaseDamage;
+	if (VictimPlayerState == AttackerPlayerState)
+	{
+		return BaseDamage;
+	}
+	if (AttackerPlayerState->GetTeam() == VictimPlayerState->GetTeam())
+	{
+		return 0.f;
+	}
+	return BaseDamage;
 }
 
 void ATeamsGameMode::HandleMatchHasStarted()

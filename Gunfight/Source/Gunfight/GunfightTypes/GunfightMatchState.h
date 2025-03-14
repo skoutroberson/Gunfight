@@ -9,3 +9,15 @@ enum class EGunfightMatchState : uint8
 	EGMS_MatchCooldown		UMETA(DisplayName = "MatchCooldown"),
 	EGMS_WaitingForPlayers	UMETA(DisplayName = "WaitingForPlayers"),
 };
+
+UENUM(BlueprintType)
+enum class EGunfightRoundMatchState : uint8
+{
+	EGRMS_Uninitialized			UMETA(DisplayName = "Uninitialized"),
+	EGRMS_Warmup				UMETA(DisplayName = "Warmup"),
+	EGRMS_RoundStart			UMETA(DisplayName = "RoundStart"),
+	EGRMS_RoundInProgress		UMETA(DisplayName = "RoundInProgress"),
+	EGRMS_RoundCooldown			UMETA(DisplayName = "RoundCooldown"),
+	EGRMS_MatchCooldown			UMETA(DisplayName = "MatchCooldown"),
+	EGRMS_WaitingForPlayers		UMETA(DisplayName = "WaitingForPlayers"),
+};

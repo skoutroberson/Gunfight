@@ -579,6 +579,10 @@ void AGunfightCharacter::OnRep_DefaultWeapon()
 
 void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatorController, AActor* DamageCauser)
 {
+	GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
+	if (bElimmed || GunfightGameMode == nullptr) return;
+	Damage = GunfightGameMode->CalculateDamage(InstigatorController, Controller, Damage);
+
 	Health = FMath::Clamp(Health - Damage, 0.f, MaxHealth);
 	UpdateHUDHealth();
 	//PlayHitReactMontage();

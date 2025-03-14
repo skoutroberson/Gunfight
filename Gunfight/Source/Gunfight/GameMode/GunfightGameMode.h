@@ -33,6 +33,8 @@ public:
 	virtual void Logout(AController* Exiting) override;
 	void PlayerLeftGame(class AGunfightPlayerState* PlayerLeaving);
 
+	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage);
+
 	UPROPERTY(EditDefaultsOnly)
 	float WaitingToStartTime = 10.f;
 
@@ -53,7 +55,17 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	float GunfightCooldownTime = 10.f;
 
+	UPROPERTY(EditDefaultsOnly)
+	float GunfightRoundStartTime = 10.f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float GunfightRoundTime = 105.f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float GunfightRoundEndTime = 5.f;
+
 	EGunfightMatchState GunfightMatchState;
+	EGunfightRoundMatchState GunfightRoundMatchState;
 
 	bool bTeamsMatch = false;
 
@@ -73,8 +85,9 @@ protected:
 	void SetGunfightMatchState(EGunfightMatchState NewState);
 	void OnGunfightMatchStateSet();
 	
-private:
 	float CountdownTime = 0.f;
+
+private:
 
 	UPROPERTY()
 	class AGunfightGameState* GunfightGameState;
@@ -83,6 +96,8 @@ private:
 	AActor* GetBestSpawnpoint();
 
 	TArray<AActor*> Spawnpoints;
+	TArray<AActor*> TeamASpawns;
+	TArray<AActor*> TeamBSpawns;
 
 public:
 	FORCEINLINE float GetCountdownTime() const { return CountdownTime; }

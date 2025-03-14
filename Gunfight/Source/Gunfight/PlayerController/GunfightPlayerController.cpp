@@ -267,6 +267,17 @@ void AGunfightPlayerController::SetGunfightMatchState(EGunfightMatchState NewSta
 	}
 }
 
+void AGunfightPlayerController::SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundState)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		GunfightRoundMatchState = NewRoundState;
+
+		// Call OnRep to make sure the callbacks happen
+		OnRep_GunfightRoundMatchState();
+	}
+}
+
 void AGunfightPlayerController::ClientPostLoginSetMatchState_Implementation(EGunfightMatchState NewState)
 {
 	GunfightMatchState = NewState;
@@ -661,6 +672,10 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress) TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
 	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown) TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
 	*/
+}
+
+void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
+{
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()

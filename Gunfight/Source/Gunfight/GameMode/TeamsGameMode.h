@@ -20,7 +20,19 @@ public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 
+	virtual void TickGunfightMatchState(float DeltaTime) override;
+
+	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage) override;
+
 protected:
 	virtual void HandleMatchHasStarted() override;
+
+	void StartGunfightRoundMatch();
+	void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState);
+	void OnGunfightRoundMatchStateSet();
+
+private:
+
+public:
 	
 };

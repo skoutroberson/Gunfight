@@ -74,6 +74,14 @@ int32 AGunfightGameState::PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer)
 	return ScoringPlayerIndex - i + 1;
 }
 
+void AGunfightGameState::RedTeamScores()
+{
+}
+
+void AGunfightGameState::BlueTeamScores()
+{
+}
+
 void AGunfightGameState::OnRep_RedTeamScore()
 {
 

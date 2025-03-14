@@ -56,6 +56,7 @@ public:
 	void SetScoreboardVisibility(bool bVisible);
 
 	void SetGunfightMatchState(EGunfightMatchState NewState);
+	void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundState);
 
 	UFUNCTION(Client, Reliable)
 	void ClientPostLoginSetMatchState(EGunfightMatchState NewState);
@@ -76,6 +77,9 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere)
 	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Uninitialized;
+
+	UPROPERTY(ReplicatedUsing = OnRep_GunfightRoundMatchState, VisibleAnywhere)
+	EGunfightRoundMatchState GunfightRoundMatchState = EGunfightRoundMatchState::EGRMS_Uninitialized;
 
 	/**
 	* Matchmaking
@@ -171,6 +175,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_GunfightMatchState();
+
+	UFUNCTION()
+	void OnRep_GunfightRoundMatchState();
 
 	virtual void HandleGunfightWarmupStarted();
 	virtual void HandleGunfightMatchStarted();

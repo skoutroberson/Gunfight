@@ -29,6 +29,12 @@ void AGunfightGameMode::BeginPlay()
 
 	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Spawnpoints);
 
+	if (bTeamsMatch)
+	{
+		UGameplayStatics::GetAllActorsOfClassWithTag(this, APlayerStart::StaticClass(), FName("TeamA"), TeamASpawns);
+		UGameplayStatics::GetAllActorsOfClassWithTag(this, APlayerStart::StaticClass(), FName("TeamB"), TeamBSpawns);
+	}
+
 	SetGunfightMatchState(EGunfightMatchState::EGMS_WaitingForPlayers);
 }
 
@@ -363,4 +369,9 @@ void AGunfightGameMode::Logout(AController* Exiting)
 
 void AGunfightGameMode::PlayerLeftGame(AGunfightPlayerState* PlayerLeaving)
 {
+}
+
+float AGunfightGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
+{
+	return BaseDamage;
 }
