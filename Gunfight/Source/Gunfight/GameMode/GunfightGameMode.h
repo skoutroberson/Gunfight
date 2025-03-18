@@ -87,6 +87,8 @@ protected:
 
 	void SetGunfightMatchState(EGunfightMatchState NewState);
 	void OnGunfightMatchStateSet();
+
+	virtual void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState) {}
 	
 	float CountdownTime = 0.f;
 

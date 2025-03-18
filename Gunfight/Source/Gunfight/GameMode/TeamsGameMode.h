@@ -29,13 +29,14 @@ protected:
 
 	virtual void HandleMatchHasStarted() override;
 
-	void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState);
+	virtual void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState) override;
 	void OnGunfightRoundMatchStateSet();
 
 	void StartGunfightRoundMatch();
 	void StartGunfightRound();
 	void EndGunfightRound();
 	void RestartGunfightRound();
+	void RestartGunfightRoundMatch();
 
 private:
 

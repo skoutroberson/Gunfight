@@ -161,7 +161,14 @@ void AGunfightGameMode::RestartGunfightMatch()
 	if (World == nullptr) return;
 	LevelStartingTime = World->GetTimeSeconds();
 
-	SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
+	if (bTeamsMatch)
+	{
+		SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_Warmup);
+	}
+	else
+	{
+		SetGunfightMatchState(EGunfightMatchState::EGMS_Warmup);
+	}
 
 	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Red, FString("RestartGunfightMatch"));
 
