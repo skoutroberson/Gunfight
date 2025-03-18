@@ -25,11 +25,17 @@ public:
 	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage) override;
 
 protected:
+	virtual void BeginPlay() override;
+
 	virtual void HandleMatchHasStarted() override;
 
-	void StartGunfightRoundMatch();
 	void SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState);
 	void OnGunfightRoundMatchStateSet();
+
+	void StartGunfightRoundMatch();
+	void StartGunfightRound();
+	void EndGunfightRound();
+	void RestartGunfightRound();
 
 private:
 

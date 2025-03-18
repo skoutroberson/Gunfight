@@ -68,7 +68,11 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
 	{
-
+		CountdownTime = GunfightRoundStartTime + GunfightWarmupTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		if (CountdownTime <= 0.f)
+		{
+			StartGunfightRound();
+		}
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
 	{
@@ -97,11 +101,61 @@ void ATeamsGameMode::StartGunfightRoundMatch()
 			{
 				GunfightPlayerState->SetDefeats(0);
 				GunfightPlayerState->SetScore(0.f);
-				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer);
+				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer, true);
 				//GunfightPlayer->ClientUpdateMatchState(EGunfightMatchState::EGMS_MatchInProgress);
 			}
 		}
 	}
+
+	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundStart);
+}
+
+void ATeamsGameMode::StartGunfightRound()
+{
+	// Enable input for all players
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			AGunfightCharacter* GunfightPlayerCharacter = Cast<AGunfightCharacter>(GunfightPlayer->GetPawn());
+			if (GunfightPlayerCharacter)
+			{
+				GunfightPlayerCharacter->MulticastEnableInput();
+			}
+		}
+	}
+}
+
+void ATeamsGameMode::EndGunfightRound()
+{
+	// Update team score, end game if team score > WinningScore
+}
+
+void ATeamsGameMode::RestartGunfightRound()
+{
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
+
+	// Respawn all players with their input disabled
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			AGunfightCharacter* GunfightPlayerCharacter = Cast<AGunfightCharacter>(GunfightPlayer->GetPawn());
+			if (GunfightPlayerCharacter)
+			{
+				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer, true);
+				//GunfightPlayer->ClientUpdateMatchState(EGunfightMatchState::EGMS_MatchInProgress);
+			}
+		}
+	}
+
+	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundStart);
 }
 
 void ATeamsGameMode::SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState)
@@ -163,6 +217,13 @@ float ATeamsGameMode::CalculateDamage(AController* Attacker, AController* Victim
 		return 0.f;
 	}
 	return BaseDamage;
+}
+
+void ATeamsGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	ShuffleTeamSpawns();
 }
 
 void ATeamsGameMode::HandleMatchHasStarted()

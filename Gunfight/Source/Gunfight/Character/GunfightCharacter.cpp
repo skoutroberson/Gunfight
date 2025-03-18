@@ -697,12 +697,21 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 	}
 }
 
-void AGunfightCharacter::MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation)
+void AGunfightCharacter::MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled)
 {
-	Respawn(SpawnLocation, SpawnRotation);
+	Respawn(SpawnLocation, SpawnRotation, bInputDisabled);
 }
 
-void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation)
+void AGunfightCharacter::MulticastEnableInput_Implementation()
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController)
+	{
+		EnableInput(GunfightPlayerController);
+	}
+}
+
+void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled)
 {
 	bDisableGameplay = false;
 	UnRagdoll();
@@ -772,6 +781,15 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 	{
 		SpawnPP();
 	}
+
+	if (bInputDisabled)
+	{
+		GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+		if (GunfightPlayerController)
+		{
+			DisableInput(GunfightPlayerController);
+		}
+	}
 }
 
 void AGunfightCharacter::ElimTimerFinished()
@@ -784,7 +802,7 @@ void AGunfightCharacter::ElimTimerFinished()
 		DefaultWeapon->Destroy();
 	}
 	*/
-	if (GunfightGameMode && !bLeftGame && bElimmed)
+	if (GunfightGameMode && !GunfightGameMode->bTeamsMatch && !bLeftGame && bElimmed)
 	{
 		GunfightGameMode->RequestRespawn(this, Controller);
 	}

@@ -63,8 +63,8 @@ public:
 	void ClientPostLoginSetMatchState_Implementation(EGunfightMatchState NewState);
 
 	UFUNCTION(Client, Reliable)
-	void ClientJoinMidGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
-	void ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
+	void ClientJoinMidGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime, float NewRoundStartTime, float NewRoundTime, float NewRoundEndTime);
+	void ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime, float NewRoundStartTime, float NewRoundTime, float NewRoundEndTime);
 
 	UFUNCTION(Client, Reliable)
 	void ClientRestartGame(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime);
@@ -183,6 +183,12 @@ protected:
 	virtual void HandleGunfightMatchStarted();
 	virtual void HandleGunfightCooldownStarted();
 
+	void HandleGunfightRoundMatchStarted();
+	void HandleGunfightRoundRestarted();
+	void HandleGunfightRoundStarted();
+	void HandleGunfightRoundEnded();
+	void HandleGunfightRoundCooldownStarted();
+
 	void UpdateSaveGameData(bool bWon);
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
@@ -205,6 +211,11 @@ private:
 	uint32 CountdownInt = 0;
 	float WarmupTime = 0.f;
 	float MatchEndTime = 0.f;
+
+	float RoundStartTime = 0.f;
+	float RoundTime = 0.f;
+	float TotalRoundTime = 0.f; // gets set when the round ends
+	float RoundEndTime = 0.f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_MatchState)
 	FName MatchState;

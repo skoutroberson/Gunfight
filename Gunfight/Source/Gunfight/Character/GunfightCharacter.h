@@ -55,11 +55,15 @@ public:
 	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, EHitbox HitType);
 
 	// resets
-	void Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
+	void Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled = false);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastRespawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
-	void MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation);
+	void MulticastRespawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled = false);
+	void MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled = false);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastEnableInput();
+	void MulticastEnableInput_Implementation();
 
 	/**
 	* Shared Spaces blueprint events for Meta Quest Multiplayer

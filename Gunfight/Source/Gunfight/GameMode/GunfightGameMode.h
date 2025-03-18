@@ -28,7 +28,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void TickGunfightMatchState(float DeltaTime);
 	virtual void PlayerEliminated(class AGunfightCharacter* ElimmedCharacter, class AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController);
-	virtual void RequestRespawn(class ACharacter* ElimmedCharacter, AController* ElimmedController);
+	virtual void RequestRespawn(class ACharacter* ElimmedCharacter, AController* ElimmedController, bool bInputDisabled = false);
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 	void PlayerLeftGame(class AGunfightPlayerState* PlayerLeaving);
@@ -59,7 +59,10 @@ public:
 	float GunfightRoundStartTime = 10.f;
 
 	UPROPERTY(EditDefaultsOnly)
-	float GunfightRoundTime = 105.f;
+	float GunfightRoundTime = 120.f;
+
+	UPROPERTY(EditDefaultsOnly)
+	float GunfightTotalRoundTime = 0.f; // gets set when the round ends
 
 	UPROPERTY(EditDefaultsOnly)
 	float GunfightRoundEndTime = 5.f;
@@ -87,17 +90,22 @@ protected:
 	
 	float CountdownTime = 0.f;
 
+	void ShuffleTeamSpawns();
+
 private:
 
 	UPROPERTY()
 	class AGunfightGameState* GunfightGameState;
 
-	// Chooses the farthest spawn away from other players.
-	AActor* GetBestSpawnpoint();
-
 	TArray<AActor*> Spawnpoints;
 	TArray<AActor*> TeamASpawns;
 	TArray<AActor*> TeamBSpawns;
+
+	bool bRedSpawnsA = false; // used so we can switch which team spawns at A or B spawns
+
+	// chooses spawn farthest away from other players
+	AActor* GetBestSpawnpoint(AController* ElimmedController);
+
 
 public:
 	FORCEINLINE float GetCountdownTime() const { return CountdownTime; }

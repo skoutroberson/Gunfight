@@ -78,7 +78,8 @@ void AGunfightPlayerState::OnRep_Score()
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Score);
 
-			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress) return;
+			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress
+				|| LocalController->GunfightRoundMatchState != EGunfightRoundMatchState::EGRMS_RoundInProgress) return;
 
 			// update stat
 			UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);

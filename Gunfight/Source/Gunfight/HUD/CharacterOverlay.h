@@ -185,6 +185,12 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* PingText;
 
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* RedScoreText;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* BlueScoreText;
+
 private:
 	void InitializeScoreboardInfo();
 };

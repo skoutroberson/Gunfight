@@ -335,9 +335,35 @@ void AGunfightPlayerController::SetHUDTime()
 {
 	float TimeLeft = 0.f;
 
-	if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
-	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress) TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
-	else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown) TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Uninitialized)
+	{
+		if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup) TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+		else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress) TimeLeft = MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+		else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown) TimeLeft = CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime;
+	}
+	else
+	{
+		if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+		{
+			TimeLeft = WarmupTime - GetServerTime() + LevelStartingTime;
+		}
+		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
+		{
+			TimeLeft = RoundStartTime - GetServerTime() + LevelStartingTime;
+		}
+		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
+		{
+			TimeLeft = RoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+		}
+		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
+		{
+			TimeLeft = RoundEndTime + TotalRoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+		}
+		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
+		{
+			TimeLeft = CooldownTime + RoundEndTime + TotalRoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+		}
+	}
 
 	uint32 SecondsLeft = FMath::CeilToInt(TimeLeft);
 
@@ -356,7 +382,10 @@ void AGunfightPlayerController::SetHUDTime()
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}
-		else if (GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress)
+		else if (GunfightMatchState	== EGunfightMatchState::EGMS_MatchInProgress		|| 
+			GunfightRoundMatchState	== EGunfightRoundMatchState::EGRMS_RoundStart		|| 
+			GunfightRoundMatchState	== EGunfightRoundMatchState::EGRMS_RoundInProgress	|| 
+			GunfightRoundMatchState	== EGunfightRoundMatchState::EGRMS_RoundCooldown)
 		{
 			SetHUDMatchCountdown(TimeLeft);
 		}
@@ -676,6 +705,31 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 
 void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 {
+	if (!HasAuthority() && GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Orange, FString::Printf(TEXT("OnRep GunfightROUNDMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
+	}
+
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+	{
+		HandleGunfightRoundMatchStarted();
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
+	{
+		HandleGunfightRoundRestarted();
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
+	{
+		HandleGunfightRoundMatchStarted();
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
+	{
+		HandleGunfightRoundCooldownStarted();
+	}
+	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
+	{
+
+	}
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()
@@ -724,6 +778,63 @@ void AGunfightPlayerController::HandleGunfightMatchStarted()
 void AGunfightPlayerController::HandleGunfightCooldownStarted()
 {
 	HandleCooldown2();
+}
+
+void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
+{
+	bWon = false;
+
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+
+	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
+
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	if (GunfightHUD == nullptr) return;
+
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay						&& 
+		CharacterOverlay->AnnouncementText		&& 
+		CharacterOverlay->WarmupTime			&& 
+		CharacterOverlay->InfoText				&& 
+		CharacterOverlay->MatchCountdownText	&&
+		CharacterOverlay->RedScoreText			&&
+		CharacterOverlay->BlueScoreText)
+	{
+		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
+		GunfightCharacter->VRStereoLayer->SetVisibility(true);
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+		CharacterOverlay->WarmupTime->SetRenderOpacity(0.f);
+		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
+		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.0f);
+		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
+		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+	}
+}
+
+void AGunfightPlayerController::HandleGunfightRoundRestarted()
+{
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
+
+	HandleGunfightRoundMatchStarted();
+}
+
+void AGunfightPlayerController::HandleGunfightRoundStarted()
+{
+	HandleGunfightRoundMatchStarted();
+}
+
+void AGunfightPlayerController::HandleGunfightRoundEnded()
+{
+	
+}
+
+void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
+{
+	TotalRoundTime = RoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+	HandleGunfightRoundMatchStarted();
 }
 
 void AGunfightPlayerController::UpdateSaveGameData(bool bWonTheGame)
@@ -966,27 +1077,29 @@ void AGunfightPlayerController::ServerCheckMatchState_Implementation()
 		MatchState = GameMode->GetMatchState();
 		WarmupTime = GameMode->GunfightWarmupTime;
 		MatchEndTime = GameMode->GunfightCooldownTime;
+
+		RoundStartTime = GameMode->GunfightRoundStartTime;
+		RoundTime = GameMode->GunfightRoundTime;
+		RoundEndTime = GameMode->GunfightRoundEndTime;
 		
 		SetGunfightMatchState(GameMode->GetGunfightMatchState());
 
-		ClientJoinMidGame(GunfightMatchState, WarmupTime, MatchTime, MatchEndTime, LevelStartingTime);
+		ClientJoinMidGame(GunfightMatchState, WarmupTime, MatchTime, MatchEndTime, LevelStartingTime, RoundStartTime, RoundTime, RoundEndTime);
 	}
 }
 
-void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)
+void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime, float NewRoundStartTime, float NewRoundTime, float NewRoundEndTime)
 {
 	WarmupTime = WaitingToStart;
 	MatchTime = Match;
 	CooldownTime = Cooldown;
 	LevelStartingTime = StartingTime;
-	SetGunfightMatchState(StateOfMatch);
 
-	/*
-	if (GunfightHUD && MatchState == MatchState::WaitingToStart)
-	{
-		GunfightHUD->AddAnnouncement();
-	}
-	*/
+	RoundStartTime = NewRoundStartTime;
+	RoundTime = NewRoundTime;
+	RoundEndTime = NewRoundEndTime;
+
+	SetGunfightMatchState(StateOfMatch);
 }
 
 void AGunfightPlayerController::ClientRestartGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)

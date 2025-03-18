@@ -9,6 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/CapsuleComponent.h"
+#include "Algo/RandomShuffle.h"
 
 namespace MatchState
 {
@@ -224,11 +225,27 @@ void AGunfightGameMode::OnGunfightMatchStateSet()
 	}
 }
 
-AActor* AGunfightGameMode::GetBestSpawnpoint()
+void AGunfightGameMode::ShuffleTeamSpawns()
 {
-	if (Spawnpoints.IsEmpty())
+	Algo::RandomShuffle(TeamASpawns);
+	Algo::RandomShuffle(TeamBSpawns);
+}
+
+AActor* AGunfightGameMode::GetBestSpawnpoint(AController* ElimmedController)
+{
+	if (bTeamsMatch)
 	{
-		UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), Spawnpoints);
+		AGunfightPlayerState* GPState = ElimmedController->GetPlayerState<AGunfightPlayerState>();
+		if (GPState == nullptr || GPState->GetTeam() == ETeam::ET_NoTeam) return nullptr;
+
+		if (GPState->GetTeam() == ETeam::ET_RedTeam)
+		{
+			Spawnpoints = bRedSpawnsA ? TeamASpawns : TeamBSpawns;
+		}
+		else
+		{
+			Spawnpoints = bRedSpawnsA ? TeamBSpawns : TeamASpawns;
+		}
 	}
 	if (Spawnpoints.IsEmpty()) return nullptr;
 
@@ -292,9 +309,9 @@ void AGunfightGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, A
 	}
 }
 
-void AGunfightGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController)
+void AGunfightGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController* ElimmedController, bool bInputDisabled)
 {
-	AActor* BestSpawnpoint = GetBestSpawnpoint();
+	AActor* BestSpawnpoint = GetBestSpawnpoint(ElimmedController);
 	if (BestSpawnpoint == nullptr) return;
 	FVector SpawnLocation = BestSpawnpoint->GetActorLocation();
 	FRotator SpawnRotation = BestSpawnpoint->GetActorRotation();
@@ -319,7 +336,7 @@ void AGunfightGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController
 		AGunfightCharacter* GCharacter = Cast<AGunfightCharacter>(ElimmedCharacter);
 		if (GCharacter)
 		{
-			GCharacter->MulticastRespawn(SpawnLocation, SpawnRotation);
+			GCharacter->MulticastRespawn(SpawnLocation, SpawnRotation, bInputDisabled);
 		}
 	}
 }
