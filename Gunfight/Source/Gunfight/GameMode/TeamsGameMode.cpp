@@ -79,7 +79,7 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundStart)
 	{
-		CountdownTime = GunfightRoundStartTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = GunfightRoundStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			StartGunfightRound();
@@ -87,7 +87,7 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
 	{
-		CountdownTime = GunfightRoundTime + GunfightRoundStartTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = GunfightRoundTime + GunfightRoundStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			EndGunfightRound();
@@ -95,7 +95,7 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
 	{
-		CountdownTime = GunfightTotalRoundTime + GunfightRoundStartTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = GunfightRoundEndTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			RestartGunfightRound();
@@ -103,7 +103,7 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 	{
-		CountdownTime = GunfightCooldownTime + GunfightTotalRoundTime + GunfightRoundStartTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = GunfightCooldownTime + GunfightRoundEndTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			RestartGunfightRoundMatch();
@@ -141,7 +141,7 @@ void ATeamsGameMode::StartGunfightRound()
 {
 	// Enable input for all players
 
-	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	/*for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
 		if (GunfightPlayer)
@@ -152,7 +152,7 @@ void ATeamsGameMode::StartGunfightRound()
 				GunfightPlayerCharacter->MulticastEnableInput();
 			}
 		}
-	}
+	}*/
 
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundInProgress);
 }
@@ -160,7 +160,9 @@ void ATeamsGameMode::StartGunfightRound()
 void ATeamsGameMode::EndGunfightRound()
 {
 	// Update team score, end game if team score > WinningScore
-	GunfightTotalRoundTime = GunfightMatchTime + GunfightRoundStartTime + WaitingToStartTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
 
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundCooldown);
 }

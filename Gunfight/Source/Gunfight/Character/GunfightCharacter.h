@@ -383,6 +383,8 @@ private:
 	UPROPERTY(EditAnywhere)
 	UMaterialInstance* OriginalMaterial;
 
+	bool bDisableMovement = false; // if true, MoveForward() and MoveRight() will be disabled.
+
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -401,6 +403,7 @@ public:
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
 	FORCEINLINE bool IsEliminated() const { return bElimmed; }
+	FORCEINLINE void SetDisableMovement(bool bMovementDisabled) { bDisableMovement = bMovementDisabled; }
 
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE void SetSnapTurning(bool bShouldSnap) { bSnapTurning = bShouldSnap; }

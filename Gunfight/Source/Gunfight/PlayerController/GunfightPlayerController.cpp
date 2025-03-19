@@ -358,11 +358,11 @@ void AGunfightPlayerController::SetHUDTime()
 		}
 		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
 		{
-			TimeLeft = RoundEndTime + TotalRoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+			TimeLeft = RoundEndTime - GetServerTime() + LevelStartingTime;
 		}
 		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 		{
-			TimeLeft = CooldownTime + RoundEndTime + TotalRoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+			TimeLeft = CooldownTime + RoundEndTime - GetServerTime() + LevelStartingTime;
 		}
 	}
 
@@ -396,7 +396,7 @@ void AGunfightPlayerController::SetHUDTime()
 
 	if (GEngine && HasAuthority())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Red, FString::Printf(TEXT("Countdown: %d"), SecondsLeft));
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Red, FString::Printf(TEXT("Delta: %f"), ClientServerDelta));
 	}
 
 	CountdownInt = SecondsLeft;
@@ -728,7 +728,7 @@ void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress)
 	{
-		HandleGunfightRoundMatchStarted();
+		HandleGunfightRoundStarted();
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
 	{
@@ -856,7 +856,34 @@ void AGunfightPlayerController::HandleGunfightRoundRestarted()
 
 void AGunfightPlayerController::HandleGunfightRoundStarted()
 {
-	HandleGunfightRoundMatchStarted();
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightCharacter == nullptr) return;
+
+	GunfightCharacter->SetDisableMovement(false);
+
+	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
+
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	if (GunfightHUD == nullptr) return;
+
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay &&
+		CharacterOverlay->AnnouncementText &&
+		CharacterOverlay->WarmupTime &&
+		CharacterOverlay->InfoText &&
+		CharacterOverlay->MatchCountdownText &&
+		CharacterOverlay->RedScoreText &&
+		CharacterOverlay->BlueScoreText)
+	{
+		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
+		GunfightCharacter->VRStereoLayer->SetVisibility(true);
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+		CharacterOverlay->WarmupTime->SetRenderOpacity(0.f);
+		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
+		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.f);
+		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
+		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+	}
 }
 
 void AGunfightPlayerController::HandleGunfightRoundEnded()
@@ -866,7 +893,9 @@ void AGunfightPlayerController::HandleGunfightRoundEnded()
 
 void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 {
-	TotalRoundTime = RoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
 	
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -893,6 +922,11 @@ void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.f);
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+	}
+
+	if (!HasAuthority())
+	{
+		ServerCheckMatchState();
 	}
 }
 

@@ -10,6 +10,24 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
 
+USTRUCT(BlueprintType)
+struct FHUDMatchStateSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	float AnnouncementOpacity;
+
+	UPROPERTY()
+	float WarmupTimeOpacity;
+
+	UPROPERTY()
+	float InfoOpacity;
+
+	UPROPERTY()
+	float MatchCountdownOpacity;
+};
+
 /**
  * 
  */

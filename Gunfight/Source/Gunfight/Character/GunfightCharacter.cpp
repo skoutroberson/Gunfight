@@ -252,7 +252,7 @@ void AGunfightCharacter::Tick(float DeltaTime)
 
 void AGunfightCharacter::MoveForward(float Throttle)
 {
-	if (VRReplicatedCamera == nullptr) return;
+	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
 
 	FVector CameraForwardVector = VRReplicatedCamera->GetForwardVector();
 	CameraForwardVector.Z = 0.f;
@@ -263,7 +263,7 @@ void AGunfightCharacter::MoveForward(float Throttle)
 
 void AGunfightCharacter::MoveRight(float Throttle)
 {
-	if (VRReplicatedCamera == nullptr) return;
+	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
 	FVector CameraRightVector = VRReplicatedCamera->GetRightVector();
 	CameraRightVector.Z = 0.f;
 	CameraRightVector = CameraRightVector.GetSafeNormal();
@@ -726,6 +726,8 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 	bDisableGameplay = false;
 	*/
 
+	SpawnLocation.Z += 5.f; // so we don't spawn in the floor
+
 	SetActorLocationAndRotationVR(SpawnLocation, SpawnRotation, true, true, true);
 	
 	if (GetCapsuleComponent())
@@ -784,11 +786,7 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 
 	if (bInputDisabled)
 	{
-		GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
-		if (GunfightPlayerController)
-		{
-			DisableInput(GunfightPlayerController);
-		}
+		SetDisableMovement(true);
 	}
 }
 
