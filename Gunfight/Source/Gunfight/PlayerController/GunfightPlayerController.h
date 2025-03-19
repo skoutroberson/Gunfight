@@ -6,6 +6,7 @@
 #include "VRPlayerController.h"
 #include "Gunfight/GunfightTypes/ScoreboardUpdate.h"
 #include "Gunfight/GunfightTypes/GunfightMatchState.h"
+#include "Gunfight/GunfightTypes/Team.h"
 #include "GunfightPlayerController.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
@@ -40,6 +41,7 @@ public:
 	AGunfightPlayerController();
 	void SetHUDHealth(float Health, float MaxHealth);
 	void SetHUDScore(float Score);
+	void SetHUDTeamScore(float Score, ETeam TeamToUpdate);
 	void SetHUDDefeats(int32 Defeats);
 	void SetHUDWeaponAmmo(int32 Ammo);
 	void SetHUDCarriedAmmo(int32 Ammo);

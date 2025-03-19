@@ -368,10 +368,13 @@ void AGunfightGameMode::PostLogin(APlayerController* NewPlayer)
 		//GunfightPlayerController->ClientPostLoginSetMatchState(GunfightMatchState);
 	}
 
-	int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
-	if (GunfightMatchState == EGunfightMatchState::EGMS_WaitingForPlayers && NumberOfPlayers > 1)
+	if (!bTeamsMatch)
 	{
-		RestartGunfightMatch();
+		int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+		if (GunfightMatchState == EGunfightMatchState::EGMS_WaitingForPlayers && NumberOfPlayers > 1)
+		{
+			RestartGunfightMatch();
+		}
 	}
 }
 

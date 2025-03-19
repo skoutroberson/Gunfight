@@ -36,7 +36,7 @@ void UEOSSubsystem::CreateSession(const FName& SessionName)
 		SessionSettings.bAllowJoinViaPresence = false;
 		SessionSettings.bAllowJoinViaPresenceFriendsOnly = false;
 		SessionSettings.bIsDedicated = false;
-		SessionSettings.bIsLANMatch = false;
+		SessionSettings.bIsLANMatch = bLanEnabled;
 		SessionSettings.bShouldAdvertise = true;
 		SessionSettings.bUseLobbiesIfAvailable = true;
 		SessionSettings.bUseLobbiesVoiceChatIfAvailable = false;
@@ -57,7 +57,7 @@ void UEOSSubsystem::FindSession(const FName& SessionName)
 		FindSessionType = EFindSessionType::EFST_Private;
 
 		SessionSearch = MakeShareable(new FOnlineSessionSearch);
-		SessionSearch->bIsLanQuery = false;
+		SessionSearch->bIsLanQuery = bLanEnabled;
 		SessionSearch->MaxSearchResults = 1;
 		SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
 		SessionSearch->QuerySettings.Set("LobbyName", SessionName.ToString(), EOnlineComparisonOp::Equals);
@@ -72,7 +72,7 @@ void UEOSSubsystem::FindSessions(int32 MaxSearchResults)
 		FindSessionType = EFindSessionType::EFST_Public;
 
 		SessionSearch = MakeShareable(new FOnlineSessionSearch);
-		SessionSearch->bIsLanQuery = false;
+		SessionSearch->bIsLanQuery = bLanEnabled;
 		SessionSearch->MaxSearchResults = MaxSearchResults;
 		//SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 		SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
@@ -283,13 +283,14 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					SearchResult = *SortedSessions[Index];
 					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
-
+					LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
+					bool bHasOpenConnections = SearchResult.Session.NumOpenPublicConnections > LobbySize - 1 || SearchResult.Session.NumOpenPrivateConnections > LobbySize - 1;
 					if (FoundSessionName.GetStringLength() > 8 && 
 						!FoundSessionName.ToString().Contains(FString("Lobby")) &&
 						!FoundSessionName.ToString().Contains(FString("Hideout")) &&
-						SearchResult.Session.NumOpenPublicConnections > LobbySize - 1)
+						bHasOpenConnections)
 					{
-						LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
+						LogEntry(FString::Printf(TEXT("Attempting to join session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
 						CurrentSessionName = FName(*SearchResult.GetSessionIdStr());
 						OnRoomFound.Broadcast(true);
 						SortedSessions.Empty();

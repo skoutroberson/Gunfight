@@ -45,7 +45,11 @@ void ATeamsGameMode::PostLogin(APlayerController* NewPlayer)
 		}
 	}
 
-
+	int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_WaitingForPlayers && NumberOfPlayers >= 0)
+	{
+		RestartGunfightMatch();
+	}
 }
 
 void ATeamsGameMode::Logout(AController* Exiting)
@@ -199,6 +203,36 @@ void ATeamsGameMode::RestartGunfightRoundMatch()
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_Warmup);
 }
 
+bool ATeamsGameMode::ShouldEndRound(ETeam TeamToCheck)
+{
+	return GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress && AreAllPlayersDead(TeamToCheck);
+}
+
+bool ATeamsGameMode::AreAllPlayersDead(ETeam TeamToCheck)
+{
+	AGunfightGameState* GGameState = GetGameState<AGunfightGameState>();
+	if (GGameState == nullptr || TeamToCheck == ETeam::ET_NoTeam) return false;
+
+	TArray<AGunfightPlayerState*> PlayersToCheck = TeamToCheck == ETeam::ET_RedTeam ? GGameState->RedTeam : GGameState->BlueTeam;
+
+	bool bAllDead = true;
+
+	for (AGunfightPlayerState* GPState : PlayersToCheck)
+	{
+		if (GPState && GPState->GetPawn())
+		{
+			AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GPState->GetPawn());
+			if (GChar && !GChar->IsEliminated())
+			{
+				bAllDead = false;
+				break;
+			}
+		}
+	}
+
+	return bAllDead;
+}
+
 void ATeamsGameMode::SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState)
 {
 	if (GunfightRoundMatchState == NewRoundMatchState)
@@ -258,6 +292,19 @@ float ATeamsGameMode::CalculateDamage(AController* Attacker, AController* Victim
 		return 0.f;
 	}
 	return BaseDamage;
+}
+
+void ATeamsGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController)
+{
+	Super::PlayerEliminated(ElimmedCharacter, VictimController, AttackerController);
+
+	AGunfightPlayerState* GPState = VictimController->GetPlayerState<AGunfightPlayerState>();
+	if (GPState == nullptr || GPState->GetTeam() == ETeam::ET_NoTeam) return;
+
+	if (ShouldEndRound(GPState->GetTeam()))
+	{
+		EndGunfightRound();
+	}
 }
 
 void ATeamsGameMode::HandleMatchHasStarted()

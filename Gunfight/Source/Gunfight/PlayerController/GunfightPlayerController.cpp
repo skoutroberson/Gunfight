@@ -36,8 +36,6 @@ void AGunfightPlayerController::BeginPlay()
 
 	GunfightHUD = Cast<AGunfightHUD>(GetHUD());
 	ServerCheckMatchState();
-
-
 }
 
 void AGunfightPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -738,6 +736,13 @@ void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 	{
 
 	}
+
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+
+	if (GunfightHUD) // turn off soundtrack for testing
+	{
+		GunfightHUD->UpdateSoundtrack(EGunfightMatchState::EGMS_Uninitialized, 0.f);
+	}
 }
 
 void AGunfightPlayerController::HandleGunfightWarmupStarted()
@@ -824,7 +829,7 @@ void AGunfightPlayerController::HandleGunfightRoundRestarted()
 {
 	UWorld* World = GetWorld();
 	if (World == nullptr) return;
-	LevelStartingTime = World->TimeSeconds;
+	LevelStartingTime = World->TimeSeconds + ClientServerDelta;
 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -895,7 +900,7 @@ void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 {
 	UWorld* World = GetWorld();
 	if (World == nullptr) return;
-	LevelStartingTime = World->TimeSeconds;
+	LevelStartingTime = World->TimeSeconds + ClientServerDelta;
 	
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -922,11 +927,6 @@ void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.f);
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
-	}
-
-	if (!HasAuthority())
-	{
-		ServerCheckMatchState();
 	}
 }
 
@@ -999,6 +999,30 @@ void AGunfightPlayerController::SetHUDScore(float Score)
 	{
 		FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
 		GunfightHUD->CharacterOverlay->ScoreAmount->SetText(FText::FromString(ScoreText));
+		StereoLayer->MarkTextureForUpdate();
+		//UpdateScoreboard();
+	}
+	else
+	{
+		bInitializeCharacterOverlay = true;
+		HUDScore = Score;
+	}
+}
+
+void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
+{
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	bool bHUDValid = TeamToUpdate != ETeam::ET_NoTeam &&
+		GunfightHUD &&
+		GunfightHUD->CharacterOverlay &&
+		GunfightHUD->CharacterOverlay->RedScoreText &&
+		GunfightHUD->CharacterOverlay->BlueScoreText &&
+		StereoLayer;
+	if (bHUDValid)
+	{
+		FString ScoreText = FString::Printf(TEXT("%d"), FMath::FloorToInt(Score));
+		UTextBlock* TextToUpdate = TeamToUpdate == ETeam::ET_RedTeam ? GunfightHUD->CharacterOverlay->RedScoreText : GunfightHUD->CharacterOverlay->BlueScoreText;
+		TextToUpdate->SetText(FText::FromString(ScoreText));
 		StereoLayer->MarkTextureForUpdate();
 		//UpdateScoreboard();
 	}

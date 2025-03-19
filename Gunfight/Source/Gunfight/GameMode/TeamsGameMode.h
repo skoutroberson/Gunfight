@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GunfightGameMode.h"
+#include "Gunfight/GunfightTypes/Team.h"
 #include "TeamsGameMode.generated.h"
 
 /**
@@ -23,6 +24,7 @@ public:
 	virtual void TickGunfightMatchState(float DeltaTime) override;
 
 	virtual float CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage) override;
+	virtual void PlayerEliminated(class AGunfightCharacter* ElimmedCharacter, class AGunfightPlayerController* VictimController, AGunfightPlayerController* AttackerController);
 
 protected:
 	virtual void BeginPlay() override;
@@ -39,6 +41,9 @@ protected:
 	void RestartGunfightRoundMatch();
 
 private:
+
+	bool ShouldEndRound(ETeam TeamToCheck);
+	bool AreAllPlayersDead(ETeam TeamToCheck);
 
 public:
 	

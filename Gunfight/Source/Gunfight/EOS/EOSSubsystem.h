@@ -95,6 +95,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 LobbySize = 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bLanEnabled = false;
+
 protected:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameState.h"
 #include "Gunfight/GunfightTypes/GunfightMatchState.h"
+#include "Gunfight/GunfightTypes/Team.h"
 #include "GunfightGameState.generated.h"
 
 /**
@@ -78,5 +79,7 @@ private:
 
 	UPROPERTY();
 	class AGunfightPlayerController* LocalPlayerController;
+
+	void UpdateLocalHUDTeamScore(float ScoreAmount, ETeam TeamToUpdate);
 	
 };
