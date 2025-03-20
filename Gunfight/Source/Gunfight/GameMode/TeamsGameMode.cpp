@@ -108,7 +108,7 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 	{
-		CountdownTime = GunfightCooldownTime + GunfightRoundEndTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
+		CountdownTime = GunfightCooldownTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
 			RestartGunfightRoundMatch();

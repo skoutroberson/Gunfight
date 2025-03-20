@@ -507,7 +507,10 @@ void AGunfightPlayerController::OnMatchStateSet(FName State)
 
 void AGunfightPlayerController::OnRep_LevelStartingTime()
 {
-	//LevelStartingTime -= SingleTripTime;
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown && GetWorld())
+	{
+		LevelStartingTime = GetWorld()->GetTimeSeconds() + ClientServerDelta;
+	}
 }
 
 void AGunfightPlayerController::OnRep_MatchState()
@@ -959,13 +962,10 @@ void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
 	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightPlayerState == nullptr || GunfightGameState == nullptr || GunfightHUD == nullptr) return;
-
-	if (HasAuthority())
-	{
-		UWorld* World = GetWorld();
-		if (World == nullptr) return;
-		LevelStartingTime = World->TimeSeconds;
-	}
+	
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
 
 	bool bHUDValid = GunfightHUD->CharacterOverlay			&&
 		GunfightHUD->StereoLayer							&&
@@ -1215,7 +1215,15 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	{
 		if (CountdownTime < 0.f)
 		{
-			if (GEngine && !HasAuthority()) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Black, FString("COUNTDOWN TIME SET TO BLANK!"));
+			if (!HasAuthority() && GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("TimeLeft CLIENT: %f"), CountdownTime));
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Emerald, FString::Printf(TEXT("ClientServerDelta: %f"), ClientServerDelta));
+			}
+			else if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("TimeLeft Server: %f"), CountdownTime));
+			}
 			CharacterOverlay->WarmupTime->SetText(FText());
 			return;
 		}
