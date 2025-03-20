@@ -361,7 +361,7 @@ void AGunfightPlayerController::SetHUDTime()
 		}
 		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 		{
-			TimeLeft = CooldownTime - GetServerTime() + LevelStartingTime;
+			TimeLeft = CooldownTime + TotalRoundTime + RoundStartTime - GetServerTime() + LevelStartingTime;
 		}
 	}
 
@@ -396,7 +396,7 @@ void AGunfightPlayerController::SetHUDTime()
 
 	if (GEngine && HasAuthority())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Cyan, FString::Printf(TEXT("%d"), CountdownInt));
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan, FString::Printf(TEXT("%d"), CountdownInt));
 	}
 
 	CountdownInt = SecondsLeft;
@@ -507,10 +507,10 @@ void AGunfightPlayerController::OnMatchStateSet(FName State)
 
 void AGunfightPlayerController::OnRep_LevelStartingTime()
 {
-	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown && GetWorld())
+	/*if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown && GetWorld())
 	{
 		LevelStartingTime = GetWorld()->GetTimeSeconds() + ClientServerDelta;
-	}
+	}*/
 }
 
 void AGunfightPlayerController::OnRep_MatchState()
@@ -962,10 +962,12 @@ void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
 	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightPlayerState == nullptr || GunfightGameState == nullptr || GunfightHUD == nullptr) return;
+
+	TotalRoundTime = RoundTime - (RoundTime + RoundStartTime - GetServerTime() + LevelStartingTime);
 	
-	UWorld* World = GetWorld();
+	/*UWorld* World = GetWorld();
 	if (World == nullptr) return;
-	LevelStartingTime = World->TimeSeconds;
+	LevelStartingTime = World->TimeSeconds;*/
 
 	bool bHUDValid = GunfightHUD->CharacterOverlay			&&
 		GunfightHUD->StereoLayer							&&
