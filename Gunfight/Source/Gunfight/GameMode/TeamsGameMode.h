@@ -39,11 +39,18 @@ protected:
 	void EndGunfightRound();
 	void RestartGunfightRound();
 	void RestartGunfightRoundMatch();
+	void EndGunfightRoundMatch();
 
 private:
 
 	bool ShouldEndRound(ETeam TeamToCheck);
 	bool AreAllPlayersDead(ETeam TeamToCheck);
+	void UpdateTeamScore(ETeam LosingTeam);
+	bool ShouldEndGame();
+	ETeam GetWinningTeam();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	int32 WinningTeamScore = 7;
 
 public:
 	

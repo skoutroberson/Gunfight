@@ -45,6 +45,7 @@ void AGunfightPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(AGunfightPlayerController, MatchState);
 	DOREPLIFETIME(AGunfightPlayerController, GunfightMatchState);
 	DOREPLIFETIME(AGunfightPlayerController, GunfightRoundMatchState);
+	DOREPLIFETIME(AGunfightPlayerController, LevelStartingTime);
 }
 
 void AGunfightPlayerController::HostMatchGo(const FString& HostMatchId, const FString& HostLobbyId, const FString& HostDestinationApiName, const FString& HostLevelName)
@@ -360,7 +361,7 @@ void AGunfightPlayerController::SetHUDTime()
 		}
 		else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 		{
-			TimeLeft = CooldownTime + RoundEndTime - GetServerTime() + LevelStartingTime;
+			TimeLeft = CooldownTime - GetServerTime() + LevelStartingTime;
 		}
 	}
 
@@ -379,7 +380,8 @@ void AGunfightPlayerController::SetHUDTime()
 	{
 		if (GunfightMatchState == EGunfightMatchState::EGMS_Warmup				|| 
 			GunfightMatchState == EGunfightMatchState::EGMS_MatchCooldown		|| 
-			GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+			GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup	||
+			GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 		{
 			SetHUDAnnouncementCountdown(TimeLeft);
 		}
@@ -394,7 +396,7 @@ void AGunfightPlayerController::SetHUDTime()
 
 	if (GEngine && HasAuthority())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Red, FString::Printf(TEXT("Delta: %f"), ClientServerDelta));
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Cyan, FString::Printf(TEXT("%d"), CountdownInt));
 	}
 
 	CountdownInt = SecondsLeft;
@@ -501,6 +503,11 @@ void AGunfightPlayerController::OnMatchStateSet(FName State)
 		//HandleCooldown();
 		//HandleCooldown2();
 	}
+}
+
+void AGunfightPlayerController::OnRep_LevelStartingTime()
+{
+	//LevelStartingTime -= SingleTripTime;
 }
 
 void AGunfightPlayerController::OnRep_MatchState()
@@ -713,7 +720,7 @@ void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 {
 	if (!HasAuthority() && GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Orange, FString::Printf(TEXT("OnRep GunfightROUNDMatchState: %s"), *UEnum::GetValueAsString(GunfightMatchState)));
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Orange, FString::Printf(TEXT("OnRep GunfightROUNDMatchState: %s"), *UEnum::GetValueAsString(GunfightRoundMatchState)));
 	}
 
 	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
@@ -734,7 +741,7 @@ void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 	{
-
+		HandleGunfightRoundMatchEnded();
 	}
 
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
@@ -778,7 +785,7 @@ void AGunfightPlayerController::HandleGunfightWarmupStarted()
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
 		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
 
-		FString AnnouncementText("Match begins in:");
+		FString AnnouncementText("Warmup");
 		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 	}
 }
@@ -796,6 +803,13 @@ void AGunfightPlayerController::HandleGunfightCooldownStarted()
 void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 {
 	bWon = false;
+
+	if (HasAuthority())
+	{
+		UWorld* World = GetWorld();
+		if (World == nullptr) return;
+		LevelStartingTime = World->TimeSeconds;
+	}
 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -816,20 +830,26 @@ void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 	{
 		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
 		GunfightCharacter->VRStereoLayer->SetVisibility(true);
-		CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
+		CharacterOverlay->AnnouncementText->SetRenderOpacity(1.f);
 		CharacterOverlay->WarmupTime->SetRenderOpacity(1.f);
 		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+
+		FString AnnouncementText("Warmup");
+		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 	}
 }
 
 void AGunfightPlayerController::HandleGunfightRoundRestarted()
 {
-	UWorld* World = GetWorld();
-	if (World == nullptr) return;
-	LevelStartingTime = World->TimeSeconds + ClientServerDelta;
+	if (HasAuthority())
+	{
+		UWorld* World = GetWorld();
+		if (World == nullptr) return;
+		LevelStartingTime = World->TimeSeconds;
+	}
 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -898,9 +918,12 @@ void AGunfightPlayerController::HandleGunfightRoundEnded()
 
 void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 {
-	UWorld* World = GetWorld();
-	if (World == nullptr) return;
-	LevelStartingTime = World->TimeSeconds + ClientServerDelta;
+	if (HasAuthority())
+	{
+		UWorld* World = GetWorld();
+		if (World == nullptr) return;
+		LevelStartingTime = World->TimeSeconds;
+	}
 	
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 	if (GunfightCharacter == nullptr) return;
@@ -928,6 +951,60 @@ void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
 	}
+}
+
+void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
+{
+	AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
+	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	if (GunfightPlayerState == nullptr || GunfightGameState == nullptr || GunfightHUD == nullptr) return;
+
+	if (HasAuthority())
+	{
+		UWorld* World = GetWorld();
+		if (World == nullptr) return;
+		LevelStartingTime = World->TimeSeconds;
+	}
+
+	bool bHUDValid = GunfightHUD->CharacterOverlay			&&
+		GunfightHUD->StereoLayer							&&
+		GunfightHUD->CharacterOverlay->InfoText				&&
+		GunfightHUD->CharacterOverlay->AnnouncementText		&&
+		GunfightHUD->CharacterOverlay->WarmupTime			&&
+		GunfightHUD->CharacterOverlay->MatchCountdownText;
+
+	if (bHUDValid == false) return;
+
+	CharacterOverlay->AnnouncementText->SetRenderOpacity(1.f);
+	CharacterOverlay->WarmupTime->SetRenderOpacity(1.f);
+	CharacterOverlay->InfoText->SetRenderOpacity(1.f);
+	CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
+
+	FString AnnouncementText = FString("Restarting in:");
+	CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
+
+	bWon = false;
+	FString InfoTextString;
+	//InfoTextString = GunfightPlayerState->GetTeam() == GunfightGameState->GetWinningTeam() ? FString("VICTORY") : FString("DEFEAT");
+
+	FSlateColor InfoTextColor;
+
+	if (GunfightPlayerState->GetTeam() == GunfightGameState->GetWinningTeam())
+	{
+		bWon = true;
+		InfoTextString = FString("VICTORY");
+		InfoTextColor = FSlateColor(FColor::Green);
+	}
+	else
+	{
+		InfoTextString = FString("DEFEAT");
+		InfoTextColor = FSlateColor(FColor::Orange);
+	}
+
+	CharacterOverlay->InfoText->SetText(FText::FromString(InfoTextString));
+	CharacterOverlay->InfoText->SetColorAndOpacity(InfoTextColor);
+	UpdateSaveGameData(bWon);
 }
 
 void AGunfightPlayerController::UpdateSaveGameData(bool bWonTheGame)
@@ -1129,6 +1206,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	if (GunfightCharacter == nullptr) return;
 
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	
 	bool bHUDValid = CharacterOverlay &&
 		CharacterOverlay->WarmupTime &&
 		StereoLayer;
@@ -1137,6 +1215,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	{
 		if (CountdownTime < 0.f)
 		{
+			if (GEngine && !HasAuthority()) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Black, FString("COUNTDOWN TIME SET TO BLANK!"));
 			CharacterOverlay->WarmupTime->SetText(FText());
 			return;
 		}

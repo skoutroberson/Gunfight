@@ -76,23 +76,23 @@ int32 AGunfightGameState::PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer)
 
 void AGunfightGameState::RedTeamScores()
 {
+	++RedTeamScore;
 	OnRep_RedTeamScore();
 }
 
 void AGunfightGameState::BlueTeamScores()
 {
+	++BlueTeamScore;
 	OnRep_BlueTeamScore();
 }
 
 void AGunfightGameState::OnRep_RedTeamScore()
 {
-	++RedTeamScore;
 	UpdateLocalHUDTeamScore(RedTeamScore, ETeam::ET_RedTeam);
 }
 
 void AGunfightGameState::OnRep_BlueTeamScore()
 {
-	++BlueTeamScore;
 	UpdateLocalHUDTeamScore(BlueTeamScore, ETeam::ET_BlueTeam);
 }
 
@@ -145,4 +145,9 @@ void AGunfightGameState::UpdateLocalHUDTeamScore(float ScoreAmount, ETeam TeamTo
 	LocalPlayerController = LocalPlayerController == nullptr ? GetWorld()->GetFirstPlayerController<AGunfightPlayerController>() : LocalPlayerController;
 	if (LocalPlayerController == nullptr) return;
 	LocalPlayerController->SetHUDTeamScore(ScoreAmount, TeamToUpdate);
+}
+
+ETeam AGunfightGameState::GetWinningTeam()
+{
+	return RedTeamScore > BlueTeamScore ? ETeam::ET_RedTeam : ETeam::ET_BlueTeam;
 }

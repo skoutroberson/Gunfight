@@ -94,10 +94,10 @@ protected:
 
 	void ShuffleTeamSpawns();
 
-private:
-
 	UPROPERTY()
 	class AGunfightGameState* GunfightGameState;
+
+private:
 
 	TArray<AActor*> Spawnpoints;
 	TArray<AActor*> TeamASpawns;

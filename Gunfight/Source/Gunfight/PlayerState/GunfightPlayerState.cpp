@@ -78,8 +78,11 @@ void AGunfightPlayerState::OnRep_Score()
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Score);
 
-			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress
-				|| LocalController->GunfightRoundMatchState != EGunfightRoundMatchState::EGRMS_RoundInProgress) return;
+			bool bShouldUpdateStat = (LocalController->GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress ||
+				LocalController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress ||
+				LocalController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown);
+
+			if (!Character->IsLocallyControlled() || !bShouldUpdateStat) return;
 
 			// update stat
 			UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
@@ -109,8 +112,13 @@ void AGunfightPlayerState::OnRep_Defeats()
 		{
 			LocalController->UpdateScoreboard(this, EScoreboardUpdate::ESU_Death);
 
+			bool bShouldUpdateStat = (LocalController->GunfightMatchState == EGunfightMatchState::EGMS_MatchInProgress ||
+				LocalController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundInProgress ||
+				LocalController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown);
+
+			if (!Character->IsLocallyControlled() || !bShouldUpdateStat) return;
+
 			// update stat
-			if (!Character->IsLocallyControlled() || LocalController->GunfightMatchState != EGunfightMatchState::EGMS_MatchInProgress) return;
 
 			UGameInstance* GameInstance = UGameplayStatics::GetGameInstance(this);
 			if (GameInstance == nullptr) return;

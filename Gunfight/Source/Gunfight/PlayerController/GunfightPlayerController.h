@@ -208,6 +208,7 @@ protected:
 	void HandleGunfightRoundStarted();
 	void HandleGunfightRoundEnded();
 	void HandleGunfightRoundCooldownStarted();
+	void HandleGunfightRoundMatchEnded();
 
 	void UpdateSaveGameData(bool bWon);
 
@@ -224,7 +225,12 @@ private:
 	UPROPERTY()
 	class AGunfightGameMode* GunfightGameMode;
 
+	UPROPERTY(ReplicatedUsing = OnRep_LevelStartingTime)
 	float LevelStartingTime = 0.f;
+
+	UFUNCTION()
+	void OnRep_LevelStartingTime();
+
 	float MatchTime = 0.f;
 	float WaitingToStartTime = 0.f;
 	float CooldownTime = 0.f;

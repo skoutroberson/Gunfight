@@ -46,7 +46,7 @@ void ATeamsGameMode::PostLogin(APlayerController* NewPlayer)
 	}
 
 	int32 NumberOfPlayers = GameState.Get()->PlayerArray.Num();
-	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_WaitingForPlayers && NumberOfPlayers >= 0)
+	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_WaitingForPlayers && NumberOfPlayers > 1)
 	{
 		RestartGunfightMatch();
 	}
@@ -102,7 +102,8 @@ void ATeamsGameMode::TickGunfightMatchState(float DeltaTime)
 		CountdownTime = GunfightRoundEndTime - GetWorld()->GetTimeSeconds() + LevelStartingTime;
 		if (CountdownTime <= 0.f)
 		{
-			RestartGunfightRound();
+			ShouldEndGame() ? EndGunfightRoundMatch() : RestartGunfightRound();
+			//RestartGunfightRound();
 		}
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
@@ -168,7 +169,16 @@ void ATeamsGameMode::EndGunfightRound()
 	if (World == nullptr) return;
 	LevelStartingTime = World->TimeSeconds;
 
-	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundCooldown);
+	ShuffleTeamSpawns();
+
+	if (ShouldEndGame())
+	{
+		SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_MatchCooldown);
+	}
+	else
+	{
+		SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundCooldown);
+	}
 }
 
 void ATeamsGameMode::RestartGunfightRound()
@@ -200,7 +210,42 @@ void ATeamsGameMode::RestartGunfightRound()
 
 void ATeamsGameMode::RestartGunfightRoundMatch()
 {
+	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
+	if (GunfightGameState == nullptr) return;
+
+	UWorld* World = GetWorld();
+	if (World == nullptr) return;
+	LevelStartingTime = World->TimeSeconds;
+
+	GunfightGameState->RedTeamScore = 0;
+	GunfightGameState->BlueTeamScore = 0;
+	// call OnRep to update HUD for server player
+	GunfightGameState->OnRep_RedTeamScore();
+	GunfightGameState->OnRep_BlueTeamScore();
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AGunfightPlayerController* GunfightPlayer = Cast<AGunfightPlayerController>(*It);
+		if (GunfightPlayer)
+		{
+			//GunfightPlayer->ClientRestartGame(EGunfightMatchState::EGMS_Warmup, GunfightWarmupTime, GunfightMatchTime, GunfightCooldownTime, 0.f);
+			AGunfightCharacter* GunfightPlayerCharacter = Cast<AGunfightCharacter>(GunfightPlayer->GetPawn());
+			AGunfightPlayerState* GunfightPlayerState = GunfightPlayer->GetPlayerState<AGunfightPlayerState>();
+			if (GunfightPlayerState && GunfightPlayerCharacter)
+			{
+				GunfightPlayerState->SetScore(0.f);
+				GunfightPlayerState->SetDefeats(0);
+				RequestRespawn(GunfightPlayerCharacter, GunfightPlayer, false);
+			}
+		}
+	}
+
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_Warmup);
+}
+
+void ATeamsGameMode::EndGunfightRoundMatch()
+{
+	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_MatchCooldown);
 }
 
 bool ATeamsGameMode::ShouldEndRound(ETeam TeamToCheck)
@@ -231,6 +276,40 @@ bool ATeamsGameMode::AreAllPlayersDead(ETeam TeamToCheck)
 	}
 
 	return bAllDead;
+}
+
+void ATeamsGameMode::UpdateTeamScore(ETeam LosingTeam)
+{
+	AGunfightGameState* GState = GetGameState<AGunfightGameState>();
+	if (GState == nullptr) return;
+
+	LosingTeam == ETeam::ET_RedTeam ? GState->BlueTeamScores() : GState->RedTeamScores();
+}
+
+bool ATeamsGameMode::ShouldEndGame()
+{
+	AGunfightGameState* GState = GetGameState<AGunfightGameState>();
+	if (GState == nullptr) return false;
+
+	int32 BlueScore = GState->BlueTeamScore;
+	int32 RedScore = GState->RedTeamScore;
+
+	if (FMath::Abs(BlueScore - RedScore) < 2) return false; // win by 2
+
+	if (BlueScore >= WinningTeamScore || RedScore >= WinningTeamScore)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+ETeam ATeamsGameMode::GetWinningTeam()
+{
+	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
+	if (GunfightGameState == nullptr) return ETeam::ET_NoTeam;
+
+	return GunfightGameState->RedTeamScore > GunfightGameState->BlueTeamScore ? ETeam::ET_RedTeam : ETeam::ET_BlueTeam;
 }
 
 void ATeamsGameMode::SetGunfightRoundMatchState(EGunfightRoundMatchState NewRoundMatchState)
@@ -303,6 +382,7 @@ void ATeamsGameMode::PlayerEliminated(AGunfightCharacter* ElimmedCharacter, AGun
 
 	if (ShouldEndRound(GPState->GetTeam()))
 	{
+		UpdateTeamScore(GPState->GetTeam());
 		EndGunfightRound();
 	}
 }

@@ -81,5 +81,8 @@ private:
 	class AGunfightPlayerController* LocalPlayerController;
 
 	void UpdateLocalHUDTeamScore(float ScoreAmount, ETeam TeamToUpdate);
+
+public:
+	ETeam GetWinningTeam();
 	
 };
