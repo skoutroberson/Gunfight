@@ -123,6 +123,59 @@ void AGunfightGameState::SetGunfightMatchState(EGunfightMatchState NewState)
 	}
 }
 
+void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
+{
+	if (TeamSwapper == nullptr) return;
+
+	if (TeamSwapper->GetTeam() == ETeam::ET_RedTeam)
+	{
+		if (!BlueTeamSwappers.IsEmpty())
+		{
+			AGunfightPlayerState* BlueSwapper = nullptr;
+			BlueTeamSwappers.Dequeue(BlueSwapper);
+			SwapTeams(TeamSwapper, BlueSwapper);
+		}
+		else
+		{
+			RedTeamSwappers.Enqueue(TeamSwapper);
+		}
+	}
+	else if (TeamSwapper->GetTeam() == ETeam::ET_BlueTeam)
+	{
+		if (!RedTeamSwappers.IsEmpty())
+		{
+			AGunfightPlayerState* RedSwapper = nullptr;
+			RedTeamSwappers.Dequeue(RedSwapper);
+			SwapTeams(TeamSwapper, RedSwapper);
+		}
+		else
+		{
+			BlueTeamSwappers.Enqueue(TeamSwapper);
+		}
+	}
+}
+
+void AGunfightGameState::SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPlayerState* BlueSwapper)
+{
+	if (RedSwapper == nullptr || BlueSwapper == nullptr) return;
+
+	if (RedTeam.Contains(RedSwapper))
+	{
+		RedTeam.Remove(RedSwapper);
+	}
+	BlueTeam.AddUnique(RedSwapper);
+	RedSwapper->SetTeam(ETeam::ET_BlueTeam);
+
+
+	if (BlueTeam.Contains(BlueSwapper))
+	{
+		BlueTeam.Remove(BlueSwapper);
+	}
+	RedTeam.AddUnique(BlueSwapper);
+	BlueSwapper->SetTeam(ETeam::ET_RedTeam);
+
+}
+
 void AGunfightGameState::HandleGunfightWarmupStarted()
 {
 	

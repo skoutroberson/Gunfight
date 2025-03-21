@@ -65,6 +65,15 @@ public:
 	/** Updates the gunfight match state and calls the appropriate transition functions, only valid on server */
 	void SetGunfightMatchState(EGunfightMatchState NewState);
 
+	/**
+	* Team Swap
+	*/
+	TQueue<AGunfightPlayerState*> RedTeamSwappers;
+	TQueue<AGunfightPlayerState*> BlueTeamSwappers;
+
+	void QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper);
+	void SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPlayerState* BlueSwapper);
+
 protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)

@@ -154,6 +154,11 @@ protected:
 
 	void LeftStickPressed();
 	void LeftStickReleased();
+	bool bPressingLeftStick = false;
+
+	void RightStickPressed();
+	void RightStickReleased();
+	bool bPressingRightStick = false;
 
 	// For interacting with widgets like the pause menu or the main menu
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
@@ -384,6 +389,14 @@ private:
 	UMaterialInstance* OriginalMaterial;
 
 	bool bDisableMovement = false; // if true, MoveForward() and MoveRight() will be disabled.
+
+	/**
+	* Team swap
+	*/
+	FTimerHandle TeamSwapTimer;
+	void TeamSwapTimerFinished();
+
+
 
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);

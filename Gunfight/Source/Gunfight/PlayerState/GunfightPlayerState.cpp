@@ -6,6 +6,7 @@
 #include "Gunfight/Character/GunfightCharacter.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
+#include "Gunfight/GameState/GunfightGameState.h"
 
 void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -57,6 +58,33 @@ void AGunfightPlayerState::OnRep_Team()
 	{
 		GCharacter->SetTeamColor(Team);
 	}
+}
+
+void AGunfightPlayerState::RequestTeamSwap()
+{
+	ServerRequestTeamSwap();
+	bTeamSwapRequested = true;
+}
+
+void AGunfightPlayerState::ServerRequestTeamSwap_Implementation()
+{
+	HandleTeamSwapRequest();
+}
+
+void AGunfightPlayerState::HandleTeamSwapRequest()
+{
+	if (!HasAuthority()) return;
+	AGunfightGameState* GState = Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this));
+	if (GState == nullptr) return;
+	GState->QueueOrSwapSwapper(this);
+}
+
+void AGunfightPlayerState::ClientTeamSwapped_Implementation()
+{
+	bTeamSwapRequested = false;
+	AGunfightPlayerController* GPlayerController = Cast<AGunfightPlayerController>(GetPlayerController());
+	if (GPlayerController == nullptr) return;
+	GPlayerController->UpdateTeamSwapText(FString("Press and hold right stick to request a team swap."));
 }
 
 void AGunfightPlayerState::OnRep_Score()

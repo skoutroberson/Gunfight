@@ -191,6 +191,9 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* BlueScoreText;
 
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* SwapText;
+
 private:
 	void InitializeScoreboardInfo();
 };

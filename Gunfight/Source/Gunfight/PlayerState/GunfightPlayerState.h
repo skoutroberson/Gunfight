@@ -33,6 +33,23 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetPlayerNameBP(const FString& NewName);
 
+	/**
+	* Team Swap
+	*/
+
+	void RequestTeamSwap();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRequestTeamSwap();
+	void ServerRequestTeamSwap_Implementation();
+
+	void HandleTeamSwapRequest();
+
+	UFUNCTION(Client, Reliable)
+	void ClientTeamSwapped();
+	void ClientTeamSwapped_Implementation();
+
+
 private:
 
 	UPROPERTY()
@@ -49,9 +66,12 @@ private:
 	UFUNCTION()
 	void OnRep_Team();
 
+	bool bTeamSwapRequested = false;
+
 public:
 	FORCEINLINE int32 GetDefeats() const { return Defeats; }
 	FORCEINLINE void SetDefeats(int32 NewDefeats) { Defeats = NewDefeats; }
 	FORCEINLINE ETeam GetTeam() const { return Team; }
+	FORCEINLINE bool HasRequestedTeamSwap() { return bTeamSwapRequested; }
 	void SetTeam(ETeam TeamToSet);
 };

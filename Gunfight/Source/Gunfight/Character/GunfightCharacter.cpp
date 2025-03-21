@@ -32,6 +32,7 @@
 #include "Gunfight/SaveGame/GunfightSaveGame.h"
 #include "VRRootComponent.h"
 #include "Engine/GameInstance.h"
+#include "Gunfight/GunfightTypes/GunfightMatchState.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -435,6 +436,7 @@ void AGunfightCharacter::BButtonReleased(bool bLeftController)
 
 void AGunfightCharacter::LeftStickPressed()
 {
+	bPressingLeftStick = true;
 	// show scoreboard
 	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
 	if (GunfightPlayerController == nullptr) return;
@@ -443,10 +445,52 @@ void AGunfightCharacter::LeftStickPressed()
 
 void AGunfightCharacter::LeftStickReleased()
 {
+	bPressingLeftStick = false;
 	// hide scoreboard
 	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
 	if (GunfightPlayerController == nullptr) return;
 	GunfightPlayerController->SetScoreboardVisibility(false);
+
+	if (bPressingRightStick)
+	{
+		GetWorldTimerManager().ClearTimer(TeamSwapTimer);
+	}
+}
+
+void AGunfightCharacter::RightStickPressed()
+{
+	bPressingRightStick = true;
+	if (bPressingLeftStick)
+	{
+		GetWorldTimerManager().SetTimer(TeamSwapTimer, this, &AGunfightCharacter::TeamSwapTimerFinished, 1.f, false, 1.f);
+		// start timer to send the TeamSwapRequest if match state is warmup
+	}
+}
+
+void AGunfightCharacter::RightStickReleased()
+{
+	bPressingRightStick = false;
+	if (bPressingLeftStick)
+	{
+		GetWorldTimerManager().ClearTimer(TeamSwapTimer);
+	}
+}
+
+void AGunfightCharacter::TeamSwapTimerFinished()
+{
+	if (bPressingLeftStick && bPressingRightStick)
+	{
+		GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+		if (GunfightPlayerController && GunfightPlayerController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+		{
+			GunfightPlayerState = GunfightPlayerState == nullptr ? GetPlayerState<AGunfightPlayerState>() : GunfightPlayerState;
+			if (GunfightPlayerState && !GunfightPlayerState->HasRequestedTeamSwap())
+			{
+				GunfightPlayerState->RequestTeamSwap();
+				GunfightPlayerController->UpdateTeamSwapText(FString("Team swap requested."));
+			}
+		}
+	}
 }
 
 void AGunfightCharacter::MenuButtonPressed()

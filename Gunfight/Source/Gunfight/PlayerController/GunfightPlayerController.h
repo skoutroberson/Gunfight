@@ -154,6 +154,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bWon = false;
+
+	void UpdateTeamSwapText(const FString& NewSwapText);
 	
 protected:
 	virtual void SetupInputComponent() override;

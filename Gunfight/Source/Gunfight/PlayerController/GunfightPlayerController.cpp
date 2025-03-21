@@ -112,6 +112,12 @@ int32 AGunfightPlayerController::GetLobbySize()
 	return PlayerCount;
 }
 
+void AGunfightPlayerController::UpdateTeamSwapText(const FString& NewSwapText)
+{
+	if (CharacterOverlay == nullptr || CharacterOverlay->SwapText == nullptr) return;
+	CharacterOverlay->SwapText->SetText(FText::FromString(NewSwapText));
+}
+
 void AGunfightPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -829,7 +835,8 @@ void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 		CharacterOverlay->InfoText				&& 
 		CharacterOverlay->MatchCountdownText	&&
 		CharacterOverlay->RedScoreText			&&
-		CharacterOverlay->BlueScoreText)
+		CharacterOverlay->BlueScoreText			&&
+		CharacterOverlay->SwapText)
 	{
 		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
 		GunfightCharacter->VRStereoLayer->SetVisibility(true);
@@ -839,6 +846,8 @@ void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(0.f);
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+		CharacterOverlay->SwapText->SetRenderOpacity(1.0f);
+		CharacterOverlay->SwapText->SetText(FText::FromString(FString("Press and hold right stick to request a team swap.")));
 
 		FString AnnouncementText("Warmup");
 		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
@@ -869,7 +878,8 @@ void AGunfightPlayerController::HandleGunfightRoundRestarted()
 		CharacterOverlay->InfoText &&
 		CharacterOverlay->MatchCountdownText &&
 		CharacterOverlay->RedScoreText &&
-		CharacterOverlay->BlueScoreText)
+		CharacterOverlay->BlueScoreText && 
+		CharacterOverlay->SwapText)
 	{
 		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
 		GunfightCharacter->VRStereoLayer->SetVisibility(true);
@@ -879,6 +889,7 @@ void AGunfightPlayerController::HandleGunfightRoundRestarted()
 		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.f);
 		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
 		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
+		CharacterOverlay->SwapText->SetRenderOpacity(0.f);
 	}
 }
 
