@@ -57,6 +57,13 @@ void AGunfightPlayerState::OnRep_Team()
 	if (GCharacter)
 	{
 		GCharacter->SetTeamColor(Team);
+
+		bool bColoredTeam = Team == ETeam::ET_RedTeam || Team == ETeam::ET_BlueTeam;
+		if (bColoredTeam)
+		{
+			// Update game instance so teams match is true so if the host leaves, the game mode wont switch. TODO If I can find a better place to put this, I'll move it.
+			UpdateGameInstanceTeamsMode();
+		}
 	}
 }
 

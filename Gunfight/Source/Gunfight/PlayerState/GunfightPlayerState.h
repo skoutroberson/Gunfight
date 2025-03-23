@@ -49,6 +49,10 @@ public:
 	void ClientTeamSwapped();
 	void ClientTeamSwapped_Implementation();
 
+protected:
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateGameInstanceTeamsMode();
 
 private:
 

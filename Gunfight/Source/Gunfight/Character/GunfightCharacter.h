@@ -32,6 +32,9 @@ public:
 	UPROPERTY(Replicated)
 	bool bDisableGameplay = false;
 
+	UPROPERTY(Replicated)
+	bool bDisableShooting = false;
+
 	void SpawnDefaultWeapon();
 
 	void AttachMagazineToHolster();

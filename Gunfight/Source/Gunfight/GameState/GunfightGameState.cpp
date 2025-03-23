@@ -15,6 +15,7 @@ void AGunfightGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AGunfightGameState, GunfightMatchState);
 	DOREPLIFETIME(AGunfightGameState, RedTeamScore);
 	DOREPLIFETIME(AGunfightGameState, BlueTeamScore);
+
 }
 
 void AGunfightGameState::UpdateTopScore(AGunfightPlayerState* ScoringPlayer)
@@ -49,10 +50,10 @@ void AGunfightGameState::OnRep_SortedPlayers()
 	}
 }
 
-int32 AGunfightGameState::PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer)
+int32 AGunfightGameState::HandlePlayerScore(AGunfightPlayerState* ScoringPlayer)
 {
 	ScoringPlayerIndex = SortedPlayers.Find(ScoringPlayer);
-	if (ScoringPlayerIndex == INDEX_NONE || ScoringPlayerIndex <= 0) return ScoringPlayerIndex;
+	if (ScoringPlayerIndex == 0) return ScoringPlayerIndex;
 
 	const float ScoringPlayerScore = ScoringPlayer->GetScore();
 
@@ -66,6 +67,7 @@ int32 AGunfightGameState::PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer)
 		}
 		++i;
 	}
+
 	if (i == 1) return ScoringPlayerIndex;
 
 	SortedPlayers.RemoveAt(ScoringPlayerIndex);

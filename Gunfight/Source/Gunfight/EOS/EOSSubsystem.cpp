@@ -244,7 +244,7 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 	++BackgroundCounter;
 	if (FindSessionType == EFindSessionType::EFST_Private)
 	{
-		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
+		if (bWasSuccessful && SessionSearch.IsValid() && SessionSearch->SearchResults.Num() > 0)
 		{
 			int32 Index = 0;
 			for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
@@ -271,7 +271,7 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 	}
 	else if (FindSessionType == EFindSessionType::EFST_Public)
 	{
-		if (bWasSuccessful && SessionSearch->SearchResults.Num() > 0)
+		if (bWasSuccessful && SessionSearch.IsValid() && SessionSearch->SearchResults.Num() > 0)
 		{
 			ConstructSortedSessions(SessionSearch->SearchResults);
 

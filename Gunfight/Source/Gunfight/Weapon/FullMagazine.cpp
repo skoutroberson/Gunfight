@@ -190,7 +190,7 @@ void AFullMagazine::CanInsertIntoMagwell()
 			const float Dot = FVector::DotProduct(MagwellDirection, UV);
 			const float DistanceSquared = FVector::DistSquared(Weapon->GetMagwellEnd()->GetComponentLocation(), GetActorLocation());
 
-			if (DistanceSquared < 60.f && Dot > 0.9f)
+			if (DistanceSquared < 75.f && Dot > 0.85f)
 			{
 				GetWorldTimerManager().ClearTimer(InsertIntoMagHandle);
 

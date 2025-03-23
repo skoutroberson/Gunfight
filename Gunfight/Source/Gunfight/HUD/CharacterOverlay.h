@@ -194,6 +194,24 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* SwapText;
 
+	UPROPERTY(meta = (BindWidget))
+	UImage* HealthBackground;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* CountdownBackground;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* InfoBackground;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* AnnouncementBackground;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* BlueBackground;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* RedBackground;
+
 private:
 	void InitializeScoreboardInfo();
 };

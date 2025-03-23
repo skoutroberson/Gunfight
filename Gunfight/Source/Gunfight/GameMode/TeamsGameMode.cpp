@@ -159,6 +159,20 @@ void ATeamsGameMode::StartGunfightRound()
 		}
 	}*/
 
+
+	if (ShouldEndRound(ETeam::ET_RedTeam))
+	{
+		UpdateTeamScore(ETeam::ET_RedTeam);
+		EndGunfightRound();
+		return;
+	}
+	else if (ShouldEndRound(ETeam::ET_BlueTeam))
+	{
+		UpdateTeamScore(ETeam::ET_BlueTeam);
+		EndGunfightRound();
+		return;
+	}
+
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundInProgress);
 }
 

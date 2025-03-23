@@ -31,8 +31,12 @@ public:
 
 	int32 CurrentPlayerCount = 0;
 
-	// Keeps SortedPlayers sorted after a player scores, returns index for scoring player position in SortedPlayers after score.
-	int32 PlayerScoreUpdate(AGunfightPlayerState* ScoringPlayer);
+	/**
+	* Updates SortedPlayers on score, keeps it sorted.
+	* 
+	* returns index of scoring player position in SortedPlayers after score.
+	*/
+	int32 HandlePlayerScore(AGunfightPlayerState* ScoringPlayer);
 
 	int32 ScoringPlayerIndex = INDEX_NONE;
 

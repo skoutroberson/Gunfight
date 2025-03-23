@@ -78,6 +78,7 @@ void AGunfightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AGunfightCharacter, OverlappingWeapon, COND_OwnerOnly);
 	DOREPLIFETIME(AGunfightCharacter, bDisableGameplay);
 	DOREPLIFETIME(AGunfightCharacter, Health);
+	DOREPLIFETIME(AGunfightCharacter, bDisableShooting);
 }
 
 void AGunfightCharacter::PostInitializeComponents()
@@ -384,7 +385,7 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 	if (bLeftController) LeftTriggerPressedUI();
 	else RightTriggerPressedUI();
 
-	if (bDisableGameplay) return;
+	if (bDisableGameplay || bDisableShooting) return;
 
 	if (Combat)
 	{

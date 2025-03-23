@@ -220,6 +220,13 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void UpdateLeaderboardWins();
 
+	/**
+	* Updates the render opacity for HUD elements
+	* 
+	* returns false if HUD is currently invalid.
+	*/
+	bool UpdateHUD(bool bMatchCountdown, bool bWarmupTime, bool bAnnouncement, bool bInfo, bool bTeamScores);
+
 private:
 	UPROPERTY()
 	class AGunfightHUD* GunfightHUD;
@@ -308,6 +315,29 @@ private:
 
 	// for intializing the scoreboard
 	bool bPlayerStateInitialized = false;
+
+	// plays a tick sound if TimeLeft < TickStartTime, also sets MatchCountdown to red.
+	void CountdownTick(float TimeLeft);
+	float TickStartTime = 4.f;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	class USoundCue* TickSound;
+
+	// plays RoundStartVoiceline at a random teamates location
+	void PlayRoundStartVoiceline();
+
+	bool bPlayingVoiceline = false;
+
+	FTimerHandle VoicelineTimer;
+	void VoicelineTimerEnd();
+
+	// Returns the camera of the teammate we are attaching RoundStartVoiceline to before we play it.
+	USceneComponent* GetRoundStartVoicelineCamera();
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	class USoundCue* RoundStartVoiceline;
+
+	void ChangeTextBlockColor(class UTextBlock* TextBlock, FSlateColor NewColor);
 	
 public:
 	AGunfightHUD* GetGunfightHUD();

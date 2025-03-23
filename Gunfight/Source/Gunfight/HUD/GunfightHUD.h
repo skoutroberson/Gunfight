@@ -57,6 +57,9 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void UpdateSoundtrack(EGunfightMatchState NewMatchState, float StartTime = 0.f);
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void UpdateSoundtrackRound(EGunfightRoundMatchState NewMatchState);
+
 protected:
 	virtual void BeginPlay() override;
 
