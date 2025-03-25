@@ -78,6 +78,8 @@ public:
 	void QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper);
 	void SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPlayerState* BlueSwapper);
 
+	bool IsMatchEnding();
+
 protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)
@@ -94,6 +96,8 @@ private:
 	class AGunfightPlayerController* LocalPlayerController;
 
 	void UpdateLocalHUDTeamScore(float ScoreAmount, ETeam TeamToUpdate);
+
+	int32 WinningScore = 5;
 
 public:
 	ETeam GetWinningTeam();

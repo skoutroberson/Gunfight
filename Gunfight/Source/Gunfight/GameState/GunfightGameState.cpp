@@ -131,7 +131,7 @@ void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
 
 	if (TeamSwapper->GetTeam() == ETeam::ET_RedTeam)
 	{
-		if (!BlueTeamSwappers.IsEmpty())
+		if (!BlueTeamSwappers.IsEmpty() || BlueTeam.IsEmpty())
 		{
 			AGunfightPlayerState* BlueSwapper = nullptr;
 			BlueTeamSwappers.Dequeue(BlueSwapper);
@@ -144,11 +144,11 @@ void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
 	}
 	else if (TeamSwapper->GetTeam() == ETeam::ET_BlueTeam)
 	{
-		if (!RedTeamSwappers.IsEmpty())
+		if (!RedTeamSwappers.IsEmpty() || RedTeam.IsEmpty())
 		{
 			AGunfightPlayerState* RedSwapper = nullptr;
 			RedTeamSwappers.Dequeue(RedSwapper);
-			SwapTeams(TeamSwapper, RedSwapper);
+			SwapTeams(RedSwapper, TeamSwapper);
 		}
 		else
 		{
@@ -159,23 +159,38 @@ void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
 
 void AGunfightGameState::SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPlayerState* BlueSwapper)
 {
-	if (RedSwapper == nullptr || BlueSwapper == nullptr) return;
+	//if (RedSwapper == nullptr || BlueSwapper == nullptr) return;
 
-	if (RedTeam.Contains(RedSwapper))
+	if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Black, FString("SwapTeams"));
+
+	if (RedSwapper != nullptr)
 	{
-		RedTeam.Remove(RedSwapper);
+		if (RedTeam.Contains(RedSwapper))
+		{
+			RedTeam.Remove(RedSwapper);
+		}
+		BlueTeam.AddUnique(RedSwapper);
+		RedSwapper->SetTeam(ETeam::ET_BlueTeam);
+		//RedSwapper->SetTeamSwapRequested(false);
+		RedSwapper->ClientTeamSwapped();
 	}
-	BlueTeam.AddUnique(RedSwapper);
-	RedSwapper->SetTeam(ETeam::ET_BlueTeam);
 
-
-	if (BlueTeam.Contains(BlueSwapper))
+	if (BlueSwapper != nullptr)
 	{
-		BlueTeam.Remove(BlueSwapper);
+		if (BlueTeam.Contains(BlueSwapper))
+		{
+			BlueTeam.Remove(BlueSwapper);
+		}
+		RedTeam.AddUnique(BlueSwapper);
+		BlueSwapper->SetTeam(ETeam::ET_RedTeam);
+		//BlueSwapper->SetTeamSwapRequested(false);
+		BlueSwapper->ClientTeamSwapped();
 	}
-	RedTeam.AddUnique(BlueSwapper);
-	BlueSwapper->SetTeam(ETeam::ET_RedTeam);
+}
 
+bool AGunfightGameState::IsMatchEnding()
+{
+	return (RedTeamScore > WinningScore || BlueTeamScore > WinningScore) && FMath::Abs(RedTeamScore - BlueTeamScore) > 1;
 }
 
 void AGunfightGameState::HandleGunfightWarmupStarted()

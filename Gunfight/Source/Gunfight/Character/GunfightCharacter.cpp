@@ -239,6 +239,9 @@ void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 	PlayerInputComponent->BindAction("LeftStickPressed", IE_Pressed, this, &AGunfightCharacter::LeftStickPressed);
 	PlayerInputComponent->BindAction("LeftStickPressed", IE_Released, this, &AGunfightCharacter::LeftStickReleased);
+
+	PlayerInputComponent->BindAction("RightStickPressed", IE_Pressed, this, &AGunfightCharacter::RightStickPressed);
+	PlayerInputComponent->BindAction("RightStickPressed", IE_Released, this, &AGunfightCharacter::RightStickReleased);
 }
 
 void AGunfightCharacter::Tick(float DeltaTime)
@@ -482,13 +485,13 @@ void AGunfightCharacter::TeamSwapTimerFinished()
 	if (bPressingLeftStick && bPressingRightStick)
 	{
 		GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
-		if (GunfightPlayerController && GunfightPlayerController->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup)
+		if (GunfightPlayerController)
 		{
 			GunfightPlayerState = GunfightPlayerState == nullptr ? GetPlayerState<AGunfightPlayerState>() : GunfightPlayerState;
 			if (GunfightPlayerState && !GunfightPlayerState->HasRequestedTeamSwap())
 			{
-				GunfightPlayerState->RequestTeamSwap();
 				GunfightPlayerController->UpdateTeamSwapText(FString("Team swap requested."));
+				GunfightPlayerState->RequestTeamSwap();
 			}
 		}
 	}
@@ -845,11 +848,15 @@ void AGunfightCharacter::ElimTimerFinished()
 		DefaultWeapon->Destroy();
 	}
 	*/
-	if (GunfightGameMode && !GunfightGameMode->bTeamsMatch && !bLeftGame && bElimmed)
+	
+	if (GunfightGameMode && !bLeftGame && bElimmed)
 	{
-		GunfightGameMode->RequestRespawn(this, Controller);
+		bool bShouldSpawnTeams = GunfightGameMode->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_WaitingForPlayers || GunfightGameMode->GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_Warmup;
+		if (!GunfightGameMode->bTeamsMatch || bShouldSpawnTeams)
+		{
+			GunfightGameMode->RequestRespawn(this, Controller);
+		}
 	}
-	// TODO leftgame stuff
 }
 
 void AGunfightCharacter::Ragdoll()

@@ -156,6 +156,8 @@ public:
 	bool bWon = false;
 
 	void UpdateTeamSwapText(const FString& NewSwapText);
+
+	void UpdateAnnouncement(bool bShow, const FSlateColor& Color, const FString& NewString);
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -338,6 +340,9 @@ private:
 	class USoundCue* RoundStartVoiceline;
 
 	void ChangeTextBlockColor(class UTextBlock* TextBlock, FSlateColor NewColor);
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	FSlateColor DefaultAnnouncementColor = FSlateColor(FLinearColor(1.f, .91f, .28, 1.f));
 	
 public:
 	AGunfightHUD* GetGunfightHUD();

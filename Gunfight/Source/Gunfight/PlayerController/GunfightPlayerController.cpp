@@ -116,7 +116,27 @@ int32 AGunfightPlayerController::GetLobbySize()
 void AGunfightPlayerController::UpdateTeamSwapText(const FString& NewSwapText)
 {
 	if (CharacterOverlay == nullptr || CharacterOverlay->SwapText == nullptr) return;
+	CharacterOverlay->SwapText->SetRenderOpacity(1.f);
 	CharacterOverlay->SwapText->SetText(FText::FromString(NewSwapText));
+}
+
+void AGunfightPlayerController::UpdateAnnouncement(bool bShow, const FSlateColor& Color, const FString& NewString)
+{
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	if (GunfightHUD == nullptr || GunfightHUD->CharacterOverlay == nullptr) return;
+	UCharacterOverlay* CharOverlay = GunfightHUD->CharacterOverlay;
+
+	bool bHUDValid = CharOverlay &&
+		CharOverlay->AnnouncementText &&
+		CharOverlay->AnnouncementBackground;
+
+	if (!bHUDValid) return;
+
+	CharOverlay->AnnouncementText->SetRenderOpacity(bShow);
+	CharOverlay->AnnouncementBackground->SetRenderOpacity(bShow);
+
+	CharOverlay->AnnouncementText->SetColorAndOpacity(Color);
+	CharOverlay->AnnouncementText->SetText(FText::FromString(NewString));
 }
 
 void AGunfightPlayerController::SetupInputComponent()
@@ -514,10 +534,10 @@ void AGunfightPlayerController::SetHUDTime()
 		}
 	}
 
-	if (GEngine && HasAuthority())
+	/*if (GEngine && HasAuthority())
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan, FString::Printf(TEXT("%d"), CountdownInt));
-	}
+	}*/
 
 	CountdownInt = SecondsLeft;
 }
@@ -652,7 +672,8 @@ void AGunfightPlayerController::HandleMatchHasStarted()
 
 	if (UpdateHUD(true, false, false, false, false))
 	{
-		(GunfightHUD->CharacterOverlay->MatchCountdownText, FSlateColor(FColor::White));
+		ChangeTextBlockColor(GunfightHUD->CharacterOverlay->MatchCountdownText, FSlateColor(FColor::White));
+		//GunfightHUD->CharacterOverlay->MatchCountdownText, FSlateColor(FColor::White);
 	}
 
 	/*AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
@@ -1030,6 +1051,7 @@ void AGunfightPlayerController::HandleGunfightRoundRestarted()
 	if (UpdateHUD(true, false, false, false, true))
 	{
 		ChangeTextBlockColor(GunfightHUD->CharacterOverlay->MatchCountdownText, FSlateColor(FColor::White));
+		UpdateAnnouncement(false, DefaultAnnouncementColor, FString(""));
 	}
 
 	/*
@@ -1144,48 +1166,10 @@ void AGunfightPlayerController::HandleGunfightRoundCooldownStarted()
 		LevelStartingTime = World->TimeSeconds;
 	}
 
-	if (UpdateHUD(true, false, false, false, true))
+	if (UpdateHUD(true, false, true, false, true))
 	{
 		ChangeTextBlockColor(GunfightHUD->CharacterOverlay->MatchCountdownText, FSlateColor(FColor::White));
 	}
-	/*
-	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
-	if (GunfightCharacter == nullptr) return;
-
-	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
-
-	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
-	if (GunfightHUD == nullptr) return;
-
-	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
-	if (CharacterOverlay &&
-		CharacterOverlay->AnnouncementText &&
-		CharacterOverlay->WarmupTime &&
-		CharacterOverlay->InfoText &&
-		CharacterOverlay->MatchCountdownText &&
-		CharacterOverlay->RedScoreText &&
-		CharacterOverlay->BlueScoreText && 
-		CharacterOverlay->AnnouncementBackground &&
-		CharacterOverlay->InfoBackground &&
-		CharacterOverlay->CountdownBackground &&
-		CharacterOverlay->BlueBackground &&
-		CharacterOverlay->RedBackground)
-	{
-		GunfightCharacter->CharacterOverlayWidget->SetVisibility(true);
-		GunfightCharacter->VRStereoLayer->SetVisibility(true);
-		CharacterOverlay->AnnouncementText->SetRenderOpacity(0.f);
-		CharacterOverlay->WarmupTime->SetRenderOpacity(0.f);
-		CharacterOverlay->InfoText->SetRenderOpacity(0.f);
-		CharacterOverlay->MatchCountdownText->SetRenderOpacity(1.f);
-		CharacterOverlay->RedScoreText->SetRenderOpacity(1.0f);
-		CharacterOverlay->BlueScoreText->SetRenderOpacity(1.0f);
-		CharacterOverlay->BlueBackground->SetRenderOpacity(1.f);
-		CharacterOverlay->RedBackground->SetRenderOpacity(1.f);
-
-		CharacterOverlay->AnnouncementBackground->SetRenderOpacity(0.f);
-		CharacterOverlay->InfoBackground->SetRenderOpacity(0.f);
-		CharacterOverlay->CountdownBackground->SetRenderOpacity(1.f);
-	}*/
 }
 
 void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
@@ -1377,12 +1361,17 @@ void AGunfightPlayerController::SetHUDScore(float Score)
 
 void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 {
+	AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
+	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = TeamToUpdate != ETeam::ET_NoTeam &&
 		GunfightHUD &&
+		GunfightPlayerState &&
+		GunfightGameState &&
 		GunfightHUD->CharacterOverlay &&
 		GunfightHUD->CharacterOverlay->RedScoreText &&
 		GunfightHUD->CharacterOverlay->BlueScoreText &&
+		GunfightHUD->CharacterOverlay->AnnouncementText &&
 		StereoLayer;
 	if (bHUDValid)
 	{
@@ -1391,6 +1380,26 @@ void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 		TextToUpdate->SetText(FText::FromString(ScoreText));
 		StereoLayer->MarkTextureForUpdate();
 		//UpdateScoreboard();
+
+		if (!GunfightGameState->IsMatchEnding())
+		{
+			//FString AnnouncementString = TeamToUpdate == GunfightPlayerState->GetTeam() ? FString("ROUND WON") : FString("ROUND LOST");
+			FString AnnouncementString;
+			FColor AnnouncementColor;
+			bool bWonRound = TeamToUpdate == GunfightPlayerState->GetTeam();
+			if (bWonRound)
+			{
+				AnnouncementString = FString("ROUND WON");
+				AnnouncementColor = FColor::Green;
+			}
+			else
+			{
+				AnnouncementString = FString("ROUND LOST");
+				AnnouncementColor = FColor::Orange;
+			}
+
+			UpdateAnnouncement(true, FSlateColor(AnnouncementColor), AnnouncementString);
+		}
 	}
 	else
 	{
@@ -1504,7 +1513,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 	{
 		if (CountdownTime < 0.f)
 		{
-			if (!HasAuthority() && GEngine)
+			/*if (!HasAuthority() && GEngine)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("TimeLeft CLIENT: %f"), CountdownTime));
 				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Emerald, FString::Printf(TEXT("ClientServerDelta: %f"), ClientServerDelta));
@@ -1512,7 +1521,7 @@ void AGunfightPlayerController::SetHUDAnnouncementCountdown(float CountdownTime)
 			else if (GEngine)
 			{
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Black, FString::Printf(TEXT("TimeLeft Server: %f"), CountdownTime));
-			}
+			}*/
 			CharacterOverlay->WarmupTime->SetText(FText());
 			return;
 		}

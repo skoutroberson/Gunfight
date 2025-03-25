@@ -14,6 +14,7 @@ void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 
 	DOREPLIFETIME(AGunfightPlayerState, Defeats);
 	DOREPLIFETIME(AGunfightPlayerState, Team);
+	//DOREPLIFETIME(AGunfightPlayerState, bTeamSwapRequested);
 }
 
 void AGunfightPlayerState::AddToScore(float ScoreAmount)
@@ -69,8 +70,8 @@ void AGunfightPlayerState::OnRep_Team()
 
 void AGunfightPlayerState::RequestTeamSwap()
 {
-	ServerRequestTeamSwap();
 	bTeamSwapRequested = true;
+	ServerRequestTeamSwap();
 }
 
 void AGunfightPlayerState::ServerRequestTeamSwap_Implementation()
@@ -93,6 +94,26 @@ void AGunfightPlayerState::ClientTeamSwapped_Implementation()
 	if (GPlayerController == nullptr) return;
 	GPlayerController->UpdateTeamSwapText(FString("Press and hold right stick to request a team swap."));
 }
+
+void AGunfightPlayerState::SetTeamSwapRequested(bool bNewTeamSwapRequested)
+{
+	if (!HasAuthority()) return;
+
+	if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Black, FString("SetTeamSwapRequested"));
+
+	bTeamSwapRequested = bNewTeamSwapRequested;
+	//OnRep_TeamSwapRequested();
+}
+
+//void AGunfightPlayerState::OnRep_TeamSwapRequested()
+//{
+//	if (bTeamSwapRequested == false)
+//	{
+//		AGunfightPlayerController* GPlayerController = Cast<AGunfightPlayerController>(GetPlayerController());
+//		if (GPlayerController == nullptr) return;
+//		GPlayerController->UpdateTeamSwapText(FString("Press and hold right stick to request a team swap."));
+//	}
+//}
 
 void AGunfightPlayerState::OnRep_Score()
 {

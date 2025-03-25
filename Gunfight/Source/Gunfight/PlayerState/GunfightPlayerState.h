@@ -49,10 +49,18 @@ public:
 	void ClientTeamSwapped();
 	void ClientTeamSwapped_Implementation();
 
+	void SetTeamSwapRequested(bool bNewTeamSwapRequested);
+
 protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateGameInstanceTeamsMode();
+
+	//UFUNCTION()
+	//void OnRep_TeamSwapRequested();
+
+	//UPROPERTY(ReplicatedUsing = OnRep_TeamSwapRequested, VisibleAnywhere)
+	bool bTeamSwapRequested = false;
 
 private:
 
@@ -64,13 +72,11 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_Defeats)
 	int32 Defeats;
 
-	UPROPERTY(ReplicatedUsing = OnRep_Team)
+	UPROPERTY(ReplicatedUsing = OnRep_Team, VisibleAnywhere)
 	ETeam Team = ETeam::ET_NoTeam;
 
 	UFUNCTION()
 	void OnRep_Team();
-
-	bool bTeamSwapRequested = false;
 
 public:
 	FORCEINLINE int32 GetDefeats() const { return Defeats; }

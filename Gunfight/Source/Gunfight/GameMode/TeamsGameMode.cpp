@@ -66,6 +66,13 @@ void ATeamsGameMode::Logout(AController* Exiting)
 		{
 			GGameState->BlueTeam.Remove(GPState);
 		}
+
+		// End the round if the exiting player was the last alive on their team.
+		if (ShouldEndRound(GPState->GetTeam()))
+		{
+			UpdateTeamScore(GPState->GetTeam());
+			EndGunfightRound();
+		}
 	}
 
 	Super::Logout(Exiting);

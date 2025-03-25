@@ -117,7 +117,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "EOS|Session")
 	void JoinSession();
 
-	//If the user is the only one in the session, the session is destroyed. If they user is not the only one if the session, the user leaves.
+	//If the user is the only one in the session, the session is destroyed. If the user is not the only one in the session, the user leaves.
 	UFUNCTION(BlueprintCallable, Category = "EOS|Session")
 	void DestroySession();
 
