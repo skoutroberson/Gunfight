@@ -27,6 +27,12 @@ public:
 
 	void SetWeaponSkin(int32 SkinIndex);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform GrabOffsetRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform GrabOffsetLeft;
+
 protected:
 	virtual void BeginPlay() override;
 

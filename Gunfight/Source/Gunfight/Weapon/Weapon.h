@@ -150,6 +150,17 @@ public:
 	void ServerSetWeaponSkin(int32 SkinIndex);
 	void ServerSetWeaponSkin_Implementation(int32 SkinIndex);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform GrabOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform HandOffsetRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform HandOffsetLeft;
+
+	virtual void OnRep_AttachmentReplication() override {}
+
 protected:
 	virtual void BeginPlay() override;
 

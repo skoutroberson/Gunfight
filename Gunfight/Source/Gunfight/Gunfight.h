@@ -15,8 +15,6 @@ enum class ESide : uint8
 	ES_None		UMETA(DisplayName = "None"),
 	ES_Left		UMETA(DisplayName = "Left"),
 	ES_Right	UMETA(DisplayName = "Right"),
-
-	ES_MAX		UMETA(DisplayName = "DefaultMAX"),
 };
 
 using enum ESide;

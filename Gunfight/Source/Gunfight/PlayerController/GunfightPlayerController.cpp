@@ -1032,6 +1032,7 @@ void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 
 		FString AnnouncementText("Warmup");
 		CharacterOverlay->AnnouncementText->SetText(FText::FromString(AnnouncementText));
+		CharacterOverlay->AnnouncementText->SetColorAndOpacity(DefaultAnnouncementColor);
 	}
 }
 
@@ -1381,7 +1382,9 @@ void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 		StereoLayer->MarkTextureForUpdate();
 		//UpdateScoreboard();
 
-		if (!GunfightGameState->IsMatchEnding())
+		float TeamScore = TeamToUpdate == ETeam::ET_RedTeam ? GunfightGameState->RedTeamScore : GunfightGameState->BlueTeamScore;
+
+		if (!GunfightGameState->IsMatchEnding() && TeamScore >= 1)
 		{
 			//FString AnnouncementString = TeamToUpdate == GunfightPlayerState->GetTeam() ? FString("ROUND WON") : FString("ROUND LOST");
 			FString AnnouncementString;

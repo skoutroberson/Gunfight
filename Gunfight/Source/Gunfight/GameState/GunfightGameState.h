@@ -79,7 +79,6 @@ public:
 	void SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPlayerState* BlueSwapper);
 
 	bool IsMatchEnding();
-
 protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState)

@@ -71,7 +71,7 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 		LeftEquippedWeapon->SetCharacterOwner(Character);
 		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 		LeftEquippedWeapon->SetWeaponSide(ESide::ES_Left);
-		AttachActorToHand(LeftEquippedWeapon, bLeftHand);
+		//AttachActorToHand(LeftEquippedWeapon, bLeftHand);
 	}
 	else
 	{
@@ -80,9 +80,10 @@ void UCombatComponent::EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand
 		RightEquippedWeapon->SetCharacterOwner(Character);
 		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
 		RightEquippedWeapon->SetWeaponSide(ESide::ES_Right);
-		AttachActorToHand(RightEquippedWeapon, bLeftHand);
+		//AttachActorToHand(RightEquippedWeapon, bLeftHand);
 	}
 	Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
+	HandleWeaponAttach(WeaponToEquip, bLeftHand);
 	// TODO
 	/*
 		EquippedWeapon->SetHUDAmmo();
@@ -105,7 +106,8 @@ void UCombatComponent::EquipMagazine(AFullMagazine* MagToEquip, bool bLeftContro
 	}
 
 	MagToEquip->Equipped();
-	AttachActorToHand(MagToEquip, bLeftController, MagToEquip->GetHandSocketOffset());
+	AttachMagazineToMotionController(MagToEquip, bLeftController);
+	//AttachActorToHand(MagToEquip, bLeftController, MagToEquip->GetHandSocketOffset());
 	
 	// add magazine offset too i think
 }
@@ -134,6 +136,21 @@ void UCombatComponent::FireButtonPressed(bool bPressed, bool bLeftHand)
 	}
 }
 
+void UCombatComponent::HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand)
+{
+	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : Character;
+	if (Character == nullptr || WeaponToAttach == nullptr) return;
+
+	if (Character->IsLocallyControlled())
+	{
+		AttachWeaponToMotionController(WeaponToAttach, bLeftHand);
+	}
+	else
+	{
+		AttachActorToHand(WeaponToAttach, bLeftHand);
+	}
+}
+
 void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, FVector RelativeOffset)
 {
 	if (Character == nullptr || Character->GetMesh() == nullptr || ActorToAttach == nullptr) return;
@@ -147,30 +164,125 @@ void UCombatComponent::AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, 
 	//Character->SetHandState(bLeftHand, EHandState::EHS_HoldingPistol);
 }
 
+void UCombatComponent::AttachWeaponToMotionController(AWeapon* WeaponToAttach, bool bLeftHand)
+{
+	if (Character == nullptr || WeaponToAttach == nullptr) return;
+	UGripMotionControllerComponent* MotionController = bLeftHand ? Character->LeftMotionController.Get() : Character->RightMotionController.Get();
+	if (MotionController == nullptr) return;
+
+	USkeletalMeshComponent* HandMesh;
+	FVector LocationOffset;
+	FRotator RotationOffset;
+
+	WeaponToAttach->AttachToComponent(MotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	WeaponToAttach->SetActorRelativeTransform(WeaponToAttach->GrabOffset);
+
+	// hands
+
+	if (bLeftHand)
+	{
+		HandMesh = Character->GetLeftHandMesh();
+		LocationOffset = WeaponToAttach->HandOffsetLeft.GetLocation();
+		RotationOffset = WeaponToAttach->HandOffsetLeft.GetRotation().Rotator();
+	}
+	else
+	{
+		HandMesh = Character->GetRightHandMesh();
+		LocationOffset = WeaponToAttach->HandOffsetRight.GetLocation();
+		RotationOffset = WeaponToAttach->HandOffsetRight.GetRotation().Rotator();
+	}
+
+	if (HandMesh == nullptr) return;
+
+	HandMesh->AttachToComponent(WeaponToAttach->GetWeaponMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	HandMesh->SetRelativeLocationAndRotation(LocationOffset, RotationOffset);
+}
+
+void UCombatComponent::HandleWeaponDrop(bool bLeftHand)
+{
+	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : Character;
+	if (Character == nullptr || !Character->IsLocallyControlled()) return;
+	USkeletalMeshComponent* HandMesh;
+	UMotionControllerComponent* MotionController;
+	FVector LocationOffset;
+	FRotator RotationOffset;
+
+	if (bLeftHand)
+	{
+		HandMesh = Character->GetLeftHandMesh();
+		MotionController = Character->LeftMotionController.Get();
+		LocationOffset = Character->LeftHandMeshLocationOffset;
+		RotationOffset = Character->LeftHandMeshRotationOffset;
+	}
+	else
+	{
+		HandMesh = Character->GetRightHandMesh();
+		MotionController = Character->RightMotionController.Get();
+		LocationOffset = Character->RightHandMeshLocationOffset;
+		RotationOffset = Character->RightHandMeshRotationOffset;
+	}
+
+	if (HandMesh == nullptr || MotionController == nullptr) return;
+
+	HandMesh->AttachToComponent(MotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	HandMesh->SetRelativeLocationAndRotation(LocationOffset, RotationOffset);
+}
+
+void UCombatComponent::AttachMagazineToMotionController(AFullMagazine* MagToAttach, bool bLeftHand)
+{
+	if (Character == nullptr || MagToAttach == nullptr) return;
+	UGripMotionControllerComponent* MotionController = bLeftHand ? Character->LeftMotionController.Get() : Character->RightMotionController.Get();
+	if (MotionController == nullptr) return;
+
+	FTransform OffsetTransform = bLeftHand ? MagToAttach->GrabOffsetLeft : MagToAttach->GrabOffsetRight;
+
+	MagToAttach->AttachToComponent(MotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	MagToAttach->SetActorRelativeTransform(OffsetTransform);
+}
+
+void UCombatComponent::HandleMagDrop(bool bLeftHand)
+{
+}
+
 void UCombatComponent::OnRep_LeftEquippedWeapon()
 {
-	if (LeftEquippedWeapon && Character)
+	if (Character == nullptr) return;
+
+	if (LeftEquippedWeapon)
 	{
 		LeftEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-		AttachActorToHand(LeftEquippedWeapon, true);
+		//AttachActorToHand(LeftEquippedWeapon, true);
+		HandleWeaponAttach(LeftEquippedWeapon, true);
 		//PlayEquipWeaponSound(LeftEquippedWeapon);
 		Character->SetHandState(true, EHandState::EHS_HoldingPistol);
 		//LeftEquippedWeapon->SetHUDAmmo();
 		return;
+	}
+	else
+	{
+		HandleWeaponDrop(true);
 	}
 	Character->SetHandState(true, EHandState::EHS_Idle);
 }
 
 void UCombatComponent::OnRep_RightEquippedWeapon()
 {
-	if (RightEquippedWeapon && Character)
+	if (Character == nullptr) return;
+
+	if (RightEquippedWeapon)
 	{
 		RightEquippedWeapon->SetWeaponState(EWeaponState::EWS_Equipped);
-		AttachActorToHand(RightEquippedWeapon, false);
+		//AttachActorToHand(RightEquippedWeapon, false);
+		HandleWeaponAttach(RightEquippedWeapon, false);
+		// Handle
 		//PlayEquipWeaponSound(RightEquippedWeapon);
 		Character->SetHandState(false, EHandState::EHS_HoldingPistol);
 		//RightEquippedWeapon->SetHUDAmmo();
 		return;
+	}
+	else
+	{
+		HandleWeaponDrop(false);
 	}
 	Character->SetHandState(false, EHandState::EHS_Idle);
 }
@@ -314,7 +426,7 @@ bool UCombatComponent::CanFire(bool bLeft)
 	return !CurrentWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Unoccupied && CurrentWeapon->IsMagInserted();
 }
 
-void UCombatComponent::DropWeapon(bool bLeftHand)
+void UCombatComponent::DropWeapon(bool bLeftHand) // shitty function, i could make this better but too busy and it works.
 {
 	if (Character == nullptr || Character->GetMesh() == nullptr) return;
 
@@ -325,19 +437,23 @@ void UCombatComponent::DropWeapon(bool bLeftHand)
 
 	if (bLeftHand && LeftEquippedWeapon)
 	{
-		if (!HolsterWeaponDontDrop(LeftEquippedWeapon, HolsterLocation))
+		if (!HolsterWeaponDontDrop(bLeftHand, LeftEquippedWeapon, HolsterLocation))
 		{
 			LeftEquippedWeapon->Dropped(true);
+			HandleWeaponDrop(true);
 		}
 		LeftEquippedWeapon = nullptr;
+		OnRep_LeftEquippedWeapon();
 	}
 	else if (!bLeftHand && RightEquippedWeapon)
 	{
-		if (!HolsterWeaponDontDrop(RightEquippedWeapon, HolsterLocation))
+		if (!HolsterWeaponDontDrop(bLeftHand, RightEquippedWeapon, HolsterLocation))
 		{
 			RightEquippedWeapon->Dropped(true);
+			HandleWeaponDrop(false);
 		}
 		RightEquippedWeapon = nullptr;
+		OnRep_RightEquippedWeapon();
 	}
 }
 
@@ -377,7 +493,7 @@ void UCombatComponent::MulticastReload_Implementation()
 	HandleReload();
 }
 
-bool UCombatComponent::HolsterWeaponDontDrop(AWeapon* WeaponToDrop, FVector HolsterLocation)
+bool UCombatComponent::HolsterWeaponDontDrop(bool bLeftHand, AWeapon* WeaponToDrop, FVector HolsterLocation)
 {
 	if (WeaponToDrop)
 	{
@@ -385,7 +501,7 @@ bool UCombatComponent::HolsterWeaponDontDrop(AWeapon* WeaponToDrop, FVector Hols
 		float DistSquared = FVector::DistSquared(HolsterLocation, WeaponLocation);
 		if (DistSquared < 1600) // 1.5ft
 		{
-			MulticastAttachToHolster();
+			bLeftHand ? MulticastAttachToHolster(ESide::ES_Left) : MulticastAttachToHolster(ESide::ES_Right);
 			return true;
 		}
 	}
@@ -426,7 +542,7 @@ void UCombatComponent::AttachWeaponToHolster(AWeapon* WeaponToAttach)
 	}
 }
 
-void UCombatComponent::MulticastAttachToHolster_Implementation()
+void UCombatComponent::MulticastAttachToHolster_Implementation(ESide HandSide)
 {
 	if (Character == nullptr || Character->GetMesh() == nullptr || Character->GetDefaultWeapon() == nullptr) return;
 	const FName SocketName = Character->GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
@@ -450,6 +566,10 @@ void UCombatComponent::MulticastAttachToHolster_Implementation()
 	}
 
 	Weapon->SetWeaponState(EWeaponState::EWS_Holstered);
+
+	if (HandSide == ESide::ES_None) return;
+
+	HandSide == ESide::ES_Left ? HandleWeaponDrop(true) : HandleWeaponDrop(false);
 }
 
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)

@@ -416,7 +416,9 @@ void AWeapon::MulticastDropWeapon_Implementation(FVector_NetQuantize StartLocati
 	WeaponMesh->SetEnableGravity(true);
 
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
-	if (CharacterOwner == nullptr) return;
+	if (CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return;
+
+
 
 	GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
 	if (GunfightOwnerController && HasAuthority() && GunfightOwnerController->HighPingDelegate.IsBound())
@@ -438,6 +440,8 @@ void AWeapon::Dropped(bool bLeftHand)
 
 void AWeapon::OnDropped()
 {
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
@@ -460,12 +464,12 @@ void AWeapon::OnDropped()
 	// apply hand controller velocities on drop
 	if (WeaponSide == ESide::ES_Left)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 60.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 40.f);
 		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else if (WeaponSide == ESide::ES_Right)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 60.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 40.f);
 		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 10.f);
 	}
 	else
@@ -516,7 +520,7 @@ void AWeapon::ShouldAttachToHolster()
 			const float DistSquared = FVector::DistSquared(HolsterSocket->GetSocketLocation(CharacterOwner->GetMesh()), GetActorLocation());
 			if (DistSquared > 45522.f) // 7ft
 			{
-				Combat->MulticastAttachToHolster();
+				Combat->MulticastAttachToHolster(ES_None);
 			}
 		}
 	}

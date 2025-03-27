@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "Gunfight/GunfightTypes/CombatState.h"
 #include "Gunfight/GunfightTypes/HandState.h"
+#include "Gunfight/Gunfight.h"
 #include "CombatComponent.generated.h"
 
 // ps, i'm never using a bool to determine left/right again
@@ -37,8 +38,8 @@ public:
 	bool bLocallyReloading = false;
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastAttachToHolster();
-	void MulticastAttachToHolster_Implementation();
+	void MulticastAttachToHolster(ESide HandSide);
+	void MulticastAttachToHolster_Implementation(ESide HandSide);
 
 	UFUNCTION(Server, Reliable)
 	void ServerDropWeapon(
@@ -61,6 +62,14 @@ protected:
 
 	void EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand);
 	void AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, FVector RelativeOffset = FVector::ZeroVector);
+
+	void HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand);
+	void AttachWeaponToMotionController(AWeapon* WeaponToAttach, bool bLeftHand);
+	// attaches hand mesh to motion controller and applys default offsets
+	void HandleWeaponDrop(bool bLeftHand);
+
+	void AttachMagazineToMotionController(AFullMagazine* MagToAttach, bool bLeftHand);
+	void HandleMagDrop(bool bLeftHand);
 
 	UFUNCTION()
 	void OnRep_LeftEquippedWeapon();
@@ -93,7 +102,7 @@ protected:
 	void MulticastReload_Implementation();
 
 	// returns true if we holstered the weapon
-	bool HolsterWeaponDontDrop(AWeapon* WeaponToDrop, FVector HolsterLocation);
+	bool HolsterWeaponDontDrop(bool bLeft, AWeapon* WeaponToDrop, FVector HolsterLocation);
 
 private:
 

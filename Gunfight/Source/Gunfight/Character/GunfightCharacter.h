@@ -135,6 +135,20 @@ public:
 
 	void SetTeamColor(ETeam Team);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FVector RightHandMeshLocationOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FRotator RightHandMeshRotationOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FVector LeftHandMeshLocationOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FRotator LeftHandMeshRotationOffset;
+
+	virtual void OnRep_AttachmentReplication() override;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -197,6 +211,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void InitializeStereoLayer();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void InitializeHandAnimation(USkeletalMeshComponent* Hand);
 
 private:
 
@@ -399,7 +416,25 @@ private:
 	FTimerHandle TeamSwapTimer;
 	void TeamSwapTimerFinished();
 
+	bool bLocalHandsInitialized = false;
+	void TryInitializeLocalHands();
 
+	void SetLocalArmsVisible(bool bVisible);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	class USkeletalMesh* HandMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USkeletalMeshComponent* RightHandMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USkeletalMeshComponent* LeftHandMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	class UHandAnimInstance* RightHandAnim;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	class UHandAnimInstance* LeftHandAnim;
 
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);
@@ -420,6 +455,8 @@ public:
 	FORCEINLINE ULagCompensationComponent* GetLagCompensation() {return LagCompensation;}
 	FORCEINLINE bool IsEliminated() const { return bElimmed; }
 	FORCEINLINE void SetDisableMovement(bool bMovementDisabled) { bDisableMovement = bMovementDisabled; }
+	FORCEINLINE USkeletalMeshComponent* GetRightHandMesh() { return RightHandMesh; }
+	FORCEINLINE USkeletalMeshComponent* GetLeftHandMesh() { return LeftHandMesh; }
 
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE void SetSnapTurning(bool bShouldSnap) { bSnapTurning = bShouldSnap; }

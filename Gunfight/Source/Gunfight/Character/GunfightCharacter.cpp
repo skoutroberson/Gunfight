@@ -33,6 +33,7 @@
 #include "VRRootComponent.h"
 #include "Engine/GameInstance.h"
 #include "Gunfight/GunfightTypes/GunfightMatchState.h"
+#include "Gunfight/Hands/HandAnimInstance.h"
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -172,6 +173,11 @@ void AGunfightCharacter::SetTeamColor(ETeam Team)
 	}
 }
 
+void AGunfightCharacter::OnRep_AttachmentReplication()
+{
+	
+}
+
 void AGunfightCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -181,6 +187,11 @@ void AGunfightCharacter::BeginPlay()
 	IKQueryParams.IgnoreMask = 1 << 3;
 
 	VRRootReference.Get()->SetMaskFilterOnBodyInstance(1 << 3); // so IK ignores this component when walking through other characters
+
+	if (GetMesh())
+	{
+		GetMesh()->SetMaskFilterOnBodyInstance(1 << 3);
+	}
 
 	if (HasAuthority())
 	{
@@ -497,6 +508,64 @@ void AGunfightCharacter::TeamSwapTimerFinished()
 	}
 }
 
+void AGunfightCharacter::TryInitializeLocalHands()
+{
+	if (IsLocallyControlled() == false) return;
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	USkeletalMeshComponent* BodyMesh = GetMesh();
+	if (BodyMesh == nullptr || HandMesh == nullptr) return;
+	SetLocalArmsVisible(false);
+
+	RightHandMesh = NewObject<USkeletalMeshComponent>(this);
+	if (RightHandMesh == nullptr) return;
+
+	RightHandMesh->RegisterComponent();
+	RightHandMesh->AttachToComponent(RightMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	RightHandMesh->SetSkeletalMesh(HandMesh);
+	RightHandMesh->SetCastShadow(false);
+	RightHandMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RightHandMesh->SetRelativeLocationAndRotation(RightHandMeshLocationOffset, RightHandMeshRotationOffset);
+	RightHandMesh->InitLODInfos();
+	RightHandMesh->SetMinLOD(0);
+	InitializeHandAnimation(RightHandMesh);
+	RightHandAnim = Cast<UHandAnimInstance>(RightHandMesh->GetAnimInstance());
+
+	LeftHandMesh = NewObject<USkeletalMeshComponent>(this);
+	if (LeftHandMesh == nullptr) return;
+
+	LeftHandMesh->RegisterComponent();
+	LeftHandMesh->AttachToComponent(LeftMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	LeftHandMesh->SetSkeletalMesh(HandMesh);
+	LeftHandMesh->SetCastShadow(false);
+	LeftHandMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	LeftHandMesh->SetRelativeLocationAndRotation(LeftHandMeshLocationOffset, LeftHandMeshRotationOffset);
+	LeftHandMesh->SetWorldScale3D(FVector(1.f, -1.f, 1.f));
+	LeftHandMesh->InitLODInfos();
+	LeftHandMesh->SetMinLOD(0);
+	InitializeHandAnimation(LeftHandMesh);
+	LeftHandAnim = Cast<UHandAnimInstance>(RightHandMesh->GetAnimInstance());
+
+	bLocalHandsInitialized = true;
+}
+
+void AGunfightCharacter::SetLocalArmsVisible(bool bVisible)
+{
+	if (IsLocallyControlled() == false) return;
+	USkeletalMeshComponent* BodyMesh = GetMesh();
+	if (BodyMesh == nullptr) return;
+
+	if (bVisible)
+	{
+		BodyMesh->UnHideBoneByName(FName("upperarm_l"));
+		BodyMesh->UnHideBoneByName(FName("upperarm_r"));
+	}
+	else
+	{
+		BodyMesh->HideBoneByName(FName("upperarm_l"), EPhysBodyOp::PBO_None);
+		BodyMesh->HideBoneByName(FName("upperarm_r"), EPhysBodyOp::PBO_None);
+	}
+}
+
 void AGunfightCharacter::MenuButtonPressed()
 {
 	ToggleMenu();
@@ -606,12 +675,19 @@ void AGunfightCharacter::PollInit()
 		UpdateHUDAmmo();
 		UpdateHUDHealth();
 	}
+
+	if (!bLocalHandsInitialized)
+	{
+		TryInitializeLocalHands();
+	}
 }
 
 void AGunfightCharacter::OnRep_DefaultWeapon()
 {
-	if (DefaultWeapon == nullptr) return;
+	if (DefaultWeapon == nullptr || Combat == nullptr) return;
 	DefaultWeapon->CharacterOwner = this;
+
+	Combat->AttachWeaponToHolster(DefaultWeapon);
 
 	// Update the server with my weapon skin
 	if (!IsLocallyControlled()) return;
@@ -700,6 +776,8 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 		GunfightPlayerController->SetHUDWeaponAmmo(0);
 	}
 
+	SetLocalArmsVisible(true);
+
 	bLeftGame = false;
 	bElimmed = true;
 	bDisableGameplay = true;
@@ -762,6 +840,7 @@ void AGunfightCharacter::MulticastEnableInput_Implementation()
 void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled)
 {
 	bDisableGameplay = false;
+	SetLocalArmsVisible(false);
 	UnRagdoll();
 
 	Health = 100.f;
@@ -915,7 +994,6 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 	if (GunfightGameMode && World && WeaponClass && Combat)
 	{
 		DefaultWeapon = World->SpawnActor<AWeapon>(WeaponClass);
-		Combat->AttachWeaponToHolster(DefaultWeapon);
 		DefaultWeapon->SetOwner(this);
 		OnRep_DefaultWeapon();
 	}
@@ -1065,6 +1143,22 @@ void AGunfightCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 
 void AGunfightCharacter::SetHandState(bool bLeftHand, EHandState NewState)
 {
+	USkeletalMeshComponent* CurrentHand = bLeftHand ? LeftHandMesh : RightHandMesh;
+	//if (CurrentHand == nullptr) return;
+	//UHandAnimInstance* CurrentAnim = Cast<UHandAnimInstance>(CurrentHand->GetAnimInstance());
+	//if (CurrentAnim == nullptr) return;
+
+	if (CurrentHand != nullptr)
+	{
+		UHandAnimInstance* CurrentAnim = Cast<UHandAnimInstance>(CurrentHand->GetAnimInstance());
+		if (CurrentAnim != nullptr)
+		{
+			CurrentAnim->HandState = NewState;
+		}
+	}
+
+	//if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString("Hand State Changed"));
+
 	if (bLeftHand)
 	{
 		LeftHandState = NewState;
