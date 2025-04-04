@@ -29,6 +29,7 @@ AGunfightPlayerController::AGunfightPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
+	bAlwaysRelevant = true;
 }
 
 void AGunfightPlayerController::BeginPlay()
@@ -169,6 +170,7 @@ void AGunfightPlayerController::PollInit()
 				SetHUDHealth(HUDHealth, HUDMaxHealth);
 				SetHUDScore(HUDScore);
 				SetHUDDefeats(HUDDefeats);
+				UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
 
 				AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 				if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon())
@@ -194,7 +196,6 @@ void AGunfightPlayerController::PollInit()
 	{
 		bPlayerStateInitialized = true;
 		UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
-
 		//GetPlayerState<AGunfightPlayerState>()->
 	}
 }
@@ -207,10 +208,10 @@ void AGunfightPlayerController::InitializeHUD()
 		GunfightCharacter->DebugLogMessage(FString("InitializeHUD"));
 	}
 
-	if (GunfightCharacter && GunfightHUD && GunfightCharacter->CharacterOverlayWidget)
+	if (GunfightCharacter && GunfightHUD && GunfightCharacter->CharacterOverlayWidget && GunfightCharacter->VRStereoLayer)
 	{
 		CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
-		if (CharacterOverlay && GunfightCharacter->VRStereoLayer)
+		if (CharacterOverlay)
 		{
 			GunfightHUD->CharacterOverlay = CharacterOverlay;
 			GunfightHUD->StereoLayer = GunfightCharacter->VRStereoLayer;
@@ -219,6 +220,7 @@ void AGunfightPlayerController::InitializeHUD()
 			if (GunfightRoundMatchState != EGunfightRoundMatchState::EGRMS_Uninitialized)
 			{
 				OnRep_GunfightRoundMatchState();
+				SetHUDScoreboardTeamScores();
 			}
 			else
 			{
@@ -252,8 +254,11 @@ void AGunfightPlayerController::InitializeHUD()
 	}
 }
 
+// this function sucks TODO: burn it and make another
 void AGunfightPlayerController::UpdateScoreboard(AGunfightPlayerState* PlayerToUpdate, EScoreboardUpdate Type)
 {
+	if (IsLocalController() == false) return;
+
 	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
 
@@ -267,20 +272,29 @@ void AGunfightPlayerController::UpdateScoreboard(AGunfightPlayerState* PlayerToU
 	{
 		int32 IndexToUpdate = GunfightGameState->HandlePlayerScore(PlayerToUpdate);
 
-		if (GunfightGameState->ScoringPlayerIndex != INDEX_NONE)
+		if (AreWeInATeamsMatch())
 		{
-			SetHUDScoreboardScores(IndexToUpdate, GunfightGameState->ScoringPlayerIndex + 1);
+			SetHUDScoreboardTeamScores();
+		}
+		else
+		{
+			if (GunfightGameState->ScoringPlayerIndex != INDEX_NONE)
+			{
+				SetHUDScoreboardScores(IndexToUpdate, GunfightGameState->ScoringPlayerIndex + 1);
+			}
 		}
 	}
 	else if (Type == EScoreboardUpdate::ESU_Death) // player dies
 	{
 		int32 IndexToUpdate = GunfightGameState->SortedPlayers.Find(PlayerToUpdate);
 
-		CharacterOverlay->ScoreUpdate(IndexToUpdate, PlayerToUpdate->GetPlayerNameCustom(), PlayerToUpdate->GetScore(), PlayerToUpdate->GetDefeats());
+		if (AreWeInATeamsMatch()) SetHUDScoreboardTeamScores();
+		else CharacterOverlay->ScoreUpdate(IndexToUpdate, PlayerToUpdate->GetPlayerNameCustom(), PlayerToUpdate->GetScore(), PlayerToUpdate->GetDefeats());
 	}
 	else if (Type == EScoreboardUpdate::ESU_MAX) // player joins or leaves the game
 	{
-		SetHUDScoreboardScores(0, 9); // hardcoded for 10 players
+		if (AreWeInATeamsMatch()) SetHUDScoreboardTeamScores();
+		else SetHUDScoreboardScores(0, 9); // hardcoded for 10 players
 	}
 
 	StereoLayer->MarkTextureForUpdate();
@@ -357,6 +371,66 @@ void AGunfightPlayerController::SetHUDScoreboardScores(int32 StartIndex, int32 E
 	}
 
 	StereoLayer->MarkTextureForUpdate();
+
+	if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString("SetHUDScoreboardScores FUCK!"));
+}
+
+void AGunfightPlayerController::SetHUDScoreboardTeamScores()
+{
+	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+	if (GunfightGameState == nullptr || GunfightCharacter == nullptr) return;
+	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	if (CharacterOverlay == nullptr || StereoLayer == nullptr) return;
+
+	if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString("Set HUD Team Scores"));
+
+	// loop through sorted players and store all players in their respective team queues
+	TQueue<AGunfightPlayerState*> BluePlayersQueue;
+	TQueue<AGunfightPlayerState*> RedPlayersQueue;
+
+	for (auto p : GunfightGameState->SortedPlayers)
+	{
+		if (p == nullptr) continue;
+		if (p->GetTeam() == ETeam::ET_BlueTeam) BluePlayersQueue.Enqueue(p);
+		else if (p->GetTeam() == ETeam::ET_RedTeam) RedPlayersQueue.Enqueue(p);
+	}
+
+	// update blue team scores
+	for (int i = 0; i < 4; ++i)
+	{
+		AGunfightPlayerState* p = nullptr;
+		BluePlayersQueue.Dequeue(p);
+
+		if (p != nullptr)
+		{
+			CharacterOverlay->ScoreUpdate(i, p->GetPlayerNameCustom(), p->GetScore(), p->GetDefeats(), FColor::Blue);
+		}
+		else
+		{
+			CharacterOverlay->ClearScore(i);
+		}
+	}
+
+	// update red team scores
+	for (int i = 6; i < 10; ++i)
+	{
+		AGunfightPlayerState* p = nullptr;
+		RedPlayersQueue.Dequeue(p);
+
+		if (p != nullptr)
+		{
+			CharacterOverlay->ScoreUpdate(i, p->GetPlayerNameCustom(), p->GetScore(), p->GetDefeats(), FColor::Red);
+		}
+		else
+		{
+			CharacterOverlay->ClearScore(i);
+		}
+	}
+
+	// clear middle scores
+	CharacterOverlay->ClearScore(4);
+	CharacterOverlay->ClearScore(5);
 }
 
 void AGunfightPlayerController::DrawSortedPlayers()
@@ -374,7 +448,7 @@ void AGunfightPlayerController::DrawSortedPlayers()
 void AGunfightPlayerController::CountdownTick(float TimeLeft)
 {
 	if (!IsLocalController()) return;
-	if (TimeLeft >= TickStartTime) return;
+	if (TimeLeft >= TickStartTime || TimeLeft <= 0.f) return;
 	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown) return;
 
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
@@ -919,17 +993,24 @@ void AGunfightPlayerController::HandleGunfightWarmupStarted()
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
 	if (CharacterOverlay == nullptr) return;
 
+	if (HasAuthority())
+	{
+		UWorld* World = GetWorld();
+		if (World == nullptr) return;
+		LevelStartingTime = World->TimeSeconds;
+	}
+
+	/*
 	UWorld* World = GetWorld();
 	if (World == nullptr) return;
-
-	if (!HasAuthority() && World->TimeSeconds > 30) 
+if (!HasAuthority() && World->TimeSeconds > 30) 
 	{
 		ServerCheckMatchState();
 	}
 	else if (HasAuthority() && World->TimeSeconds > 30)
 	{
 		LevelStartingTime = World->TimeSeconds;
-	}
+	}*/
 
 	if (UpdateHUD(false, true, true, false, false))
 	{
@@ -1116,6 +1197,12 @@ void AGunfightPlayerController::HandleGunfightRoundStarted()
 
 	PlayRoundStartVoiceline();
 
+	if (IsLocalController() && IsScoreNil())
+	{
+		ShowAnnouncementForDuration(FSlateColor(FColor::White), FString("MATCH START"), 3.5f);
+		//UpdateAnnouncement(true, FSlateColor(FColor::White), FString("MATCH START"));
+	}
+
 	/*
 	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
 
@@ -1223,12 +1310,14 @@ void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
 		InfoTextString = FString("VICTORY");
 		InfoTextColor = FSlateColor(FColor::Green);
 		InfoBackgroundColor = FLinearColor(0.f, 1.f, 0.f, 0.5f);
+		UGameplayStatics::PlaySound2D(this, MatchWinVoiceline);
 	}
 	else
 	{
 		InfoTextString = FString("DEFEAT");
 		InfoTextColor = FSlateColor(FColor::Orange);
 		InfoBackgroundColor = FLinearColor(1.f, 0.f, 0.f, 0.5f);
+		UGameplayStatics::PlaySound2D(this, MatchLossVoiceline);
 	}
 
 	CharacterOverlay->InfoText->SetText(FText::FromString(InfoTextString));
@@ -1307,6 +1396,14 @@ bool AGunfightPlayerController::UpdateHUD(bool bMatchCountdown, bool bWarmupTime
 	CharOverlay->RedBackground->SetRenderOpacity(Opacity);
 
 	return true;
+}
+
+void AGunfightPlayerController::ShowAnnouncementForDuration(const FSlateColor& Color, const FString& AnnouncementString, float Duration)
+{
+	if (IsLocalController() == false) return;
+
+	UpdateAnnouncement(true, Color, AnnouncementString);
+	GetWorldTimerManager().SetTimer(AnnouncementTimer, this, &AGunfightPlayerController::AnnouncementTimerFinished, Duration, false);
 }
 
 void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
@@ -1394,11 +1491,13 @@ void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 			{
 				AnnouncementString = FString("ROUND WON");
 				AnnouncementColor = FColor::Green;
+				UGameplayStatics::PlaySound2D(this, RoundWinVoiceline);
 			}
 			else
 			{
 				AnnouncementString = FString("ROUND LOST");
 				AnnouncementColor = FColor::Orange;
+				UGameplayStatics::PlaySound2D(this, RoundLossVoiceline);
 			}
 
 			UpdateAnnouncement(true, FSlateColor(AnnouncementColor), AnnouncementString);
@@ -1605,6 +1704,34 @@ void AGunfightPlayerController::ClientJoinMidGame_Implementation(EGunfightMatchS
 	RoundEndTime = NewRoundEndTime;
 
 	SetGunfightMatchState(StateOfMatch);
+}
+
+bool AGunfightPlayerController::IsScoreNil()
+{
+	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+	if (GunfightGameState == nullptr) return false;
+
+	return (GunfightGameState->RedTeamScore + GunfightGameState->BlueTeamScore) == 0;
+}
+
+void AGunfightPlayerController::AnnouncementTimerFinished()
+{
+	if (IsLocalController() == false) return;
+
+	UpdateAnnouncement(false);
+}
+
+bool AGunfightPlayerController::AreWeInATeamsMatch()
+{
+	AGunfightPlayerState* PState = GetPlayerState<AGunfightPlayerState>();
+	if (PState == nullptr) return false;
+
+	return PState->GetTeam() <= ETeam::ET_BlueTeam;
+}
+
+void AGunfightPlayerController::TryToInitScoreboard()
+{
+
 }
 
 void AGunfightPlayerController::ClientRestartGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)

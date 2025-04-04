@@ -211,6 +211,8 @@ void AFullMagazine::CanInsertIntoMagwell()
 				MagwellRelativeTargetLocation = MagwellStart->GetRelativeLocation() - MagwellEnd->GetRelativeLocation();
 				bLerpToMagwellStart = true;
 				SetActorTickEnabled(true);
+
+				// TODO: Play mag insert sound
 			}
 		}
 	}

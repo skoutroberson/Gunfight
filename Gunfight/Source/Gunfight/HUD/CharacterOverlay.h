@@ -7,6 +7,7 @@
 #include "CharacterOverlay.generated.h"
 
 class UTextBlock;
+class UImage;
 
 USTRUCT(BlueprintType)
 struct FScoreboardInfo
@@ -21,6 +22,9 @@ struct FScoreboardInfo
 
 	UPROPERTY()
 	UTextBlock* DeathsText;
+
+	UPROPERTY()
+	UImage* ImagePlate;
 };
 
 /**
@@ -85,7 +89,7 @@ public:
 	TArray<FScoreboardInfo> ScoreboardInfos;
 
 	// updates scoreboard info at the specified index
-	void ScoreUpdate(int32 Index, FString Name, float Score, int32 Deaths);
+	void ScoreUpdate(int32 Index, FString Name, float Score, int32 Deaths, FColor Color = FColor::White);
 	void ClearScore(int32 Index);
 	void HideUnusedScores();
 	
@@ -183,6 +187,38 @@ public:
 	UTextBlock* Player9DeathsText;
 
 	UPROPERTY(meta = (BindWidget))
+	UImage* Player0Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player1Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player2Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player3Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player4Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player5Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player6Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player7Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player8Image;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Player9Image;
+
+	// misc
+
+	UPROPERTY(meta = (BindWidget))
 	UTextBlock* PingText;
 
 	UPROPERTY(meta = (BindWidget))
@@ -214,4 +250,5 @@ public:
 
 private:
 	void InitializeScoreboardInfo();
+	bool IsScoreboardInfoValid(const FScoreboardInfo& InfoToCheck);
 };

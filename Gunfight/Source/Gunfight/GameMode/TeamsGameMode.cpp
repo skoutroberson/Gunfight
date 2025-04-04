@@ -67,6 +67,21 @@ void ATeamsGameMode::Logout(AController* Exiting)
 			GGameState->BlueTeam.Remove(GPState);
 		}
 
+		// remove team swapper
+		AGunfightPlayerState* RedQueuePState = nullptr;
+		AGunfightPlayerState* BlueQueuePState = nullptr;
+		GGameState->RedTeamSwappers.Peek(RedQueuePState);
+		GGameState->BlueTeamSwappers.Peek(BlueQueuePState);
+		
+		if (RedQueuePState == GPState)
+		{
+			GGameState->RedTeamSwappers.Pop();
+		}
+		if (BlueQueuePState == GPState)
+		{
+			GGameState->BlueTeamSwappers.Pop();
+		}
+
 		// End the round if the exiting player was the last alive on their team.
 		if (ShouldEndRound(GPState->GetTeam()))
 		{
@@ -361,7 +376,7 @@ void ATeamsGameMode::OnGunfightRoundMatchStateSet()
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown)
 	{
-
+		bRedSpawnsA = !bRedSpawnsA; // swap team spawns every round.
 	}
 	else if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_MatchCooldown)
 	{

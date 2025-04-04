@@ -22,11 +22,9 @@ enum class EEquipState : uint8
 UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
-	EWS_Min				UMETA(DisplayName = "DefaultMIN"),
+	EWS_MIN				UMETA(DisplayName = "DefaultMIN"),
 	EWS_Equipped		UMETA(DisplayName = "Equipped"),
 	EWS_Dropped			UMETA(DisplayName = "Dropped"),
-	EWS_Ready			UMETA(DisplayName = "Ready"),
-	EWS_Empty			UMETA(DisplayName = "Empty"),
 	EWS_Holstered		UMETA(DisplayName = "Holstered"),
 
 	EWS_MAX				UMETA(DisplayName = "DefaultMAX"),
@@ -160,6 +158,15 @@ public:
 	FTransform HandOffsetLeft;
 
 	virtual void OnRep_AttachmentReplication() override {}
+
+	// don't allow putting the gun through walls and firing
+
+	// returns true if the weapon is clipping through a wall/object
+	bool IsObstructed() const;
+
+	// distance to trace going backwards from the fire location to determine of the weapon is clipping through a wall/object.
+	UPROPERTY(EditAnywhere)
+	float ObstructedDistance = 20.f;
 
 protected:
 	virtual void BeginPlay() override;

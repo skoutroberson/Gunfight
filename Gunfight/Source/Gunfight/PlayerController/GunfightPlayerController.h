@@ -71,6 +71,7 @@ public:
 
 	void InitializeHUD();
 
+	UFUNCTION(BlueprintCallable)
 	void UpdateScoreboard(class AGunfightPlayerState* PlayerToUpdate, EScoreboardUpdate Type);
 
 	void SetScoreboardVisibility(bool bVisible);
@@ -95,10 +96,10 @@ public:
 	void ClientUpdateMatchState(EGunfightMatchState StateOfMatch);
 	void ClientUpdateMatchState_Implementation(EGunfightMatchState StateOfMatch);
 
-	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere)
+	UPROPERTY(ReplicatedUsing = OnRep_GunfightMatchState, VisibleAnywhere, BlueprintReadOnly)
 	EGunfightMatchState GunfightMatchState = EGunfightMatchState::EGMS_Uninitialized;
 
-	UPROPERTY(ReplicatedUsing = OnRep_GunfightRoundMatchState, VisibleAnywhere)
+	UPROPERTY(ReplicatedUsing = OnRep_GunfightRoundMatchState, VisibleAnywhere, BlueprintReadOnly)
 	EGunfightRoundMatchState GunfightRoundMatchState = EGunfightRoundMatchState::EGRMS_Uninitialized;
 
 	/**
@@ -157,7 +158,9 @@ public:
 
 	void UpdateTeamSwapText(const FString& NewSwapText);
 
-	void UpdateAnnouncement(bool bShow, const FSlateColor& Color, const FString& NewString);
+	void UpdateAnnouncement(bool bShow, const FSlateColor& Color = FSlateColor(FColor::White), const FString& NewString = FString(""));
+
+	bool bInitUpdateScoreboard = false;
 	
 protected:
 	virtual void SetupInputComponent() override;
@@ -228,6 +231,9 @@ protected:
 	* returns false if HUD is currently invalid.
 	*/
 	bool UpdateHUD(bool bMatchCountdown, bool bWarmupTime, bool bAnnouncement, bool bInfo, bool bTeamScores);
+
+	// calls UpdateAnnouncement and starts the AnnouncementTimer to hide the announcement after Duration
+	void ShowAnnouncementForDuration(const FSlateColor& Color, const FString& AnnouncementString, float Duration);
 
 private:
 	UPROPERTY()
@@ -309,6 +315,9 @@ private:
 	TArray<TObjectPtr<APlayerState>> PlayersSorted;
 
 	void SetHUDScoreboardScores(int32 StartIndex, int32 EndIndex);
+	// updates entire scoreboard with team scores
+	UFUNCTION(BlueprintCallable)
+	void SetHUDScoreboardTeamScores();
 
 	UPROPERTY()
 	class AGunfightGameState* GunfightGameState;
@@ -337,12 +346,34 @@ private:
 	USceneComponent* GetRoundStartVoicelineCamera();
 
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
-	class USoundCue* RoundStartVoiceline;
+	USoundCue* RoundStartVoiceline;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	USoundCue* RoundWinVoiceline;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	USoundCue* RoundLossVoiceline;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	USoundCue* MatchWinVoiceline;
+
+	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
+	USoundCue* MatchLossVoiceline;
 
 	void ChangeTextBlockColor(class UTextBlock* TextBlock, FSlateColor NewColor);
 
 	UPROPERTY(EditAnywhere, meta = (AllowPrivateAccess = "true"))
 	FSlateColor DefaultAnnouncementColor = FSlateColor(FLinearColor(1.f, .91f, .28, 1.f));
+
+	// returns true if the score is 0-0
+	bool IsScoreNil();
+
+	FTimerHandle AnnouncementTimer;
+	void AnnouncementTimerFinished();
+
+	bool AreWeInATeamsMatch();
+
+	void TryToInitScoreboard();
 	
 public:
 	AGunfightHUD* GetGunfightHUD();

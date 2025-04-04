@@ -57,7 +57,7 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(AGunfightChara
 	DamageCauserWeapon = DamageCauser;
 	FServerSideRewindResult Confirm = ServerSideRewind(HitCharacter, TraceStart, HitLocation, HitTime);
 
-	if (Character && HitCharacter && DamageCauser && Confirm.HitType != EHitbox::EH_None)
+	if (Character && HitCharacter && HitCharacter->GetMesh() && DamageCauser && Confirm.HitType != EHitbox::EH_None)
 	{
 		UGameplayStatics::ApplyDamage(
 			HitCharacter,
@@ -67,8 +67,19 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(AGunfightChara
 			UDamageType::StaticClass()
 		);
 
-		const FVector BloodSpawnLocation = ((TraceStart - Confirm.HitLocation).GetSafeNormal() * 3.f) + Confirm.HitLocation;
-		HitCharacter->MulticastSpawnBlood(BloodSpawnLocation, Confirm.HitType);
+		//const FVector BloodSpawnLocation = Confirm.HitLocation + (TraceStart - HitLocation).GetSafeNormal() * 8.f;
+		FName BoneName = HitCharacter->GetMesh()->GetBoneName(Confirm.HitBoneIndex);
+		//FVector BoneLocation = HitCharacter->GetMesh()->GetBoneLocation(BoneName);
+		//FVector BloodLocation = (Confirm.HitLocation - BoneLocation) + (TraceStart - HitLocation).GetSafeNormal() * 8.f;
+
+		//FVector InversePosition = HitCharacter->GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace).InverseTransformPosition(Confirm.HitLocation);
+		FTransform BoneTransform = HitCharacter->GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace);
+		FVector OutVector;
+		FRotator OutRotator;
+		HitCharacter->GetMesh()->TransformToBoneSpace(BoneName, Confirm.HitLocation, FRotator::ZeroRotator, OutVector, OutRotator);
+		OutVector * 1.5f;
+
+		HitCharacter->MulticastSpawnBlood(OutVector, Confirm.HitNormal, Confirm.HitType, Confirm.HitBoneIndex);
 	}
 }
 
@@ -159,6 +170,7 @@ FFramePackage ULagCompensationComponent::InterpBetweenFrames(const FFramePackage
 		InterpCapsuleInfo.Radius = YoungerCapsule.Radius;
 		InterpCapsuleInfo.Length = YoungerCapsule.Length;
 		InterpCapsuleInfo.HitboxType = YoungerCapsule.HitboxType;
+		InterpCapsuleInfo.BoneIndex = YoungerCapsule.BoneIndex;
 
 		InterpFramePackage.HitCapsulesInfo.Add(InterpCapsuleInfo);
 	}
@@ -202,7 +214,8 @@ void ULagCompensationComponent::SaveFramePackage(FFramePackage& Package)
 	for (auto& SkeletalBodySetup : Mesh->GetPhysicsAsset()->SkeletalBodySetups)
 	{
 		const FName& BName = SkeletalBodySetup->BoneName;
-		const FTransform& BoneWorldTransform = Mesh->GetBoneTransform(Mesh->GetBoneIndex(BName));
+		const int32 BoneIndex = Mesh->GetBoneIndex(BName);
+		const FTransform& BoneWorldTransform = Mesh->GetBoneTransform(BoneIndex);
 		const EHitbox BoneHitboxType = HitboxTypes.Contains(BName) ? HitboxTypes[BName] : EHitbox::EH_None;
 		for (auto& Sphyl : SkeletalBodySetup->AggGeom.SphylElems)
 		{
@@ -221,6 +234,7 @@ void ULagCompensationComponent::SaveFramePackage(FFramePackage& Package)
 			CapsuleInformation.Radius = Radius;
 			CapsuleInformation.Length = CapsuleLength;
 			CapsuleInformation.HitboxType = BoneHitboxType;
+			CapsuleInformation.BoneIndex = BoneIndex;
 			Package.HitCapsulesInfo.Add(CapsuleInformation);
 		}
 	}
@@ -263,6 +277,7 @@ FHitInfo ULagCompensationComponent::TraceAgainstCapsules(const FFramePackage& Pa
 					HitInfo.Location = IntersectionPoint;
 					HitInfo.HitType = Capsule.HitboxType;
 					HitInfo.Normal = (HitInfo.Location - Sphere.Center) / Sphere.Radius;
+					HitInfo.HitBoneIndex = Capsule.BoneIndex;
 				}
 				else if (HitInfo.HitType == Capsule.HitboxType)
 				{
@@ -273,6 +288,7 @@ FHitInfo ULagCompensationComponent::TraceAgainstCapsules(const FFramePackage& Pa
 						HitInfo.Location = IntersectionPoint;
 						HitInfo.HitType = Capsule.HitboxType;
 						HitInfo.Normal = (HitInfo.Location - Sphere.Center) / Sphere.Radius;
+						HitInfo.HitBoneIndex = Capsule.BoneIndex;
 					}
 				}
 				if (HitSpheres >= MaxSpheresHit)
@@ -332,5 +348,5 @@ FServerSideRewindResult ULagCompensationComponent::ConfirmHit(const FFramePackag
 	FHitInfo HitInfo = TraceAgainstCapsules(Package, HitCharacter, TraceStart, TraceEnd);
 
 	EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
-	return FServerSideRewindResult{ HitInfo.HitType, HitInfo.Location, HitInfo.Normal };
+	return FServerSideRewindResult{ HitInfo.HitType, HitInfo.Location, HitInfo.Normal, HitInfo.HitBoneIndex };
 }

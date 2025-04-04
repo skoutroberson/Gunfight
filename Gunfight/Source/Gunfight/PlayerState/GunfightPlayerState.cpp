@@ -7,6 +7,7 @@
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 #include "Gunfight/GameState/GunfightGameState.h"
+#include "Gunfight/GameMode/TeamsGameMode.h"
 
 void AGunfightPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -81,7 +82,8 @@ void AGunfightPlayerState::ServerRequestTeamSwap_Implementation()
 
 void AGunfightPlayerState::HandleTeamSwapRequest()
 {
-	if (!HasAuthority()) return;
+	ATeamsGameMode* TeamsMode = Cast<ATeamsGameMode>(UGameplayStatics::GetGameMode(this));
+	if (!TeamsMode) return;
 	AGunfightGameState* GState = Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this));
 	if (GState == nullptr) return;
 	GState->QueueOrSwapSwapper(this);
@@ -90,6 +92,7 @@ void AGunfightPlayerState::HandleTeamSwapRequest()
 void AGunfightPlayerState::ClientTeamSwapped_Implementation()
 {
 	bTeamSwapRequested = false;
+	if (GetPlayerController() == nullptr) return;
 	AGunfightPlayerController* GPlayerController = Cast<AGunfightPlayerController>(GetPlayerController());
 	if (GPlayerController == nullptr) return;
 	GPlayerController->UpdateTeamSwapText(FString("Press and hold right stick to request a team swap."));

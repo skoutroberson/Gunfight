@@ -24,6 +24,7 @@ public class Gunfight : ModuleRules
                 "OnlineSubsystemEOS",
                 "OnlineSubsystemUtils",
                 "OVRPlatform",
+                "Niagara"
             });
 
 		PrivateDependencyModuleNames.AddRange(

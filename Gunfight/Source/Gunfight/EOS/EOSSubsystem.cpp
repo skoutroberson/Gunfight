@@ -45,6 +45,28 @@ void UEOSSubsystem::CreateSession(const FName& SessionName)
 		SessionSettings.Set(SEARCH_LOBBIES, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 		SessionSettings.Set("LobbyName", SessionName.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
+		
+		if (SessionName.ToString().Contains(FString("Public")))
+		{
+			//SessionSettings.Set(SEARCH_KEYWORDS, FString("Public"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+			SessionSettings.Set("Public", true, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		}
+		else
+		{
+			SessionSettings.Set("Public", false, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		}
+		if (SessionName.ToString().Contains(FString("Hideout")))
+		{
+			//SessionSettings.Set(SETTING_MAPNAME, FString("Hideout"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+			SessionSettings.Set("Hideout", true, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		}
+		else
+		{
+			SessionSettings.Set("Hideout", false, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+		}
+		
+
+
 		LogEntry(FString::Printf(TEXT("Trying to create session with name = %s"), *SessionName.ToString()));
 		SessionPtr->CreateSession(0, SessionName, SessionSettings);
 	}
@@ -76,6 +98,11 @@ void UEOSSubsystem::FindSessions(int32 MaxSearchResults)
 		SessionSearch->MaxSearchResults = MaxSearchResults;
 		//SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 		SessionSearch->QuerySettings.Set(SEARCH_LOBBIES, true, EOnlineComparisonOp::Equals);
+		SessionSearch->QuerySettings.Set("Public", true, EOnlineComparisonOp::Equals);
+		SessionSearch->QuerySettings.Set("Hideout", false, EOnlineComparisonOp::Equals);
+		//SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, FString("Public"), EOnlineComparisonOp::Equals);
+		//SessionSearch->QuerySettings.Set(SETTING_MAPNAME, FString("Hideout"), EOnlineComparisonOp::NotEquals);
+
 		SessionPtr->FindSessions(0, SessionSearch.ToSharedRef());
 	}
 }
@@ -273,19 +300,38 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 	{
 		if (bWasSuccessful && SessionSearch.IsValid() && SessionSearch->SearchResults.Num() > 0)
 		{
-			ConstructSortedSessions(SessionSearch->SearchResults);
+			SessionSearch->SearchResults.Sort([](const FOnlineSessionSearchResult& ServerA, const FOnlineSessionSearchResult& ServerB) {
+				return ServerA.PingInMs < ServerB.PingInMs;
+				});
 
 			int32 Index = 0;
-			for (const FOnlineSessionSearchResult* Lobby : SortedSessions)
+			for (FOnlineSessionSearchResult Lobby : SessionSearch->SearchResults)
 			{
-				auto CompareInt = CurrentSessionName.Compare(FName(*Lobby->GetSessionIdStr()));
+				auto CompareInt = CurrentSessionName.Compare(FName(*Lobby.GetSessionIdStr()));
 				if (CompareInt != 0)
 				{
-					SearchResult = *SortedSessions[Index];
+					SearchResult = SessionSearch->SearchResults[Index];
+					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
+					LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *SearchResult.GetSessionIdStr(), SearchResult.PingInMs));
+					//bool bHasOpenPrivateConnections = bLanEnabled && Lobby->Session.NumOpenPrivateConnections > LobbySize - 1;
+					bool bHasOpenConnections = SearchResult.Session.NumOpenPublicConnections > LobbySize - 1;
+					if (FoundSessionName.GetStringLength() > 8 &&
+						!FoundSessionName.ToString().Contains(FString("Lobby")) &&
+						!FoundSessionName.ToString().Contains(FString("Hideout")) &&
+						bHasOpenConnections)
+					{
+						LogEntry(FString::Printf(TEXT("Attempting to join session id: %s, Ping: %d"), *SearchResult.GetSessionIdStr(), SearchResult.PingInMs));
+						CurrentSessionName = FName(SearchResult.GetSessionIdStr());
+						OnRoomFound.Broadcast(true);
+						return;
+					}
+
+					/*SearchResult = *SortedSessions[Index];
 					const FName FoundSessionName = FName(*SearchResult.GetSessionIdStr());
 					LogEntry(FString::Printf(TEXT("Found session id: %s, Ping: %d"), *Lobby->GetSessionIdStr(), SearchResult.PingInMs));
 					bool bHasOpenConnections = SearchResult.Session.NumOpenPublicConnections > LobbySize - 1 || SearchResult.Session.NumOpenPrivateConnections > LobbySize - 1;
-					if (FoundSessionName.GetStringLength() > 8 && 
+					if (FoundSessionName.GetStringLength() > 8 &&
+						
 						!FoundSessionName.ToString().Contains(FString("Lobby")) &&
 						!FoundSessionName.ToString().Contains(FString("Hideout")) &&
 						bHasOpenConnections)
@@ -295,9 +341,8 @@ void UEOSSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 						OnRoomFound.Broadcast(true);
 						SortedSessions.Empty();
 						return;
-					}
+					}*/
 				}
-
 				++Index;
 			}
 
@@ -341,8 +386,10 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 
 	for (int i = 1; i < Sessions.Num(); ++i)
 	{
-		const FOnlineSessionSearchResult& CurrentSession = Sessions[i];
-		int32 CurrentPing = CurrentSession.PingInMs;
+		const FOnlineSessionSearchResult* CurrentSession = &Sessions[i];
+		if (CurrentSession == nullptr) continue;
+		//const FOnlineSessionSearchResult& CurrentSession = Sessions[i];
+		int32 CurrentPing = CurrentSession->PingInMs;
 
 		int32 Min = 0; 
 		int32 Max = SortedSessions.Num() - 1;
@@ -352,12 +399,12 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 		// base cases
 		if (CurrentPing < SortedSessions[Min]->PingInMs)
 		{
-			SortedSessions.Insert(&CurrentSession, 0);
+			SortedSessions.Insert(CurrentSession, 0);
 			continue;
 		}
 		else if (CurrentPing > SortedSessions[Max]->PingInMs)
 		{
-			SortedSessions.Add(&CurrentSession);
+			SortedSessions.Add(CurrentSession);
 			continue;
 		}
 		
@@ -378,17 +425,17 @@ void UEOSSubsystem::ConstructSortedSessions(const TArray<FOnlineSessionSearchRes
 
 		if (CurrentPing < MidPing)
 		{
-			SortedSessions.Insert(&CurrentSession, Mid);
+			SortedSessions.Insert(CurrentSession, Mid);
 		}
 		else
 		{
 			if (Mid == SortedSessions.Num() - 1)
 			{
-				SortedSessions.Add(&CurrentSession);
+				SortedSessions.Add(CurrentSession);
 			}
 			else
 			{
-				SortedSessions.Insert(&CurrentSession, Mid + 1);
+				SortedSessions.Insert(CurrentSession, Mid + 1);
 			}
 		}
 	}

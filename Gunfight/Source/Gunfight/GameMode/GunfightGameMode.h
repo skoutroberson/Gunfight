@@ -97,13 +97,13 @@ protected:
 	UPROPERTY()
 	class AGunfightGameState* GunfightGameState;
 
+	bool bRedSpawnsA = false; // used so we can switch which team spawns at A or B spawns
+
 private:
 
 	TArray<AActor*> Spawnpoints;
 	TArray<AActor*> TeamASpawns;
 	TArray<AActor*> TeamBSpawns;
-
-	bool bRedSpawnsA = false; // used so we can switch which team spawns at A or B spawns
 
 	// chooses spawn farthest away from other players
 	AActor* GetBestSpawnpoint(AController* ElimmedController);

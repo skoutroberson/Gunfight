@@ -422,11 +422,12 @@ bool UCombatComponent::CanFire(bool bLeft)
 	const AWeapon* CurrentWeapon = GetEquippedWeapon(bLeft);
 	if (CurrentWeapon == nullptr) return false;
 	if (bLocallyReloading) return false;
+	if (CurrentWeapon->IsObstructed()) return false;
 
 	return !CurrentWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Unoccupied && CurrentWeapon->IsMagInserted();
 }
 
-void UCombatComponent::DropWeapon(bool bLeftHand) // shitty function, i could make this better but too busy and it works.
+void UCombatComponent::DropWeapon(bool bLeftHand)
 {
 	if (Character == nullptr || Character->GetMesh() == nullptr) return;
 
@@ -560,7 +561,7 @@ void UCombatComponent::MulticastAttachToHolster_Implementation(ESide HandSide)
 	Weapon->SetActorRelativeLocation(FVector::ZeroVector);
 	Weapon->SetActorRelativeRotation(FRotator::ZeroRotator);
 
-	if (!Character->IsEliminated())
+	if (Character->IsLocallyControlled() && !Character->IsEliminated())
 	{
 		Weapon->PlayHolsterSound();
 	}
@@ -575,18 +576,6 @@ void UCombatComponent::MulticastAttachToHolster_Implementation(ESide HandSide)
 void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip)
 {
 
-}
-
-void UCombatComponent::UpdateWeaponStateOnPickup(AWeapon* WeaponPickedUp)
-{
-	if (WeaponPickedUp->GetAmmo() > 0)
-	{
-		WeaponPickedUp->SetWeaponState(EWeaponState::EWS_Ready);
-	}
-	else
-	{
-		WeaponPickedUp->SetWeaponState(EWeaponState::EWS_Empty);
-	}
 }
 
 void UCombatComponent::OnRep_CombatState()

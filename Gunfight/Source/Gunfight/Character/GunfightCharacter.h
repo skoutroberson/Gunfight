@@ -54,8 +54,8 @@ public:
 	void MultiCastElim_Implementation(bool bPlayerLeftGame);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastSpawnBlood(const FVector_NetQuantize Location, EHitbox HitType);
-	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, EHitbox HitType);
+	void MulticastSpawnBlood(const FVector_NetQuantize Location, const FVector_NetQuantize Normal, EHitbox HitType, int32 BoneIndex);
+	void MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, const FVector_NetQuantize Normal, EHitbox HitType, int32 BoneIndex);
 
 	// resets
 	void Respawn(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled = false);
@@ -148,6 +148,11 @@ public:
 	FRotator LeftHandMeshRotationOffset;
 
 	virtual void OnRep_AttachmentReplication() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UAudioComponent* FootstepAudio;
+
+	TArray<AWeapon*> OverlappingWeapons;
 
 protected:
 	virtual void BeginPlay() override;
@@ -262,6 +267,9 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	UParticleSystem* BloodParticles;
+
+	UPROPERTY(EditAnywhere)
+	class UNiagaraSystem* BloodNiagaraSystem;
 
 	UPROPERTY(EditAnywhere)
 	class USoundCue* ImpactBodySound;
@@ -435,6 +443,10 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	class UHandAnimInstance* LeftHandAnim;
+
+	void UpdateFootstepSound(TWeakObjectPtr<class UPhysicalMaterial> PhysMat);
+
+	AWeapon* ClosestValidOverlappingWeapon(bool bLeft);
 
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);

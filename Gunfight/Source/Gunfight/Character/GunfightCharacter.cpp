@@ -34,6 +34,12 @@
 #include "Engine/GameInstance.h"
 #include "Gunfight/GunfightTypes/GunfightMatchState.h"
 #include "Gunfight/Hands/HandAnimInstance.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Components/AudioComponent.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+
 
 AGunfightCharacter::AGunfightCharacter()
 {
@@ -45,7 +51,7 @@ AGunfightCharacter::AGunfightCharacter()
 	LagCompensation = CreateDefaultSubobject<ULagCompensationComponent>(TEXT("LagCompensation"));
 
 	LeftHandSphere = CreateDefaultSubobject<USphereComponent>(TEXT("LeftHandSphere"));
-	LeftHandSphere->SetupAttachment(GetMesh(), FName("hand_l"));
+	//LeftHandSphere->SetupAttachment(GetMesh(), FName("hand_l"));
 	LeftHandSphere->SetCollisionObjectType(ECC_HandController);
 	LeftHandSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	LeftHandSphere->SetCollisionResponseToChannel(ECC_Weapon, ECollisionResponse::ECR_Overlap);
@@ -53,12 +59,15 @@ AGunfightCharacter::AGunfightCharacter()
 	LeftHandSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
 	RightHandSphere = CreateDefaultSubobject<USphereComponent>(TEXT("RightHandSphere"));
-	RightHandSphere->SetupAttachment(GetMesh(), FName("hand_r"));
+	//RightHandSphere->SetupAttachment(GetMesh(), FName("hand_r"));
 	RightHandSphere->SetCollisionObjectType(ECC_HandController);
 	RightHandSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	RightHandSphere->SetCollisionResponseToChannel(ECC_Weapon, ECollisionResponse::ECR_Overlap);
 	RightHandSphere->SetUseCCD(true);
 	RightHandSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
+	RightHandSphere->SetupAttachment(RightMotionController);
+	LeftHandSphere->SetupAttachment(LeftMotionController);
 
 	VRStereoLayer = CreateDefaultSubobject<UStereoLayerComponent>(TEXT("VRStereoLayer"));
 	VRStereoLayer->SetupAttachment(VRReplicatedCamera);
@@ -69,6 +78,9 @@ AGunfightCharacter::AGunfightCharacter()
 	CharacterOverlayWidget->SetRelativeLocation(FVector(50.f, 0.f, -5.f));
 	CharacterOverlayWidget->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 	CharacterOverlayWidget->SetMaterial(0, WidgetMaterial);
+
+	FootstepAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("FootstepAudio"));
+	FootstepAudio->SetupAttachment(GetRootComponent());
 }
 
 void AGunfightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -183,7 +195,7 @@ void AGunfightCharacter::BeginPlay()
 	Super::BeginPlay();
 	SetActorTickEnabled(true);
 	IKQueryParams.AddIgnoredActor(this);
-
+	IKQueryParams.bReturnPhysicalMaterial = true;
 	IKQueryParams.IgnoreMask = 1 << 3;
 
 	VRRootReference.Get()->SetMaskFilterOnBodyInstance(1 << 3); // so IK ignores this component when walking through other characters
@@ -217,8 +229,6 @@ void AGunfightCharacter::BeginPlay()
 	{
 		//bStereoLayerInitialized = true;
 	}
-
-
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -323,7 +333,7 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
-		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController) && OverlappingWeapon->GetWeaponState() != EWeaponState::EWS_Equipped) // weapon check
+		if (OverlappingWeapon && OverlappingWeapon->CheckHandOverlap(bLeftController)) // weapon check
 		{
 			if (HasAuthority())
 			{
@@ -351,31 +361,7 @@ void AGunfightCharacter::GripReleased(bool bLeftController)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
 		if (CurrentWeapon)
-		{
-			/*
-			FVector LinearVelocity;
-			FVector AngularVelocity;
-
-			if (bLeftController)
-			{
-				LinearVelocity = LeftMotionControllerAverageVelocity * 60.f;
-				AngularVelocity = LeftMotionControllerAverageAngularVelocity * 5.f;
-			}
-			else
-			{
-				LinearVelocity = RightMotionControllerAverageVelocity * 60.f;
-				LinearVelocity = RightMotionControllerAverageAngularVelocity * 5.f;
-			}
-
-			Combat->ServerDropWeapon(
-				bLeftController,
-				CurrentWeapon->GetActorLocation(),
-				CurrentWeapon->GetActorRotation(),
-				LeftMotionControllerAverageVelocity,
-				LeftMotionControllerAverageAngularVelocity
-			);
-			*/
-			
+		{	
 			if (HasAuthority())
 			{
 				Combat->DropWeapon(bLeftController);
@@ -724,17 +710,54 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 	}
 }
 
-void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, EHitbox HitType)
+void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, const FVector_NetQuantize Normal, EHitbox HitType, int32 BoneIndex)
 {
-	if (HitType == EHitbox::EH_Head)
+	if (GetMesh() == nullptr) return;
+	FName BoneName = GetMesh()->GetBoneName(BoneIndex);
+	EHitbox BoxType = FHitbox::GetHitboxType(BoneName);
+	//FVector BloodLocation = GetMesh()->GetBoneLocation(BoneName) + Location;
+	FTransform BoneTransform = GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace);
+	
+	FVector FromBoneLocation;
+	FRotator FromBoneRotation;
+	GetMesh()->TransformFromBoneSpace(BoneName, Location, BoneTransform.Rotator(), FromBoneLocation, FromBoneRotation);
+	FVector BloodScale = FVector::One();
+
+	//DrawDebugSphere(GetWorld(), FromBoneLocation, 5.f, 12, FColor::Purple, true);
+
+	USoundCue* ImpactSound = ImpactBodySound;
+
+	if (BoxType == EHitbox::EH_Head)
+	{
+		BloodScale *= 1.5f;
+		ImpactSound = ImpactHeadSound;
+	}
+	
+	if (BloodParticles)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, FromBoneLocation, Normal.Rotation(), BloodScale);
+	}
+	if (ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, FromBoneLocation);
+	}
+
+	/*
+	* 
+	* if (BloodNiagaraSystem)
+	{
+		UNiagaraComponent* n = UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, BloodNiagaraSystem, FromBoneLocation, Normal.Rotation());
+	}
+
+	if (BoxType == EHitbox::EH_Head)
 	{
 		if (BloodParticles)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, Location, FRotator::ZeroRotator, ((FVector)((2.f))));
+			UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, FromBoneLocation, Normal.Rotation(), ((FVector)((2.f))));
 		}
 		if (ImpactHeadSound)
 		{
-			UGameplayStatics::PlaySoundAtLocation(this, ImpactHeadSound, Location);
+			UGameplayStatics::PlaySoundAtLocation(this, ImpactHeadSound, FromBoneLocation);
 		}
 		
 		return;
@@ -742,12 +765,12 @@ void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQua
 
 	if (BloodParticles)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, Location);
+		UGameplayStatics::SpawnEmitterAtLocation(this, BloodParticles, FromBoneLocation, Normal.Rotation());
 	}
 	if (ImpactBodySound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, ImpactBodySound, Location);
-	}
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactBodySound, FromBoneLocation);
+	}*/
 }
 
 void AGunfightCharacter::Elim(bool bPlayerLeftGame)
@@ -985,6 +1008,10 @@ void AGunfightCharacter::OnRep_Health()
 {
 	UpdateHUDHealth();
 	//PlayHitReactMontage();
+	if (Health < 99.f)
+	{
+		ReceiveDamageHaptic();
+	}
 }
 
 void AGunfightCharacter::SpawnDefaultWeapon()
@@ -1123,6 +1150,46 @@ void AGunfightCharacter::InitializeSettings()
 	}
 }
 
+void AGunfightCharacter::UpdateFootstepSound(TWeakObjectPtr<UPhysicalMaterial> PhysMat)
+{
+	if (FootstepAudio == nullptr) return;
+	if (!PhysMat.IsValid() || !PhysMat.Get()) return;
+	
+	TEnumAsByte<EPhysicalSurface> HitSurface = PhysMat.Get()->SurfaceType;
+	int32 SurfaceInt; // for setting the sound cue switch variable
+	switch (HitSurface)
+	{
+	case EST_Concrete:
+		SurfaceInt = 0;
+		break;
+	case EST_Metal:
+		SurfaceInt = 1;
+		break;
+	case EST_Tile:
+		SurfaceInt = 2;
+		break;
+	case EST_Wood:
+		SurfaceInt = 3;
+		break;
+	default:
+		SurfaceInt = 0;
+		break;
+	}
+	FootstepAudio->SetIntParameter(FName("Surface"), SurfaceInt);
+}
+
+AWeapon* AGunfightCharacter::ClosestValidOverlappingWeapon(bool bLeft)
+{
+	AWeapon* ValidWeapon = nullptr;
+
+	for (auto w : OverlappingWeapons)
+	{
+
+	}
+
+	return ValidWeapon;
+}
+
 void AGunfightCharacter::SetDefaultWeaponSkin(int32 SkinIndex)
 {
 	if (DefaultWeapon)
@@ -1218,10 +1285,14 @@ FVector AGunfightCharacter::TraceFootLocationIK(bool bLeft)
 	FCollisionShape SphereShape; SphereShape.SetSphere(1.f);
 	FHitResult HitResult;
 	//bool bTraceHit = World->SweepSingleByChannel(HitResult, TraceStart, TraceEnd, FQuat(), ECollisionChannel::ECC_Camera, SphereShape, IKQueryParams);
-	bool bTraceHit = World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_WorldStatic, IKQueryParams);
+	bool bTraceHit = World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECollisionChannel::ECC_WorldDynamic, IKQueryParams);
 
 	if (bTraceHit)
 	{
+		if (!bLeft)
+		{
+			UpdateFootstepSound(HitResult.PhysMaterial);
+		}
 		return HitResult.ImpactPoint;
 	}
 

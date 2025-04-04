@@ -26,6 +26,9 @@ struct FCapsuleInformation
 
 	UPROPERTY()
 	EHitbox HitboxType = EHitbox::EH_None;
+
+	UPROPERTY()
+	int32 BoneIndex;
 };
 
 USTRUCT(BlueprintType)
@@ -53,6 +56,9 @@ struct FHitInfo
 	// used to determine how much damage to apply to player
 	UPROPERTY()
 	EHitbox HitType = EHitbox::EH_None;
+
+	UPROPERTY()
+	int32 HitBoneIndex;
 };
 
 USTRUCT(BlueprintType)
@@ -83,6 +89,9 @@ struct FServerSideRewindResult
 
 	UPROPERTY()
 	FVector HitNormal;
+
+	UPROPERTY()
+	int32 HitBoneIndex;
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )

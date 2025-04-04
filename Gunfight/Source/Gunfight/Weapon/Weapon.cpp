@@ -144,6 +144,21 @@ void AWeapon::ServerSetWeaponSkin_Implementation(int32 SkinIndex)
 	SetWeaponSkin(SkinIndex);
 }
 
+bool AWeapon::IsObstructed() const
+{
+	if (!GetWorld()) return false;
+	const USkeletalMeshSocket* MuzzleFlashSocket = WeaponMesh->GetSocketByName("MuzzleFlash");
+	if (MuzzleFlashSocket == nullptr) return false;
+
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(WeaponMesh);
+	const FVector MuzzleDirection = SocketTransform.GetRotation().GetForwardVector();
+	const FVector Start = SocketTransform.GetLocation() - MuzzleDirection; // front of the barrel
+	const FVector End = Start - MuzzleDirection * ObstructedDistance;	// back of the gun
+
+	FHitResult HitResult;
+	return GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECollisionChannel::ECC_WorldDynamic);
+}
+
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
@@ -160,20 +175,24 @@ void AWeapon::BeginPlay()
 	// initialize on spawn sphere overlaps
 	SetActorTickEnabled(true);
 
+	/*
 	if (HasAuthority())
 	{
 		GetWorldTimerManager().SetTimer(ShouldHolsterTimer, this, &AWeapon::ShouldAttachToHolster, 1.f, true, 1.f);
 	}
+	*/
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
-	if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon() == this)
+	if (GunfightCharacter && (GetOwner() == GunfightCharacter || GetOwner() == nullptr))
 	{
 		if (OtherComp == GunfightCharacter->GetLeftHandSphere()) bLeftControllerOverlap = true;
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
+
+		GunfightCharacter->OverlappingWeapons.AddUnique(this);
 
 		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Overlap: %d"), GunfightCharacter->GetOverlappingWeapon()));
 	}
@@ -181,19 +200,21 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 
 void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (CharacterOwner && OtherActor == CharacterOwner)
+	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
+	if (GunfightCharacter && (GetOwner() == GunfightCharacter || GetOwner() == nullptr))
 	{
-		if (OtherComp == CharacterOwner->GetLeftHandSphere())
+		if (OtherComp == GunfightCharacter->GetLeftHandSphere())
 		{
 			bLeftControllerOverlap = false;
-			if(!bRightControllerOverlap) CharacterOwner->SetOverlappingWeapon(nullptr);
+			if(!bRightControllerOverlap) GunfightCharacter->OverlappingWeapons.RemoveSingle(this);
 		}
-		else if (OtherComp == CharacterOwner->GetRightHandSphere())
+		else if (OtherComp == GunfightCharacter->GetRightHandSphere())
 		{
 			bRightControllerOverlap = false;
-			if(!bLeftControllerOverlap) CharacterOwner->SetOverlappingWeapon(nullptr);
+			if(!bLeftControllerOverlap) GunfightCharacter->OverlappingWeapons.RemoveSingle(this);
 		}
-		//GunfightCharacter->SetOverlappingWeapon(nullptr);
+
+		GunfightCharacter->OverlappingWeapons.IsEmpty() ? GunfightCharacter->SetOverlappingWeapon(nullptr) : GunfightCharacter->SetOverlappingWeapon(GunfightCharacter->OverlappingWeapons[0]);
 
 		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("End Overlap: %d"), CharacterOwner->GetOverlappingWeapon()));
 	}
@@ -436,6 +457,8 @@ void AWeapon::Dropped(bool bLeftHand)
 	SetWeaponState(EWeaponState::EWS_Dropped);
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	WeaponMesh->DetachFromComponent(DetachRules);
+	SetOwner(nullptr);
+	CharacterOwner = nullptr;
 }
 
 void AWeapon::OnDropped()
@@ -464,19 +487,20 @@ void AWeapon::OnDropped()
 	// apply hand controller velocities on drop
 	if (WeaponSide == ESide::ES_Left)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 40.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 10.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetLeftMotionControllerAverageVelocity() * 50.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->LeftMotionControllerAverageAngularVelocity * 14.f);
 	}
 	else if (WeaponSide == ESide::ES_Right)
 	{
-		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 40.f);
-		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 10.f);
+		WeaponMesh->SetPhysicsLinearVelocity(CharacterOwner->GetRightMotionControllerAverageVelocity() * 50.f);
+		WeaponMesh->SetPhysicsAngularVelocityInRadians(CharacterOwner->RightMotionControllerAverageAngularVelocity * 14.f);
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Dropped weapon WeaponSide is not set"));
 	}
 
+	// set owner to nullptr
 	WeaponSide = ESide::ES_None;
 }
 

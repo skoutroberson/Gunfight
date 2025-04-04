@@ -33,8 +33,10 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 		//DrawDebugSphere(GetWorld(), HitTarget, 3.f, 20, FColor::Green, true);
 
 		AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(FireHit.GetActor());
-		if (GunfightCharacter && InstigatorController)
+		if (GunfightCharacter && InstigatorController && GunfightCharacter->GetMesh())
 		{
+			//DrawDebugSphere(GetWorld(), FireHit.ImpactPoint, 5.f, 12, FColor::Green, true);
+
 			bool bCauseAuthDamage = !bUseServerSideRewind || OwnerPawn->IsLocallyControlled();
 			if (HasAuthority() && bCauseAuthDamage)
 			{
@@ -46,28 +48,44 @@ void AHitscanWeapon::Fire(const FVector& HitTarget)
 					UDamageType::StaticClass()
 				);
 
-				const FVector BloodSpawnLocation = ((Start - FireHit.ImpactPoint).GetSafeNormal() * 3.f) + FireHit.ImpactPoint;
-				GunfightCharacter->MulticastSpawnBlood(BloodSpawnLocation, FHitbox::GetHitboxType(FireHit.BoneName));
+				// save the bone that was hit so we can spawn blood attached to it.
+				int32 HitBoneIndex = GunfightCharacter->GetMesh()->GetBoneIndex(FireHit.BoneName);
+				//FVector HitBoneLocation = GunfightCharacter->GetMesh()->GetBoneLocation(FireHit.BoneName);
 
-				if (CharacterOwner && FireHit.GetComponent())
+				//FVector InversePosition = GunfightCharacter->GetMesh()->GetBoneTransform(FireHit.BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace).InverseTransformPosition(FireHit.ImpactPoint);
+				//GunfightCharacter->GetMesh()->GetBoneTransform()
+
+				//const FVector BloodSpawnLocation = FireHit.ImpactPoint + (Start - FireHit.ImpactPoint).GetSafeNormal() * 8.f;
+				//FVector BloodLocation = (FireHit.ImpactPoint - HitBoneLocation) + (Start - FireHit.ImpactPoint).GetSafeNormal() * 10.f;
+
+				FVector OutVector;
+				FRotator OutRotator;
+				GunfightCharacter->GetMesh()->TransformToBoneSpace(FireHit.BoneName, FireHit.ImpactPoint, FRotator::ZeroRotator, OutVector, OutRotator);
+				OutVector * 1.5f;
+
+				GunfightCharacter->MulticastSpawnBlood(OutVector, FireHit.ImpactNormal, FHitbox::GetHitboxType(FireHit.BoneName), HitBoneIndex);
+
+				/*if (CharacterOwner && FireHit.GetComponent())
 				{
 					CharacterOwner->DebugLogMessage(FString::Printf(TEXT("Auth FireHit: %s"), *FireHit.GetComponent()->GetName()));
-				}
+				}*/
 			}
-			if (!HasAuthority() && bUseServerSideRewind)
+			if (!HasAuthority())
 			{
-				// TO DO
-				CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(OwnerPawn) : CharacterOwner;
-				GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(InstigatorController) : GunfightOwnerController;
-				if (GunfightOwnerController && CharacterOwner && CharacterOwner->GetLagCompensation() && CharacterOwner->IsLocallyControlled())
+				if (bUseServerSideRewind)
 				{
-					CharacterOwner->GetLagCompensation()->ServerScoreRequest(
-						GunfightCharacter,
-						Start,
-						HitTarget,
-						GunfightOwnerController->GetServerTime() - GunfightOwnerController->SingleTripTime,
-						this
-					);
+					CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(OwnerPawn) : CharacterOwner;
+					GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(InstigatorController) : GunfightOwnerController;
+					if (GunfightOwnerController && CharacterOwner && CharacterOwner->GetLagCompensation() && CharacterOwner->IsLocallyControlled())
+					{
+						CharacterOwner->GetLagCompensation()->ServerScoreRequest(
+							GunfightCharacter,
+							Start,
+							HitTarget,
+							GunfightOwnerController->GetServerTime() - GunfightOwnerController->SingleTripTime,
+							this
+						);
+					}
 				}
 			}
 		}

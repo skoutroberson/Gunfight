@@ -129,9 +129,13 @@ void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
 {
 	if (TeamSwapper == nullptr) return;
 
+	int32 RedTeamCount = RedTeam.Num();
+	int32 BlueTeamCount = BlueTeam.Num();
+
 	if (TeamSwapper->GetTeam() == ETeam::ET_RedTeam)
 	{
-		if (!BlueTeamSwappers.IsEmpty() || BlueTeam.IsEmpty())
+		int32 RedDif = RedTeamCount - BlueTeamCount;
+		if (!BlueTeamSwappers.IsEmpty() || BlueTeam.IsEmpty() || RedDif > 1)
 		{
 			AGunfightPlayerState* BlueSwapper = nullptr;
 			BlueTeamSwappers.Dequeue(BlueSwapper);
@@ -144,7 +148,8 @@ void AGunfightGameState::QueueOrSwapSwapper(AGunfightPlayerState* TeamSwapper)
 	}
 	else if (TeamSwapper->GetTeam() == ETeam::ET_BlueTeam)
 	{
-		if (!RedTeamSwappers.IsEmpty() || RedTeam.IsEmpty())
+		int32 BlueDif = BlueTeamCount - RedTeamCount;
+		if (!RedTeamSwappers.IsEmpty() || RedTeam.IsEmpty() || BlueDif > 1)
 		{
 			AGunfightPlayerState* RedSwapper = nullptr;
 			RedTeamSwappers.Dequeue(RedSwapper);
@@ -190,7 +195,7 @@ void AGunfightGameState::SwapTeams(AGunfightPlayerState* RedSwapper, AGunfightPl
 
 bool AGunfightGameState::IsMatchEnding()
 {
-	return (RedTeamScore > WinningScore || BlueTeamScore > WinningScore) && FMath::Abs(RedTeamScore - BlueTeamScore) > 1;
+	return (RedTeamScore >= WinningScore || BlueTeamScore >= WinningScore) && FMath::Abs(RedTeamScore - BlueTeamScore) > 1;
 }
 
 void AGunfightGameState::HandleGunfightWarmupStarted()
@@ -215,6 +220,7 @@ void AGunfightGameState::UpdateLocalHUDTeamScore(float ScoreAmount, ETeam TeamTo
 	LocalPlayerController = LocalPlayerController == nullptr ? GetWorld()->GetFirstPlayerController<AGunfightPlayerController>() : LocalPlayerController;
 	if (LocalPlayerController == nullptr) return;
 	LocalPlayerController->SetHUDTeamScore(ScoreAmount, TeamToUpdate);
+	LocalPlayerController->SetHUDScoreboardTeamScores();
 }
 
 ETeam AGunfightGameState::GetWinningTeam()
