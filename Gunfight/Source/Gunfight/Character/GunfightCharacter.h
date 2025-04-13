@@ -10,6 +10,8 @@
 #include "Gunfight/GunfightTypes/Team.h"
 #include "GunfightCharacter.generated.h"
 
+enum class EWeaponType : uint8;
+
 /**
  * 
  */
@@ -37,7 +39,7 @@ public:
 
 	void SpawnDefaultWeapon();
 
-	void AttachMagazineToHolster();
+	void AttachMagazineToHolster(class AFullMagazine* FullMag);
 
 	void UpdateHUDAmmo();
 
@@ -152,7 +154,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UAudioComponent* FootstepAudio;
 
-	TArray<AWeapon*> OverlappingWeapons;
+	TArray<AWeapon*> LeftOverlappingWeapons;
+	TArray<AWeapon*> RightOverlappingWeapons;
+
+	// Weapon Skin
+	void InitMyWeaponSkin(AWeapon* MyWeapon);
 
 protected:
 	virtual void BeginPlay() override;
@@ -219,6 +225,11 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void InitializeHandAnimation(USkeletalMeshComponent* Hand);
+
+	void HandleWeaponGripped(bool bLeftController, AWeapon* WeaponGripped);
+	void HandleWeaponReleased(bool bLeftController, AWeapon* WeaponReleased);
+
+	AWeapon* GetClosestOverlappingWeapon(bool bLeft);
 
 private:
 
@@ -307,20 +318,57 @@ private:
 	void ServerEquipButtonPressedRight_Implementation();
 
 	UFUNCTION(Server, Reliable)
+	void ServerEquipWeaponSecondaryLeft();
+	void ServerEquipWeaponSecondaryLeft_Implementation();
+
+	UFUNCTION(Server, Reliable)
+	void ServerEquipWeaponSecondaryRight();
+	void ServerEquipWeaponSecondaryRight_Implementation();
+
+	UFUNCTION(Server, Reliable)
 	void ServerDropWeaponLeft();
 	void ServerDropWeaponLeft_Implementation();
 	UFUNCTION(Server, Reliable)
 	void ServerDropWeaponRight();
 	void ServerDropWeaponRight_Implementation();
 
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponPrimaryLeft();
+	void ServerDropWeaponPrimaryLeft_Implementation();
+
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponPrimaryRight();
+	void ServerDropWeaponPrimaryRight_Implementation();
+
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponSecondaryLeft();
+	void ServerDropWeaponSecondaryLeft_Implementation();
+
+	UFUNCTION(Server, Reliable)
+	void ServerDropWeaponSecondaryRight();
+	void ServerDropWeaponSecondaryRight_Implementation();
+
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	class AWeapon* OverlappingWeapon;
+
+	UPROPERTY(Replicated)
+	class AWeapon* LeftOverlappingWeapon;
+
+	UPROPERTY(Replicated)
+	class AWeapon* RightOverlappingWeapon;
+
 
 	UPROPERTY()
 	class AFullMagazine* OverlappingMagazine;
 
 	UPROPERTY()
 	AFullMagazine* DefaultMagazine;
+
+	UPROPERTY()
+	AFullMagazine* LeftMagazine;
+
+	UPROPERTY()
+	AFullMagazine* RightMagazine;
 
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(AWeapon* LastWeapon);
@@ -341,7 +389,7 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_DefaultWeapon)
 	AWeapon* DefaultWeapon;
 
-	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex);
+	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex, bool bLeft);
 
 	void DebugMagOverlap(bool bLeft);
 
@@ -448,9 +496,28 @@ private:
 
 	AWeapon* ClosestValidOverlappingWeapon(bool bLeft);
 
+	/**
+	* Weapon two hand rotation offsets
+	* 
+	* These are used for rotating the weapon while holding it with both hands.
+	* 
+	* These offsets will be applied to rotate the weapon based on MotionController1 - HandOffsetPistolLeft
+	* 
+	*/
+
+	void InitWeaponOffsets();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USceneComponent* HandOffsetPistolLeft;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USceneComponent* HandOffsetPistolRight;
+
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);
 	void SetOverlappingWeapon(AWeapon* Weapon);
+	FORCEINLINE void SetLeftOverlappingWeapon(AWeapon* Weapon) { LeftOverlappingWeapon = Weapon; }
+	FORCEINLINE void SetRightOverlappingWeapon(AWeapon* Weapon) { RightOverlappingWeapon = Weapon; }
 	FORCEINLINE AWeapon* GetOverlappingWeapon() { return OverlappingWeapon; }
 	FORCEINLINE UCombatComponent* GetCombat() const { return Combat; }
 	// returns true if right holster is preferred
@@ -459,6 +526,7 @@ public:
 	void SetHandState(bool bLeftHand, EHandState NewState);
 	inline EHandState GetHandState(bool bLeftHand) { return (bLeftHand) ? LeftHandState : RightHandState; }
 	FORCEINLINE AWeapon* GetDefaultWeapon() { return DefaultWeapon; }
+	void SetDefaultWeapon(AWeapon* NewDefaultWeapon);
 	FORCEINLINE void SetOverlappingMagazine(AFullMagazine* OverlapMag) { OverlappingMagazine = OverlapMag; }
 	FORCEINLINE USphereComponent* GetLeftHandSphere() { return LeftHandSphere; }
 	FORCEINLINE USphereComponent* GetRightHandSphere() { return RightHandSphere; }
@@ -470,6 +538,10 @@ public:
 	FORCEINLINE USkeletalMeshComponent* GetRightHandMesh() { return RightHandMesh; }
 	FORCEINLINE USkeletalMeshComponent* GetLeftHandMesh() { return LeftHandMesh; }
 
+	USceneComponent* GetHandWeaponOffset(EWeaponType WeaponType, bool bLeft);
+
+	void UpdateAnimationHandComponent(bool bLeft, USceneComponent* NewHandComponent);
+
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE void SetSnapTurning(bool bShouldSnap) { bSnapTurning = bShouldSnap; }
 
@@ -480,4 +552,7 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
 	void DebugLogMessage(const FString& LogText);
+
+	bool IsGunCloserThanMag(AActor* Gun, AActor* Mag, USceneComponent* Hand);
+	void ReleaseGrip(bool bLeft);
 };

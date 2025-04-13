@@ -17,6 +17,7 @@
 #include "GripMotionControllerComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
+#include "Gunfight/Weapon/FullMagazine.h"
 
 AWeapon::AWeapon()
 {
@@ -43,6 +44,21 @@ AWeapon::AWeapon()
 	MagSlideEnd->SetupAttachment(WeaponMesh);
 	MagSlideStart = CreateDefaultSubobject<USceneComponent>(TEXT("MagSlideStart"));
 	MagSlideStart->SetupAttachment(WeaponMesh);
+
+	GrabSlot1R = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot1R"));
+	GrabSlot1R->SetupAttachment(GetRootComponent());
+	GrabSlot1L = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot1L"));
+	GrabSlot1L->SetupAttachment(GetRootComponent());
+	GrabSlot2R = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot2R"));
+	GrabSlot2R->SetupAttachment(GetRootComponent());
+	GrabSlot2L = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot2L"));
+	GrabSlot2L->SetupAttachment(GetRootComponent());
+
+	GrabSlot2IKL = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot2IKL"));
+	GrabSlot2IKL->SetupAttachment(GetRootComponent());
+
+	GrabSlot2IKR = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot2IKR"));
+	GrabSlot2IKR->SetupAttachment(GetRootComponent());
 }
 
 void AWeapon::PostInitializeComponents()
@@ -63,12 +79,12 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, CurrentSkinIndex);
 }
 
-void AWeapon::Fire(const FVector& HitTarget)
+void AWeapon::Fire(const FVector& HitTarget, bool bLeft)
 {
-	SpendRound();
-	if (FireAnimation && FireEndAnimation && CharacterOwner)
+	SpendRound(bLeft);
+	if (FireAnimation && FireEndAnimation)
 	{
-		if (Ammo <= 0 && CharacterOwner->IsLocallyControlled())
+		if (Ammo <= 0)
 		{
 			WeaponMesh->PlayAnimation(FireEndAnimation, false);
 		}
@@ -79,15 +95,30 @@ void AWeapon::Fire(const FVector& HitTarget)
 	}
 }
 
-void AWeapon::SetHUDAmmo()
+void AWeapon::SetHUDAmmo(bool bLeft)
 {
 	if (CharacterOwner)
 	{
 		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
 		if (GunfightOwnerController)
 		{
-			GunfightOwnerController->SetHUDWeaponAmmo(Ammo);
-			GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo);
+			GunfightOwnerController->SetHUDWeaponAmmoVisible(bLeft, true);
+			GunfightOwnerController->SetHUDWeaponAmmo(Ammo, bLeft);
+			GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo, bLeft);
+		}
+	}
+}
+
+void AWeapon::ClearHUDAmmo(bool bLeft)
+{
+	if (CharacterOwner)
+	{
+		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
+		if (GunfightOwnerController)
+		{
+			GunfightOwnerController->SetHUDWeaponAmmoVisible(bLeft, false);
+			//GunfightOwnerController->SetHUDWeaponAmmo(Ammo, bLeft);
+			//GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo, bLeft);
 		}
 	}
 }
@@ -100,11 +131,11 @@ void AWeapon::UnhideMag()
 	}
 }
 
-void AWeapon::AddAmmo(int32 AmmoToAdd)
+void AWeapon::AddAmmo(int32 AmmoToAdd, bool bLeft)
 {
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
-	SetHUDAmmo();
-	ClientAddAmmo(AmmoToAdd);
+	SetHUDAmmo(bLeft);
+	ClientAddAmmo(AmmoToAdd, bLeft);
 }
 
 void AWeapon::PlayReloadSound()
@@ -159,6 +190,20 @@ bool AWeapon::IsObstructed() const
 	return GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECollisionChannel::ECC_WorldDynamic);
 }
 
+void AWeapon::StartRotatingTwoHand(USceneComponent* NewHand1, USceneComponent* NewHand2)
+{
+	if (NewHand1 == nullptr || NewHand2 == nullptr) return;
+	bRotateTwoHand = true;
+
+	Hand1 = NewHand1;
+	Hand2 = NewHand2;
+}
+
+void AWeapon::StopRotatingTwoHand()
+{
+	bRotateTwoHand = false;
+}
+
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
@@ -188,11 +233,24 @@ void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* 
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(OtherActor);
 	if (GunfightCharacter && (GetOwner() == GunfightCharacter || GetOwner() == nullptr))
 	{
+		if (OtherComp == GunfightCharacter->GetLeftHandSphere())
+		{
+			bLeftControllerOverlap = true;
+			GunfightCharacter->SetLeftOverlappingWeapon(this);
+			GunfightCharacter->LeftOverlappingWeapons.AddUnique(this);
+		}
+		else if (OtherComp == GunfightCharacter->GetRightHandSphere())
+		{
+			bRightControllerOverlap = true;
+			GunfightCharacter->SetRightOverlappingWeapon(this);
+			GunfightCharacter->RightOverlappingWeapons.AddUnique(this);
+		}
+
+		/*
 		if (OtherComp == GunfightCharacter->GetLeftHandSphere()) bLeftControllerOverlap = true;
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere()) bRightControllerOverlap = true;
 		GunfightCharacter->SetOverlappingWeapon(this);
-
-		GunfightCharacter->OverlappingWeapons.AddUnique(this);
+		*/
 
 		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Overlap: %d"), GunfightCharacter->GetOverlappingWeapon()));
 	}
@@ -206,15 +264,22 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 		if (OtherComp == GunfightCharacter->GetLeftHandSphere())
 		{
 			bLeftControllerOverlap = false;
-			if(!bRightControllerOverlap) GunfightCharacter->OverlappingWeapons.RemoveSingle(this);
+			//if (!bRightControllerOverlap)
+			//{
+				GunfightCharacter->LeftOverlappingWeapons.RemoveSingle(this);
+				if (GunfightCharacter->LeftOverlappingWeapons.IsEmpty()) GunfightCharacter->SetLeftOverlappingWeapon(nullptr);
+			//}
 		}
 		else if (OtherComp == GunfightCharacter->GetRightHandSphere())
 		{
 			bRightControllerOverlap = false;
-			if(!bLeftControllerOverlap) GunfightCharacter->OverlappingWeapons.RemoveSingle(this);
+			//if (!bLeftControllerOverlap)
+			//{
+				GunfightCharacter->RightOverlappingWeapons.RemoveSingle(this);
+				if (GunfightCharacter->RightOverlappingWeapons.IsEmpty()) GunfightCharacter->SetRightOverlappingWeapon(nullptr);
+			//}
 		}
-
-		GunfightCharacter->OverlappingWeapons.IsEmpty() ? GunfightCharacter->SetOverlappingWeapon(nullptr) : GunfightCharacter->SetOverlappingWeapon(GunfightCharacter->OverlappingWeapons[0]);
+		//GunfightCharacter->OverlappingWeapons.IsEmpty() ? GunfightCharacter->SetOverlappingWeapon(nullptr) : GunfightCharacter->SetOverlappingWeapon(GunfightCharacter->OverlappingWeapons[0]);
 
 		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("End Overlap: %d"), CharacterOwner->GetOverlappingWeapon()));
 	}
@@ -244,43 +309,52 @@ void AWeapon::PollInit()
 	}
 }
 
-void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd)
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd, bool bLeft)
 {
 	if (HasAuthority()) return;
 	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
-	SetHUDAmmo();
+	SetHUDAmmo(bLeft);
 }
 
 void AWeapon::OnRep_CarriedAmmo()
 {
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
-	if (CharacterOwner && CharacterOwner->GetDefaultWeapon())
+	if (CharacterOwner && CharacterOwner->GetCombat())
 	{
 		GunfightOwnerController = GunfightOwnerController == nullptr ? Cast<AGunfightPlayerController>(CharacterOwner->Controller) : GunfightOwnerController;
-		if (GunfightOwnerController && CharacterOwner->GetDefaultWeapon() == this)
+		if (GunfightOwnerController)
 		{
-			GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo);
+			if (CharacterOwner->GetCombat()->GetEquippedWeapon(true) == this)
+			{
+				GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo, true);
+			}
+			else if (CharacterOwner->GetCombat()->GetEquippedWeapon(false) == this)
+			{
+				GunfightOwnerController->SetHUDCarriedAmmo(CarriedAmmo, false);
+			}
+			
 		}
 	}
 }
 
-void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo)
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo, bool bLeft)
 {
 	if (HasAuthority()) return;
+
 	Ammo = ServerAmmo;
 	--Sequence;
 	Ammo -= Sequence;
-	SetHUDAmmo();
+	SetHUDAmmo(bLeft);
 }
 
-void AWeapon::SpendRound()
+void AWeapon::SpendRound(bool bLeft)
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-	SetHUDAmmo();
+	SetHUDAmmo(bLeft);
 	if (HasAuthority())
 	{
-		ClientUpdateAmmo(Ammo);
+		ClientUpdateAmmo(Ammo, bLeft);
 	}
 	else if (CharacterOwner && CharacterOwner->IsLocallyControlled())
 	{
@@ -390,11 +464,13 @@ void AWeapon::OnWeaponStateSet()
 		OnDropped();
 		break;
 	}
+
+	if (GetWorld()) LastTimeInteractedWith = GetWorld()->GetTimeSeconds();
 }
 
 void AWeapon::OnEquipped()
 {
-	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetSimulatePhysics(false);
 	WeaponMesh->SetEnableGravity(false);
 	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -457,6 +533,7 @@ void AWeapon::Dropped(bool bLeftHand)
 	SetWeaponState(EWeaponState::EWS_Dropped);
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	WeaponMesh->DetachFromComponent(DetachRules);
+	SetHolsterSide(ESide::ES_None);
 	SetOwner(nullptr);
 	CharacterOwner = nullptr;
 }
@@ -465,7 +542,8 @@ void AWeapon::OnDropped()
 {
 	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
-	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+
 	//AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	//WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	//WeaponMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
@@ -474,6 +552,14 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
+
+	if (Magazine)
+	{
+		Magazine->Destroy();
+		UnhideMag();
+		SetMagInserted(true);
+		ClearWeaponMagTimer();
+	}
 	
 	CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
 	if (CharacterOwner == nullptr) return;
@@ -499,6 +585,9 @@ void AWeapon::OnDropped()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Dropped weapon WeaponSide is not set"));
 	}
+
+	SetOwner(nullptr);
+	SetCharacterOwner(nullptr);
 
 	// set owner to nullptr
 	WeaponSide = ESide::ES_None;
@@ -566,10 +655,14 @@ void AWeapon::GetSpawnOverlaps()
 			if (LeftDistance <= FMath::Square(LeftHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
 			{
 				bLeftControllerOverlap = true;
+				GunfightCharacter->SetLeftOverlappingWeapon(this);
+				GunfightCharacter->LeftOverlappingWeapons.AddUnique(this);
 			}
 			if (RightDistance <= FMath::Square(RightHandSphere->GetScaledSphereRadius() + AreaSphere->GetScaledSphereRadius()))
 			{
 				bRightControllerOverlap = true;
+				GunfightCharacter->SetRightOverlappingWeapon(this);
+				GunfightCharacter->RightOverlappingWeapons.AddUnique(this);
 			}
 		}
 	}
@@ -604,4 +697,9 @@ void AWeapon::ApplyVelocityOnDropped()
 void AWeapon::EquipSoundTimerEnd()
 {
 	bPlayingEquipSound = false;
+}
+
+void AWeapon::ClearWeaponMagTimer()
+{
+	GetWorldTimerManager().ClearTimer(EjectMagTimerHandle);
 }

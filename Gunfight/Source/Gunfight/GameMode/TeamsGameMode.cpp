@@ -6,6 +6,7 @@
 #include "Gunfight/PlayerState/GunfightPlayerState.h"
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/GunfightComponents/WeaponPoolComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 ATeamsGameMode::ATeamsGameMode()
@@ -220,12 +221,8 @@ void ATeamsGameMode::EndGunfightRound()
 void ATeamsGameMode::RestartGunfightRound()
 {
 	UWorld* World = GetWorld();
-	if (World == nullptr) return;
+	if (World == nullptr || WeaponPool == nullptr) return;
 	LevelStartingTime = World->TimeSeconds;
-
-	// First check if the game should end
-	// 
-	// Respawn all players with their input disabled
 
 	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
@@ -240,6 +237,8 @@ void ATeamsGameMode::RestartGunfightRound()
 			}
 		}
 	}
+
+	WeaponPool->ReclaimFieldWeapons();
 
 	SetGunfightRoundMatchState(EGunfightRoundMatchState::EGRMS_RoundStart);
 }

@@ -12,9 +12,9 @@
 #include "Gunfight/PlayerController/GunfightPlayerController.h"
 #include "Sound/SoundCue.h"
 
-void AHitscanWeapon::Fire(const FVector& HitTarget)
+void AHitscanWeapon::Fire(const FVector& HitTarget, bool bLeft)
 {
-	Super::Fire(HitTarget);
+	Super::Fire(HitTarget, bLeft);
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (OwnerPawn == nullptr) return;

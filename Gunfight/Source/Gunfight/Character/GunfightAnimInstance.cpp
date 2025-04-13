@@ -47,6 +47,10 @@ void UGunfightAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	// Leg IK
 	UpdateFeetLocation();
 
+	/*
+	if (LeftHandComponent) LeftHandTransform = LeftHandComponent->GetComponentTransform();
+	if (RightHandComponent) RightHandTransform = RightHandComponent->GetComponentTransform();
+	*/
 	LeftHandState = GunfightCharacter->GetHandState(true);
 	RightHandState = GunfightCharacter->GetHandState(false);
 }

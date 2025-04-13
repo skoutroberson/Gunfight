@@ -43,8 +43,10 @@ public:
 	void SetHUDScore(float Score);
 	void SetHUDTeamScore(float Score, ETeam TeamToUpdate);
 	void SetHUDDefeats(int32 Defeats);
-	void SetHUDWeaponAmmo(int32 Ammo);
-	void SetHUDCarriedAmmo(int32 Ammo);
+	void SetHUDWeaponAmmo(int32 Ammo, bool bLeft);
+	void SetHUDCarriedAmmo(int32 Ammo, bool bLeft);
+	void SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVisible);
+
 	void SetHUDMatchCountdown(float CountdownTime);
 	void SetHUDAnnouncementCountdown(float CountdownTime);
 	void SetHUDScoreboard();
@@ -278,8 +280,12 @@ private:
 	float HUDScore;
 	int32 HUDDefeats;
 	float HUDCarriedAmmo;
+	float HUDCarriedAmmoLeft;
+	float HUDCarriedAmmoRight;
 	bool bInitializeCarriedAmmo = false;
 	float HUDWeaponAmmo;
+	float HUDWeaponAmmoLeft;
+	float HUDWeaponAmmoRight;
 	bool bInitializeWeaponAmmo = false;
 
 	float HighPingRunningTime = 0.f;

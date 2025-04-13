@@ -9,7 +9,22 @@
 #include "Gunfight/Gunfight.h"
 #include "CombatComponent.generated.h"
 
+enum class EWeaponType : uint8;
+
 // ps, i'm never using a bool to determine left/right again
+
+// might have to use this if I am getting out of order OnRep bugs for these two variables
+USTRUCT(BlueprintType)
+struct FOwnedWeapon
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	class AWeapon* EquippedWeapon;
+
+	UPROPERTY()
+	AWeapon* HolsteredWeapon;
+};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GUNFIGHT_API UCombatComponent : public UActorComponent
@@ -22,9 +37,20 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	void EquipWeapon(class AWeapon* WeaponToEquip, bool bLeftController);
+	void GrabWeapon(class AWeapon* WeaponGrabbed, bool bLeftController);
+
+	// equip weapon in slot 1 wihle slot2 is not gripping
+	void EquipWeapon(AWeapon* WeaponToEquip, bool bLeftController);
+	// equip weapon in slot 2 whie slot 1 is gripping
+	void EquipWeaponSecondary(AWeapon* WeaponToEquip, bool bLeftController);
+
+	// released the hand in slot 2 while slot 1 is still gripping.
+	void DropWeaponSecondary(AWeapon* WeaponToRelease, bool bLeftController);
+	// released the hand in slot1 while slot2 is still gripping.
+	void DropWeaponPrimary(AWeapon* WeaponToRelease, bool bLeftController);
+
 	void DropWeapon(bool bLeftHand);
-	void Reload();
+	void Reload(bool bLeft);
 
 	void AttachWeaponToHand(bool bLeftHand);
 
@@ -36,6 +62,9 @@ public:
 	void FireButtonPressed(bool bPressed, bool bLeftHand);
 
 	bool bLocallyReloading = false;
+
+	bool bLocallyReloadingLeft = false;
+	bool bLocallyReloadingRight = false;
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastAttachToHolster(ESide HandSide);
@@ -57,6 +86,18 @@ public:
 		FVector_NetQuantize AngularVelocity
 	);
 
+	UPROPERTY()
+	AWeapon* PreviousLeftEquippedWeapon;
+	UPROPERTY()
+	AWeapon* PreviousRightEquippedWeapon;
+
+	void ResetWeapon(AWeapon* WeaponToReset);
+
+	// returns false if we own no weapons
+	bool ResetOwnedWeapons();
+
+	void AddWeaponToHolster(AWeapon* WeaponToHolster, bool bLeft);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -65,8 +106,10 @@ protected:
 
 	void HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand);
 	void AttachWeaponToMotionController(AWeapon* WeaponToAttach, bool bLeftHand);
+	void AttachHandMeshToWeapon(AWeapon* Weapon, bool bLeftHand, bool bSlot1);
 	// attaches hand mesh to motion controller and applys default offsets
 	void HandleWeaponDrop(bool bLeftHand);
+	void DetachHandMeshFromWeapon(bool bLeftHand);
 
 	void AttachMagazineToMotionController(AFullMagazine* MagToAttach, bool bLeftHand);
 	void HandleMagDrop(bool bLeftHand);
@@ -76,33 +119,42 @@ protected:
 	UFUNCTION()
 	void OnRep_RightEquippedWeapon();
 
+	UFUNCTION()
+	void OnRep_LeftHolsteredWeapon();
+
+	UFUNCTION()
+	void OnRep_RightHolsteredWeapon();
+
 	void Fire(bool bLeft);
-	void FireHitScanWeapon();
+	void FireHitScanWeapon(bool bLeft);
 
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
-	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
+	void TraceUnderLeftCrosshairs(FHitResult& TraceHitResult);
+	void TraceUnderRightCrosshairs(FHitResult& TraceHitResult);
+
+	void LocalFire(const FVector_NetQuantize& TraceHitTarget, bool bLeft);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerFire(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
-	void ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
-	bool ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, const float FireDelay);
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget, const float FireDelay, bool bLeft);
+	void ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget, const float FireDelay, bool bLeft);
+	bool ServerFire_Validate(const FVector_NetQuantize& TraceHitTarget, const float FireDelay, bool bLeft);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MultiCastFire(const FVector_NetQuantize& TraceHitTarget);
-	void MultiCastFire_Implementation(const FVector_NetQuantize& TraceHitTarget);
+	void MultiCastFire(const FVector_NetQuantize& TraceHitTarget, bool bLeft);
+	void MultiCastFire_Implementation(const FVector_NetQuantize& TraceHitTarget, bool bLeft);
 
 	UFUNCTION(Server, Reliable)
-	void ServerReload();
-	void ServerReload_Implementation();
-	void HandleReload();
+	void ServerReload(bool bLeft);
+	void ServerReload_Implementation(bool bLeft);
+	void HandleReload(bool bLeft);
 
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastReload();
-	void MulticastReload_Implementation();
+	void MulticastReload(bool bLeft);
+	void MulticastReload_Implementation(bool bLeft);
 
 	// returns true if we holstered the weapon
-	bool HolsterWeaponDontDrop(bool bLeft, AWeapon* WeaponToDrop, FVector HolsterLocation);
+	bool HolsterWeaponDontDrop(bool bLeft, AWeapon* WeaponToDrop);
 
 private:
 
@@ -117,6 +169,17 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_RightEquippedWeapon)
 	AWeapon* RightEquippedWeapon;
+
+	UPROPERTY(ReplicatedUsing = OnRep_LeftHolsteredWeapon)
+	AWeapon* LeftHolsteredWeapon;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RightHolsteredWeapon)
+	AWeapon* RightHolsteredWeapon;
+
+	UPROPERTY()
+	AWeapon* PreviousLeftHolsteredWeapon;
+	UPROPERTY()
+	AWeapon* PreviousRightHolsteredWeapon;
 
 	UPROPERTY()
 	AFullMagazine* LeftEquippedMagazine;
@@ -138,22 +201,51 @@ private:
 	void OnRep_CombatState();
 
 	bool bFireButtonPressed;
+	bool bFireButtonPressedLeft;
+	bool bFireButtonPressedRight;
 
 	bool bCanFire = true;
 
+	bool bCanFireLeft = true;
+	bool bCanFireRight = true;
+
 	FTimerHandle FireTimer;
 
-	void StartFireTimer(float FireDelay);
+	FTimerHandle FireTimerLeft;
+	FTimerHandle FireTimerRight;
+
+	void StartFireTimer(float FireDelay, bool bLeft);
+	void StartFireTimerLeft(float FireDelay);
+	void StartFireTimerRight(float FireDelay);
+
 	void FireTimerFinished();
+	void FireTimerFinishedLeft();
+	void FireTimerFinishedRight();
 
 	bool CanFire(bool bLeft);
 
 	FVector HitTarget;
 
-	void UpdateWeaponAmmos();
+	FVector HitTargetLeft;
+	FVector HitTargetRight;
+
+	void UpdateWeaponAmmos(bool bLeft);
 	void UpdateCarriedAmmo();
 	void UpdateAmmoValues();
-	int32 AmountToReload();
+	int32 AmountToReload(AWeapon *Weapon);
+
+	EHandState SlotToHandState(EWeaponType WeaponType, bool bSlot1);
+
+	// two hand
+	void RotateWeaponTwoHand(float DeltaTime);
+
+	ESide GetClosestHolster(FVector WeaponLocation, float &OutDistance);
+	void AttachWeaponToHolster(AWeapon* WeaponToHolster, ESide HolsterSide);
+
+	FName SideToHolsterName(ESide HolsterSide);
+
+	// used in Tick if we are holding a weapon with two hands, will release the players grip if their hand is too far
+	void CheckSecondHand(class UMotionControllerComponent* MC);
 
 public:	
 	AWeapon* GetEquippedWeapon(bool bLeft);
@@ -164,4 +256,5 @@ public:
 	AFullMagazine* GetEquippedMagazine(bool bLeft);
 	void SetEquippedMagazine(AFullMagazine* NewMag, bool bLeft);
 	bool IsWeaponEquipped();
+	AWeapon* GetHolsteredWeapon(bool bLeft);
 };

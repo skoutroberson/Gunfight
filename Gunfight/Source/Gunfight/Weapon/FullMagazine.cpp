@@ -150,7 +150,7 @@ void AFullMagazine::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent,
 
 void AFullMagazine::InitializeCollision()
 {
-	AreaSphere->SetSphereRadius(100.f, true);
+	AreaSphere->SetSphereRadius(7.f, true);
 	GetSpawnOverlaps();
 }
 
@@ -165,7 +165,7 @@ void AFullMagazine::ShouldAttachToHolster()
 			{
 				MagazineMesh->SetSimulatePhysics(false);
 				MagazineMesh->SetEnableGravity(false);
-				CharacterOwner->AttachMagazineToHolster();
+				CharacterOwner->AttachMagazineToHolster(this);
 				return;
 			}
 		}
@@ -182,13 +182,12 @@ void AFullMagazine::CanInsertIntoMagwell()
 	if (CharacterOwner)
 	{
 		UCombatComponent* Combat = CharacterOwner->GetCombat();
-		AWeapon* Weapon = CharacterOwner->GetDefaultWeapon();
-		if (Weapon && Combat)
+		if (WeaponOwner && Combat)
 		{
-			const FVector MagwellDirection = Weapon->GetMagwellDirection();
+			const FVector MagwellDirection = WeaponOwner->GetMagwellDirection();
 			const FVector UV = GetActorUpVector();
 			const float Dot = FVector::DotProduct(MagwellDirection, UV);
-			const float DistanceSquared = FVector::DistSquared(Weapon->GetMagwellEnd()->GetComponentLocation(), GetActorLocation());
+			const float DistanceSquared = FVector::DistSquared(WeaponOwner->GetMagwellEnd()->GetComponentLocation(), GetActorLocation());
 
 			if (DistanceSquared < 75.f && Dot > 0.85f)
 			{
@@ -204,10 +203,10 @@ void AFullMagazine::CanInsertIntoMagwell()
 				}
 
 				DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-				AttachToComponent(Weapon->GetMagwellEnd(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+				AttachToComponent(WeaponOwner->GetMagwellEnd(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 
-				MagwellEnd = Weapon->GetMagwellEnd();
-				MagwellStart = Weapon->GetMagwellStart();
+				MagwellEnd = WeaponOwner->GetMagwellEnd();
+				MagwellStart = WeaponOwner->GetMagwellStart();
 				MagwellRelativeTargetLocation = MagwellStart->GetRelativeLocation() - MagwellEnd->GetRelativeLocation();
 				bLerpToMagwellStart = true;
 				SetActorTickEnabled(true);
@@ -220,22 +219,28 @@ void AFullMagazine::CanInsertIntoMagwell()
 
 void AFullMagazine::LerpToMagwellStart(float DeltaTime)
 {
-	if (CharacterOwner && CharacterOwner->GetCombat())
+	if (CharacterOwner && CharacterOwner->GetCombat() && WeaponOwner)
 	{
-		AWeapon* Weapon = CharacterOwner->GetDefaultWeapon();
-		if (Weapon)
+		const float MagSpeedScaled = MagInsertSpeed * DeltaTime;
+		MagwellDistance = MagwellDistance + MagSpeedScaled > 1 ? 1.0f : MagwellDistance + MagSpeedScaled;
+		SetActorRelativeLocation(MagwellRelativeTargetLocation * MagwellDistance);
+		if (MagwellDistance == 1.0f)
 		{
-			const float MagSpeedScaled = MagInsertSpeed * DeltaTime;
-			MagwellDistance = MagwellDistance + MagSpeedScaled > 1 ? 1.0f : MagwellDistance + MagSpeedScaled;
-			SetActorRelativeLocation(MagwellRelativeTargetLocation * MagwellDistance);
-			if (MagwellDistance == 1.0f)
+			bLerpToMagwellStart = false;
+			SetActorTickEnabled(false);
+			WeaponOwner->UnhideMag();
+
+			if (CharacterOwner->GetCombat()->GetEquippedWeapon(true) == WeaponOwner)
 			{
-				bLerpToMagwellStart = false;
-				SetActorTickEnabled(false);
-				Weapon->UnhideMag();
-				CharacterOwner->GetCombat()->Reload();
-				Destroy();
+				CharacterOwner->GetCombat()->Reload(true);
 			}
+			else if (CharacterOwner->GetCombat()->GetEquippedWeapon(false) == WeaponOwner)
+			{
+				CharacterOwner->GetCombat()->Reload(false);
+			}
+			//CharacterOwner->GetCombat()->Reload(bLeft);
+			WeaponOwner->SetMagazine(nullptr);
+			Destroy();
 		}
 	}
 }

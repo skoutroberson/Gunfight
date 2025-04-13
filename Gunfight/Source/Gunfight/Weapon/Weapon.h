@@ -40,6 +40,15 @@ enum class EFireType : uint8
 	EFT_MAX			UMETA(DisplayName = "DefaultMAX"),
 };
 
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
+{
+	EWT_Pistol	UMETA(DisplayName = "Pistol"),
+	EWT_M4		UMETA(DisplayName = "M4"),
+
+	EWT_MAX		UMETA(DisplayName = "DefaultMAX"),
+};
+
 // variables we need to replicate to a client on join session
 USTRUCT(BlueprintType)
 struct FWeaponReplicate
@@ -60,9 +69,11 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	virtual void Fire(const FVector& HitTarget);
+	virtual void Fire(const FVector& HitTarget, bool bLeft);
 
-	void SetHUDAmmo();
+	void SetHUDAmmo(bool bLeft);
+	// called when EquippedWeapons are set to nullptr
+	void ClearHUDAmmo(bool bLeft);
 
 	/**
 	* Automatic fire
@@ -112,7 +123,7 @@ public:
 	void UnhideMag();
 
 	void SetCarriedAmmo(int32 NewAmmo) { CarriedAmmo = NewAmmo; }
-	void AddAmmo(int32 AmmoToAdd);
+	void AddAmmo(int32 AmmoToAdd, bool bLeft);
 
 	void PlaySlideBackAnimation();
 	void PlaySlideForwardAnimation();
@@ -152,10 +163,42 @@ public:
 	FTransform GrabOffset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform GrabOffset2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FTransform HandOffsetRight;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FTransform HandOffsetLeft;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform HandOffsetRight2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FTransform HandOffsetLeft2;
+
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot1R;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot1L;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot2R;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot2L;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot2IKL;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot2IKR;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	bool bTwoHanded = false;
+
 
 	virtual void OnRep_AttachmentReplication() override {}
 
@@ -167,6 +210,30 @@ public:
 	// distance to trace going backwards from the fire location to determine of the weapon is clipping through a wall/object.
 	UPROPERTY(EditAnywhere)
 	float ObstructedDistance = 20.f;
+
+	// called when we drop the weapon in case we drop it while the mag is dropping out.
+	void ClearWeaponMagTimer();
+
+	UPROPERTY()
+	class UMotionControllerComponent* Slot1MotionController;
+
+	UPROPERTY()
+	UMotionControllerComponent* Slot2MotionController;
+
+	// two hand
+	void StartRotatingTwoHand(USceneComponent* NewHand1, USceneComponent* NewHand2);
+	void StopRotatingTwoHand();
+
+	bool bRotateTwoHand = false;
+
+	UPROPERTY()
+	USceneComponent* Hand1;
+
+	UPROPERTY()
+	USceneComponent* Hand2;
+
+	UPROPERTY(EditAnywhere)
+	float TwoHandRotationSpeed = 10.f;
 
 protected:
 	virtual void BeginPlay() override;
@@ -264,15 +331,18 @@ private:
 	UFUNCTION()
 	void OnRep_CarriedAmmo();
 
-	UFUNCTION(Client, Reliable)
-	void ClientUpdateAmmo(int32 ServerAmmo);
-	void ClientUpdateAmmo_Implementation(int32 ServerAmmo);
+	UPROPERTY(EditAnywhere)
+	int32 MaxCarriedAmmo = 100;
 
 	UFUNCTION(Client, Reliable)
-	void ClientAddAmmo(int32 AmmoToAdd);
-	void ClientAddAmmo_Implementation(int32 AmmoToAdd);
+	void ClientUpdateAmmo(int32 ServerAmmo, bool bLeft);
+	void ClientUpdateAmmo_Implementation(int32 ServerAmmo, bool bLeft);
 
-	void SpendRound();
+	UFUNCTION(Client, Reliable)
+	void ClientAddAmmo(int32 AmmoToAdd, bool bLeft);
+	void ClientAddAmmo_Implementation(int32 AmmoToAdd, bool bLeft);
+
+	void SpendRound(bool bLeft);
 
 	UPROPERTY(EditAnywhere)
 	int32 MagCapacity;
@@ -347,10 +417,21 @@ private:
 	bool bPlayingEquipSound = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentSkinIndex)
-	int32 CurrentSkinIndex = -1;
+	int32 CurrentSkinIndex = 0;
 
 	UFUNCTION()
 	void OnRep_CurrentSkinIndex();
+
+	// The magazine spawned locally that will trigger a reload if inserted by the player.
+	UPROPERTY()
+	AFullMagazine* Magazine;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	EWeaponType WeaponType;
+
+	ESide HolsterSide = ESide::ES_None;
+
+	float LastTimeInteractedWith = WEAPON_START_TIME;
 
 public:
 
@@ -382,10 +463,18 @@ public:
 	FORCEINLINE USceneComponent* GetMagwellEnd() { return MagSlideEnd; }
 	FORCEINLINE USceneComponent* GetMagwellStart() { return MagSlideStart; }
 	FORCEINLINE EWeaponState GetWeaponState() { return WeaponState; }
-	FORCEINLINE float GetDamage() { return Damage; }
+	FORCEINLINE float GetDamage() const { return Damage; }
 	FORCEINLINE void SetDropVelocity(FVector NewVelocity) { DropVelocity = NewVelocity; }
 	FORCEINLINE void SetDropAngularVelocity(FQuat NewAngularVelocity) { DropAngularVelocity = NewAngularVelocity; }
 	FORCEINLINE void SetWeaponSide(ESide NewSide) { WeaponSide = NewSide; }
 	FORCEINLINE USphereComponent* GetAreaSphere() { return AreaSphere; }
-	FORCEINLINE int32 GetCurrentSkinIndex() { return CurrentSkinIndex; }
+	FORCEINLINE int32 GetCurrentSkinIndex() const { return CurrentSkinIndex; }
+	FORCEINLINE AFullMagazine* GetMagazine() { return Magazine; }
+	FORCEINLINE void SetMagazine(AFullMagazine* NewMag) { Magazine = NewMag; }
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
+	FORCEINLINE ESide GetHolsterSide() const { return HolsterSide; }
+	FORCEINLINE void SetHolsterSide(ESide NewHolsterSide) { HolsterSide = NewHolsterSide; }
+	FORCEINLINE int32 GetMaxCarriedAmmo() const { return MaxCarriedAmmo; }
+	FORCEINLINE float GetLastTimeInteractedWith() const { return LastTimeInteractedWith; }
+	FORCEINLINE bool IsTwoHanded() const { return bTwoHanded; }
 };

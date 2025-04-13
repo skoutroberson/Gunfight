@@ -6,6 +6,8 @@
 #include "Gunfight/GameState/GunfightGameState.h"
 #include "Gunfight/PlayerState/GunfightPlayerState.h"
 #include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/GunfightComponents/WeaponPoolComponent.h"
+#include "Gunfight/Weapon/Weapon.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerStart.h"
 #include "Components/CapsuleComponent.h"
@@ -20,6 +22,21 @@ AGunfightGameMode::AGunfightGameMode()
 {
 	bDelayedStart = true;
 	GunfightMatchState = EGunfightMatchState::EGMS_Uninitialized;
+
+	WeaponPool = CreateDefaultSubobject<UWeaponPoolComponent>(TEXT("WeaponPool"));
+}
+
+void AGunfightGameMode::GiveMeWeapon(AGunfightCharacter* Char, EWeaponType WeaponType)
+{
+	if (WeaponPool == nullptr) return;
+
+	WeaponPool->GiveWeaponToPlayer(Char, WeaponType);
+}
+
+void AGunfightGameMode::AddWeaponToPool(AWeapon* NewWeapon)
+{
+	if (WeaponPool == nullptr || NewWeapon == nullptr) return;
+	WeaponPool->AddWeaponToPool(NewWeapon);
 }
 
 void AGunfightGameMode::BeginPlay()
@@ -101,7 +118,10 @@ void AGunfightGameMode::OnMatchStateSet()
 
 void AGunfightGameMode::HandleGunfightWarmupStarted()
 {
-
+	/*if (WeaponPool)
+	{
+		WeaponPool->StartFreeForAllReclaimTimer();
+	}*/
 }
 
 void AGunfightGameMode::HandleGunfightMatchStarted()

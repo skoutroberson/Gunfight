@@ -14,6 +14,8 @@
 #define EST_Tile EPhysicalSurface::SurfaceType6
 #define EST_Wood EPhysicalSurface::SurfaceType7
 
+#define WEAPON_START_TIME 10000000.f
+
 UENUM(BlueprintType)
 enum class ESide : uint8
 {

@@ -32,6 +32,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Character)
 	FTransform RightHandTransform;
 
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	USceneComponent* LeftHandComponent;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	USceneComponent* RightHandComponent;
+
 	/**
 	* Leg IK
 	*/

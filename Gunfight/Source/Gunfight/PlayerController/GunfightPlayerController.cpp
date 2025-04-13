@@ -173,9 +173,10 @@ void AGunfightPlayerController::PollInit()
 				UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
 
 				AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+				//if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon())
 				if (GunfightCharacter && GunfightCharacter->GetDefaultWeapon())
 				{
-					GunfightCharacter->GetDefaultWeapon()->SetHUDAmmo();
+					//GunfightCharacter->GetDefaultWeapon()->SetHUDAmmo();
 
 					if (GunfightCharacter->VRStereoLayer)
 					{
@@ -183,8 +184,18 @@ void AGunfightPlayerController::PollInit()
 					}
 				}
 
-				if (bInitializeCarriedAmmo) SetHUDCarriedAmmo(HUDCarriedAmmo);
-				if (bInitializeWeaponAmmo) SetHUDWeaponAmmo(HUDWeaponAmmo);
+				if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString("AGunfightPlayerController::PollInit() This better not be ticking..."));
+				// TODO: CHANGE THIS DOWN HERE 4/5/2025
+				if (bInitializeCarriedAmmo)
+				{
+					SetHUDCarriedAmmo(HUDCarriedAmmo, false);
+					SetHUDCarriedAmmo(HUDCarriedAmmo, true);
+				}
+				if (bInitializeWeaponAmmo)
+				{
+					SetHUDWeaponAmmo(HUDWeaponAmmo, false);
+					SetHUDWeaponAmmo(HUDWeaponAmmo, true);
+				}
 			}
 		}
 	}
@@ -1530,44 +1541,102 @@ void AGunfightPlayerController::SetHUDDefeats(int32 Defeats)
 	}
 }
 
-void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo)
+void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo, bool bLeft)
 {
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
-		GunfightHUD->CharacterOverlay->WeaponAmmoAmount && 
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmount &&
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft &&
 		StereoLayer;
 	if (bHUDValid)
 	{
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
-		GunfightHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(AmmoText));
+
+		UTextBlock* CurrentAmmoText = bLeft ? GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft : GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
+		if (CurrentAmmoText == nullptr) return;
+		CurrentAmmoText->SetText(FText::FromString(AmmoText));
 		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
 		bInitializeWeaponAmmo = true;
-		HUDWeaponAmmo = Ammo;
+
+		bLeft ? HUDWeaponAmmoLeft = Ammo : HUDWeaponAmmoRight = Ammo;
+		/*
+		float* CurrentHUDWeaponAmmo = bLeft ? &HUDWeaponAmmoLeft : &HUDWeaponAmmoRight;
+		if (CurrentHUDWeaponAmmo == nullptr) return;
+		*CurrentHUDWeaponAmmo = Ammo;*/
 	}
 
 }
 
-void AGunfightPlayerController::SetHUDCarriedAmmo(int32 Ammo)
+void AGunfightPlayerController::SetHUDCarriedAmmo(int32 Ammo, bool bLeft)
 {
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
 		GunfightHUD->CharacterOverlay->CarriedAmmoAmount &&
+		GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft &&
 		StereoLayer;
 	if (bHUDValid)
 	{
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
-		GunfightHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(AmmoText));
+
+		UTextBlock* CurrentCarriedAmmoText = bLeft ? GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft : GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
+
+		if (CurrentCarriedAmmoText == nullptr) return;
+		CurrentCarriedAmmoText->SetText(FText::FromString(AmmoText));
 		StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
 		bInitializeCarriedAmmo = true;
-		HUDCarriedAmmo = Ammo;
+		bLeft ? HUDCarriedAmmoLeft = Ammo : HUDCarriedAmmoRight = Ammo;
+		/*
+		float* CurrentHUDCarriedAmmo = bLeft ? &HUDCarriedAmmoLeft : &HUDCarriedAmmoRight;
+		*CurrentHUDCarriedAmmo = Ammo;*/
+	}
+}
+
+void AGunfightPlayerController::SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVisible)
+{
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	bool bHUDValid = GunfightHUD &&
+		GunfightHUD->CharacterOverlay &&
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmount &&
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft &&
+		GunfightHUD->CharacterOverlay->CarriedAmmoAmount &&
+		GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft &&
+		GunfightHUD->CharacterOverlay->AmmoSlashR &&
+		GunfightHUD->CharacterOverlay->AmmoSlashL &&
+		StereoLayer;
+
+	if(bHUDValid)
+	{
+		UTextBlock* CurrentAmmoText = nullptr;
+		UTextBlock* CurrentCarriedText = nullptr;
+		UTextBlock* CurrentSlashText = nullptr;
+
+		if (bLeft)
+		{
+			CurrentAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft;
+			CurrentCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft;
+			CurrentSlashText = GunfightHUD->CharacterOverlay->AmmoSlashL;
+		}
+		else
+		{
+			CurrentAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
+			CurrentCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
+			CurrentSlashText = GunfightHUD->CharacterOverlay->AmmoSlashR;
+		}
+		if (CurrentAmmoText == nullptr || CurrentCarriedText == nullptr) return;
+
+		CurrentAmmoText->SetRenderOpacity(bNewVisible);
+		CurrentCarriedText->SetRenderOpacity(bNewVisible);
+		CurrentSlashText->SetRenderOpacity(bNewVisible);
+
+		StereoLayer->MarkTextureForUpdate();
 	}
 }
 

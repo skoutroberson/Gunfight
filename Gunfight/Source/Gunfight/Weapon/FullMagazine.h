@@ -101,9 +101,14 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magazine Properties", meta = (AllowPrivateAccess = "true"));
 	float MagInsertSpeed = 5.f;
 
+	UPROPERTY()
+	class AWeapon* WeaponOwner;
+
 public:	
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }
 	FORCEINLINE bool CheckHandOverlap(bool bLeft) const { return bLeft ? bLeftControllerOverlap : bRightControllerOverlap; }
 	FORCEINLINE UStaticMeshComponent* GetMagazineMesh() const { return MagazineMesh; }
 	FORCEINLINE FVector GetHandSocketOffset() const { return HandSocketOffset; }
+	FORCEINLINE void SetWeaponOwner(AWeapon* NewWeaponOwner) { WeaponOwner = NewWeaponOwner; }
+	FORCEINLINE AWeapon* GetWeaponOwner() { return WeaponOwner; }
 };

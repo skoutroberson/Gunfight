@@ -15,6 +15,8 @@ namespace MatchState
 	extern GUNFIGHT_API const FName Cooldown; // Match duration has been reached. Display winner and begin cooldown timer.
 }
 
+enum class EWeaponType : uint8;
+
 /**
  * 
  */
@@ -72,6 +74,11 @@ public:
 
 	bool bTeamsMatch = false;
 
+	// gets a weapon from the pool and puts it in holster
+	void GiveMeWeapon(AGunfightCharacter* Char, EWeaponType WeaponType);
+
+	void AddWeaponToPool(class AWeapon* NewWeapon);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
@@ -98,6 +105,10 @@ protected:
 	class AGunfightGameState* GunfightGameState;
 
 	bool bRedSpawnsA = false; // used so we can switch which team spawns at A or B spawns
+
+	// This component is used to give weapons to players on spawn / buy
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<class UWeaponPoolComponent> WeaponPool;
 
 private:
 
