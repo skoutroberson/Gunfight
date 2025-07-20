@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "FullMagazine.generated.h"
 
+enum class ESide : uint8;
+
 UCLASS()
 class GUNFIGHT_API AFullMagazine : public AActor
 {
@@ -103,6 +105,8 @@ private:
 
 	UPROPERTY()
 	class AWeapon* WeaponOwner;
+
+	ESide GetMagHolsterSide();
 
 public:	
 	FORCEINLINE void SetCharacterOwner(AGunfightCharacter* Character) { CharacterOwner = Character; }

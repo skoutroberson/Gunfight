@@ -13,6 +13,7 @@
 #include "Components/WidgetComponent.h"
 #include "Components/AudioComponent.h"
 #include "Gunfight/Character/GunfightCharacter.h"
+#include "Gunfight/PlayerController/GunfightPlayerController.h"
 
 AGunfightHUD::AGunfightHUD()
 {
@@ -63,8 +64,19 @@ void AGunfightHUD::BeginPlay()
 	AGunfightCharacter* GChar = Cast<AGunfightCharacter>(PlayerController->GetPawn());
 	if (GChar && GChar->CharacterOverlayWidget && GChar->VRStereoLayer)
 	{
+		if (GEngine && GChar->IsLocallyControlled())GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::White, FString("GUNFIGHT HUD INIT PLAYER"));
+
+		GChar->GunfightHUD = this;
 		GChar->CharacterOverlayWidget->SetVisibility(true);
 		GChar->VRStereoLayer->SetVisibility(true);
+		CharacterOverlay = Cast<UCharacterOverlay>(GChar->CharacterOverlayWidget->GetUserWidgetObject());
+
+		AGunfightPlayerController* GPlayer = Cast<AGunfightPlayerController>(PlayerController);
+		if (GPlayer)
+		{
+			GPlayer->GunfightHUDInitialized = this;
+			//GPlayer->InitializeHUD();
+		}
 	}
 }
 

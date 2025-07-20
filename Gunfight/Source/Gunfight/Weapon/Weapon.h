@@ -9,6 +9,8 @@
 
 #define TRACE_LENGTH 80000.f
 
+enum class EHandState : uint8;
+
 UENUM(BlueprintType)
 enum class EEquipState : uint8
 {
@@ -28,6 +30,22 @@ enum class EWeaponState : uint8
 	EWS_Holstered		UMETA(DisplayName = "Holstered"),
 
 	EWS_MAX				UMETA(DisplayName = "DefaultMAX"),
+};
+
+// might need to use this so attachment replication is never out of order.
+USTRUCT(BlueprintType)
+struct FWeaponStateGuarded
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	EWeaponState State;
+
+	UPROPERTY()
+	AActor* Owner;
+
+	UPROPERTY();
+	ESide EquipSide; // if not none, attach to this side.
 };
 
 UENUM(BlueprintType)
@@ -72,6 +90,7 @@ public:
 	virtual void Fire(const FVector& HitTarget, bool bLeft);
 
 	void SetHUDAmmo(bool bLeft);
+	void SetHUDCarriedAmmo(bool bLeft);
 	// called when EquippedWeapons are set to nullptr
 	void ClearHUDAmmo(bool bLeft);
 
@@ -113,6 +132,7 @@ public:
 	FTimerHandle EjectMagTimerHandle;
 
 	void Dropped(bool bLeftHand);
+	void Equipped(bool bLeftHand);
 
 	UPROPERTY()
 	class AGunfightCharacter* CharacterOwner;
@@ -199,8 +219,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	bool bTwoHanded = false;
 
+	virtual void OnRep_AttachmentReplication() override;
 
-	virtual void OnRep_AttachmentReplication() override {}
+	UPROPERTY()
+	FRepAttachment PreviousAttachmentReplication;
+
+	UPROPERTY()
+	AActor* PreviousAttachParent;
+
+	UPROPERTY()
+	USceneComponent* PreviousAttachComponent;
+
+	UPROPERTY()
+	FName PreviousAttachSocket;
 
 	// don't allow putting the gun through walls and firing
 
@@ -213,12 +244,6 @@ public:
 
 	// called when we drop the weapon in case we drop it while the mag is dropping out.
 	void ClearWeaponMagTimer();
-
-	UPROPERTY()
-	class UMotionControllerComponent* Slot1MotionController;
-
-	UPROPERTY()
-	UMotionControllerComponent* Slot2MotionController;
 
 	// two hand
 	void StartRotatingTwoHand(USceneComponent* NewHand1, USceneComponent* NewHand2);
@@ -234,6 +259,42 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	float TwoHandRotationSpeed = 10.f;
+
+	void ResetWeapon();
+
+	bool bSlideBack = false;
+
+	// GRIP REWORK
+	void DetachAndSimulate();
+	void AttachAndStopPhysics(USceneComponent* AttachComponent, const FName& SocketName, bool bLeft);
+	void StopPhysics();
+	void StartPhysics();
+
+	//UPROPERTY(ReplicatedUsing= OnRep_Slot1MotionController)
+	UPROPERTY()
+	class UMotionControllerComponent* Slot1MotionController;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Slot2MotionController)
+	UMotionControllerComponent* Slot2MotionController;
+
+	UMotionControllerComponent* PreviousSlot1MotionController;
+	UMotionControllerComponent* PreviousSlot2MotionController;
+
+	//UFUNCTION()
+	//void OnRep_Slot1MotionController();
+
+	UFUNCTION()
+	void OnRep_Slot2MotionController();
+
+	/**
+	* Attachment Replication
+	* 
+	* The Weapon can only be attached to a holster or hand
+	*/
+	void HandleAttachmentReplication();
+	void HandleAttachmentReplication2();
+
+	void PlayEquipSound();
 
 protected:
 	virtual void BeginPlay() override;
@@ -295,7 +356,7 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	EEquipState EquipState;
 
-	UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
+	//UPROPERTY(ReplicatedUsing = OnRep_WeaponState, VisibleAnywhere, Category = "Weapon Properties")
 	EWeaponState WeaponState;
 
 	UFUNCTION()
@@ -433,6 +494,20 @@ private:
 
 	float LastTimeInteractedWith = WEAPON_START_TIME;
 
+	// Grab Rework
+
+	void HandleSlot1Grabbed(UMotionControllerComponent* GrabbingController);
+	void HandleSlot1Released(UMotionControllerComponent* ReleasingController);
+
+	void HandleSlot2Grabbed(UMotionControllerComponent* GrabbingController);
+	void HandleSlot2Released(UMotionControllerComponent* ReleasingController);
+
+	EHandState SlotToHandState(bool bSlot1);
+
+	bool bPlayingHolsterSound = false;
+	FTimerHandle HolsterSoundTimer;
+	void HolsterSoundTimerFinished() { bPlayingHolsterSound = false; }
+
 public:
 
 	bool IsOverlappingHand(bool bLeftHand);
@@ -477,4 +552,6 @@ public:
 	FORCEINLINE int32 GetMaxCarriedAmmo() const { return MaxCarriedAmmo; }
 	FORCEINLINE float GetLastTimeInteractedWith() const { return LastTimeInteractedWith; }
 	FORCEINLINE bool IsTwoHanded() const { return bTwoHanded; }
+	FORCEINLINE void SetLastTimeInteractedWith(float NewLastTime) { LastTimeInteractedWith = NewLastTime; }
+	USceneComponent* GetSlot2IK(bool bLeft);
 };

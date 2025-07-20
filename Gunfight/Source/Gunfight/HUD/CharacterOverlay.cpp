@@ -94,7 +94,7 @@ void UCharacterOverlay::ScoreUpdate(int32 Index, FString Name, float Score, int3
 {
 	if (Index >= ScoreboardInfos.Num()) return;
 	FScoreboardInfo& ScoreInfo = ScoreboardInfos[Index];
-	if (ScoreInfo.NameText && ScoreInfo.ScoreText && ScoreInfo.DeathsText)
+	if (IsValid(ScoreInfo.NameText) && IsValid(ScoreInfo.ScoreText) && IsValid(ScoreInfo.DeathsText) && IsValid(ScoreInfo.ImagePlate))
 	{
 		ScoreInfo.NameText->SetText(FText::FromString(Name));
 		ScoreInfo.ScoreText->SetText(FText::FromString(FString::Printf(TEXT("%d"), FMath::FloorToInt(Score))));

@@ -69,6 +69,20 @@ AGunfightCharacter::AGunfightCharacter()
 	RightHandSphere->SetupAttachment(RightMotionController);
 	LeftHandSphere->SetupAttachment(LeftMotionController);
 
+	// Hand Offsets
+
+	LeftHandMeshOffset = CreateDefaultSubobject<USceneComponent>(TEXT("LeftHandMeshOffset"));
+	LeftHandMeshOffset->SetupAttachment(LeftMotionController);
+	RightHandMeshOffset = CreateDefaultSubobject<USceneComponent>(TEXT("RightHandMeshOffset"));
+	RightHandMeshOffset->SetupAttachment(RightMotionController);
+
+	// Weapon Offsets
+
+	LeftHandPistolOffset = CreateDefaultSubobject<USceneComponent>(TEXT("LeftHandPistolOffset"));
+	LeftHandPistolOffset->SetupAttachment(LeftMotionController);
+	RightHandPistolOffset = CreateDefaultSubobject<USceneComponent>(TEXT("RightHandPistolOffset"));
+	RightHandPistolOffset->SetupAttachment(RightMotionController);
+
 	VRStereoLayer = CreateDefaultSubobject<UStereoLayerComponent>(TEXT("VRStereoLayer"));
 	VRStereoLayer->SetupAttachment(VRReplicatedCamera);
 	VRStereoLayer->SetRelativeLocation(FVector(50.f, 0.f, -5.f));
@@ -94,6 +108,19 @@ void AGunfightCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AGunfightCharacter, bDisableGameplay);
 	DOREPLIFETIME(AGunfightCharacter, Health);
 	DOREPLIFETIME(AGunfightCharacter, bDisableShooting);
+}
+
+void AGunfightCharacter::Restart()
+{
+	Super::Restart();
+
+	/*
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController)
+	{
+		GunfightPlayerController->InitializeHUD();
+	}
+	*/
 }
 
 void AGunfightCharacter::PostInitializeComponents()
@@ -128,10 +155,31 @@ void AGunfightCharacter::PostInitializeComponents()
 
 void AGunfightCharacter::DestroyDefaultWeapon()
 {
-	if (DefaultWeapon) 
-		DefaultWeapon->Destroy();
-	if (DefaultMagazine) 
-		DefaultMagazine->Destroy();
+	if (GetWorld() == nullptr || Combat == nullptr) return;
+	GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
+	if (GunfightGameMode == nullptr) return;
+	
+	bool bWeaponDestroyed = false; // only destroy one weapon
+
+	if (Combat->LeftEquippedWeapon)
+	{
+		GunfightGameMode->DestroyWeapon(Combat->LeftEquippedWeapon);
+		bWeaponDestroyed = true;
+	}
+	if (!bWeaponDestroyed && Combat->RightEquippedWeapon)
+	{
+		GunfightGameMode->DestroyWeapon(Combat->RightEquippedWeapon);
+		bWeaponDestroyed = true;
+	}
+	if (!bWeaponDestroyed && Combat->LeftHolsteredWeapon)
+	{
+		GunfightGameMode->DestroyWeapon(Combat->LeftHolsteredWeapon);
+		bWeaponDestroyed = true;
+	}
+	if (!bWeaponDestroyed && Combat->RightHolsteredWeapon)
+	{
+		GunfightGameMode->DestroyWeapon(Combat->RightHolsteredWeapon);
+	}
 }
 
 void AGunfightCharacter::DeathPP()
@@ -187,6 +235,16 @@ void AGunfightCharacter::SetTeamColor(ETeam Team)
 	}
 }
 
+USceneComponent* AGunfightCharacter::GetWeaponOffset(EWeaponType WeaponType, bool bLeft)
+{
+	if (WeaponType == EWeaponType::EWT_Pistol)
+	{
+		return bLeft ? LeftHandPistolOffset : RightHandPistolOffset;
+	}
+
+	return nullptr;
+}
+
 void AGunfightCharacter::OnRep_AttachmentReplication()
 {
 	
@@ -231,6 +289,8 @@ void AGunfightCharacter::BeginPlay()
 	{
 		//bStereoLayerInitialized = true;
 	}
+
+	//GetWorldTimerManager().SetTimer(CheckSlot2Timer, this, &AGunfightCharacter::CheckSlot2TimerFinished, 0.2f, true);
 }
 
 void AGunfightCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -271,9 +331,54 @@ void AGunfightCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	UpdateAnimation();
+	UpdateAnimation(DeltaTime);
 	PollInit();
 	UpdateAverageMotionControllerVelocities();
+
+	CheckSlot2TimerFinished();
+
+	/*
+	if (IsLocallyControlled() && Combat)
+	{
+		if (Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->Slot1MotionController && Combat->LeftEquippedWeapon->Slot1MotionController == LeftMotionController)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Left Hand Mesh to slot 1"));
+		}
+		else if (Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->Slot2MotionController && Combat->LeftEquippedWeapon->Slot2MotionController == LeftMotionController)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Left Hand Mesh to slot 2"));
+		}
+		else
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Left Hand Mesh to MOTION CONTROLLER"));
+		}
+
+		if (Combat->RightEquippedWeapon && Combat->RightEquippedWeapon->Slot1MotionController && Combat->RightEquippedWeapon->Slot1MotionController == RightMotionController)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Right Hand Mesh to slot 1"));
+		}
+		else if (Combat->RightEquippedWeapon && Combat->RightEquippedWeapon->Slot2MotionController && Combat->RightEquippedWeapon->Slot2MotionController == RightMotionController)
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Right Hand Mesh to slot 2"));
+		}
+		else
+		{
+			if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString("Attach Right Hand Mesh to MOTION CONTROLLER"));
+		}
+
+		//bRightHandAttached = Combat->RightEquippedWeapon && Combat->RightEquippedWeapon->GetAttachmentReplication().AttachComponent.GetName()
+		//if (Combat->RightEquippedWeapon)
+		//{
+		//	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString::Printf(TEXT("RightHandAttached: %s"), *Combat->RightEquippedWeapon->GetAttachmentReplication().AttachComponent.GetName()));
+		//}
+		//else
+		//{
+		//	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString::Printf(TEXT("RightHandAttached: NONE")));
+		//}
+		
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, DeltaTime * 1.1f, FColor::Green, FString::Printf(TEXT("LeftHandAttached: %d"), Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->GetAttachmentReplication().AttachComponent == LeftMotionController));
+	}
+	*/
 
 	//if(GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Overlap: %d"), GetOverlappingWeapon()));
 }
@@ -466,11 +571,74 @@ AWeapon* AGunfightCharacter::GetClosestOverlappingWeapon(bool bLeft)
 	return ClosestWeapon;
 }
 
+void AGunfightCharacter::GripCooldownLeftFinished()
+{
+	bGripCooldownLeft = false;
+	if (bPressingGripLeft)
+	{
+		if (!bGripPressedLastLeft)
+		{
+			GripPressed(true);
+		}
+	}
+	else
+	{
+		if (bGripPressedLastLeft)
+		{
+			GripReleased(true);
+		}
+	}
+}
+
+void AGunfightCharacter::GripCooldownRightFinished()
+{
+	bGripCooldownRight = false;
+	if (bPressingGripRight)
+	{
+		if (!bGripPressedLastRight)
+		{
+			GripPressed(false);
+		}
+	}
+	else
+	{
+		if (bGripPressedLastRight)
+		{
+			GripReleased(false);
+		}
+	}
+}
+
 void AGunfightCharacter::GripPressed(bool bLeftController)
 {
+	// grip cooldown check
+	if (bLeftController)
+	{
+		bPressingGripLeft = true;
+		if (bGripCooldownLeft) return;
+		bGripCooldownLeft = true;
+		bGripPressedLastLeft = true;
+		GetWorldTimerManager().SetTimer(GripLeftTimer, this, &AGunfightCharacter::GripCooldownLeftFinished, GripCooldownTime, false);
+	}
+	else
+	{
+		bPressingGripRight = true;
+		if (bGripCooldownRight) return;
+		bGripCooldownRight = true;
+		bGripPressedLastRight = true;
+		GetWorldTimerManager().SetTimer(GripRightTimer, this, &AGunfightCharacter::GripCooldownRightFinished, GripCooldownTime, false);
+	}
+	//
+
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
+		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
+		{
+			return;
+		}
+
 		bool bOverlappingWeapon = false;
 		bool bOverlappingMagazine = false;
 
@@ -492,31 +660,100 @@ void AGunfightCharacter::GripPressed(bool bLeftController)
 
 		if (bOverlappingWeapon)
 		{
-			HandleWeaponGripped(bLeftController, GetClosestOverlappingWeapon(bLeftController));
-			return;
+			if (HasAuthority())
+			{
+				Combat->GripWeapon(GetClosestOverlappingWeapon(bLeftController), bLeftController);
+			}
+			else
+			{
+				ServerGripWeapon(bLeftController);
+			}
+
+			CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+			if (CurrentWeapon)
+			{
+				return; // so the server returns here if they grabbed the weapon.
+			}
+			//HandleWeaponGripped(bLeftController, GetClosestOverlappingWeapon(bLeftController));
+			//return;
 		}
 		else if (bOverlappingMagazine)
 		{
 			Combat->EquipMagazine(OverlappingMagazine, bLeftController);
 		}
+
+		USkeletalMeshComponent* CurrentHandMesh = bLeftController ? LeftHandMesh : RightHandMesh;
+		if (CurrentHandMesh && CurrentHandMesh->GetAttachParentActor()->IsA(AWeapon::StaticClass())) return;
+
+		SetHandState(bLeftController, EHandState::EHS_Grip);
 	}
-	SetHandState(bLeftController, EHandState::EHS_Grip);
 }
 
 void AGunfightCharacter::GripReleased(bool bLeftController)
 {
+	// release cooldown check
+	if (bLeftController)
+	{
+		bPressingGripLeft = false;
+		if (bGripCooldownLeft) return;
+		bGripCooldownLeft = true;
+		bGripPressedLastLeft = false;
+		GetWorldTimerManager().SetTimer(GripLeftTimer, this, &AGunfightCharacter::GripCooldownLeftFinished, GripCooldownTime, false);
+	}
+	else
+	{
+		bPressingGripRight = false;
+		if (bGripCooldownRight) return;
+		bGripCooldownRight = true;
+		bGripPressedLastRight = false;
+		GetWorldTimerManager().SetTimer(GripRightTimer, this, &AGunfightCharacter::GripCooldownRightFinished, GripCooldownTime, false);
+	}
+	//
+
 	if (bDisableGameplay) return;
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		AWeapon* PreviousWeapon = bLeftController ? Combat->PreviousLeftEquippedWeapon : Combat->PreviousRightEquippedWeapon;
+		UMotionControllerComponent* CurrentMotionController = bLeftController ? LeftMotionController : RightMotionController;
 		if (CurrentWeapon)
 		{	
-			HandleWeaponReleased(bLeftController, CurrentWeapon);
+			//HandleWeaponReleased(bLeftController, CurrentWeapon);
+			if (HasAuthority())
+			{
+				Combat->ReleaseWeapon(bLeftController);
+			}
+			else
+			{
+				ServerReleaseWeapon(bLeftController);
+			}
+
+			if (CurrentWeapon->Slot1MotionController == CurrentMotionController || CurrentWeapon->Slot2MotionController == CurrentMotionController)
+			{
+				return;
+			}
+			else if (PreviousWeapon)
+			{
+				if (PreviousWeapon->Slot1MotionController == CurrentMotionController || PreviousWeapon->Slot2MotionController == CurrentMotionController)
+				{
+					return;
+				}
+			}
 		}
 		else if (Combat->CheckEquippedMagazine(bLeftController))
 		{
 			Combat->DropMagazine(bLeftController);
 		}
+		else if (PreviousWeapon)
+		{
+			if (PreviousWeapon->Slot1MotionController == CurrentMotionController || PreviousWeapon->Slot2MotionController == CurrentMotionController)
+			{
+				return;
+			}
+		}
+
+		USkeletalMeshComponent* CurrentHandMesh = bLeftController ? LeftHandMesh : RightHandMesh;
+		if (CurrentHandMesh && CurrentHandMesh->GetAttachParentActor()->IsA(AWeapon::StaticClass())) return;
 	}
 	SetHandState(bLeftController, EHandState::EHS_Idle);
 }
@@ -560,10 +797,18 @@ void AGunfightCharacter::AButtonPressed(bool bLeftController)
 			if (Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->GetMagazine())
 			{
 				Combat->LeftEquippedWeapon->GetMagazine()->Destroy();
+				Combat->LeftEquippedWeapon->SetMagazine(nullptr);
+				Combat->LeftEquippedWeapon->SetMagInserted(true);
+				Combat->LeftEquippedWeapon->UnhideMag();
+				Combat->LeftEquippedWeapon->ClearWeaponMagTimer();
 			}
 			if (Combat->RightEquippedWeapon && Combat->RightEquippedWeapon->GetMagazine())
 			{
 				Combat->RightEquippedWeapon->GetMagazine()->Destroy();
+				Combat->RightEquippedWeapon->SetMagazine(nullptr);
+				Combat->RightEquippedWeapon->SetMagInserted(true);
+				Combat->RightEquippedWeapon->UnhideMag();
+				Combat->RightEquippedWeapon->ClearWeaponMagTimer();
 			}
 
 			CurrentWeapon->EjectMagazine();
@@ -650,19 +895,21 @@ void AGunfightCharacter::TryInitializeLocalHands()
 	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
 	USkeletalMeshComponent* BodyMesh = GetMesh();
 	if (BodyMesh == nullptr || HandMesh == nullptr) return;
-	SetLocalArmsVisible(true);
+	SetLocalArmsVisible(false);
 
 	RightHandMesh = NewObject<USkeletalMeshComponent>(this);
 	if (RightHandMesh == nullptr) return;
 
 	RightHandMesh->RegisterComponent();
-	RightHandMesh->AttachToComponent(RightMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	//RightHandMesh->AttachToComponent(RightMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	RightHandMesh->AttachToComponent(RightHandMeshOffset, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+
 	RightHandMesh->SetSkeletalMesh(HandMesh);
 	RightHandMesh->SetCastShadow(false);
 	RightHandMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	RightHandMesh->SetRelativeLocationAndRotation(RightHandMeshLocationOffset, RightHandMeshRotationOffset);
+	//RightHandMesh->SetRelativeLocationAndRotation(RightHandMeshLocationOffset, RightHandMeshRotationOffset);
 	RightHandMesh->InitLODInfos();
-	RightHandMesh->SetMinLOD(0);
+	RightHandMesh->OverrideMinLOD(0);
 	InitializeHandAnimation(RightHandMesh);
 	RightHandAnim = Cast<UHandAnimInstance>(RightHandMesh->GetAnimInstance());
 
@@ -670,14 +917,16 @@ void AGunfightCharacter::TryInitializeLocalHands()
 	if (LeftHandMesh == nullptr) return;
 
 	LeftHandMesh->RegisterComponent();
-	LeftHandMesh->AttachToComponent(LeftMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	//LeftHandMesh->AttachToComponent(LeftMotionController, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+	LeftHandMesh->AttachToComponent(LeftHandMeshOffset, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+
 	LeftHandMesh->SetSkeletalMesh(HandMesh);
 	LeftHandMesh->SetCastShadow(false);
 	LeftHandMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	LeftHandMesh->SetRelativeLocationAndRotation(LeftHandMeshLocationOffset, LeftHandMeshRotationOffset);
+	//LeftHandMesh->SetRelativeLocationAndRotation(LeftHandMeshLocationOffset, LeftHandMeshRotationOffset);
 	LeftHandMesh->SetWorldScale3D(FVector(1.f, -1.f, 1.f));
 	LeftHandMesh->InitLODInfos();
-	LeftHandMesh->SetMinLOD(0);
+	LeftHandMesh->OverrideMinLOD(0);
 	InitializeHandAnimation(LeftHandMesh);
 	LeftHandAnim = Cast<UHandAnimInstance>(RightHandMesh->GetAnimInstance());
 
@@ -707,15 +956,44 @@ void AGunfightCharacter::MenuButtonPressed()
 	ToggleMenu();
 }
 
-void AGunfightCharacter::UpdateAnimInstanceIK()
+void AGunfightCharacter::UpdateAnimInstanceIK(float DeltaTime)
 {
 	if (GunfightAnimInstance == nullptr || LeftMotionController == nullptr || RightMotionController == nullptr) return;
 
 	// Upper Body IK (UBIK) variables
 	GunfightAnimInstance->HeadTransform = VRReplicatedCamera->GetComponentTransform();
 
-	GunfightAnimInstance->LeftHandTransform = LeftMotionController->GetComponentTransform();
-	GunfightAnimInstance->RightHandTransform = RightMotionController->GetComponentTransform();
+	FTransform GoalLeftHandTransform;
+	FTransform GoalRightHandTransform;
+
+	if (LeftHandIKComponent && RightHandIKComponent)
+	{
+		//GunfightAnimInstance->LeftHandTransform = LeftHandIKComponent->GetComponentTransform();
+		//GunfightAnimInstance->RightHandTransform = RightHandIKComponent->GetComponentTransform();
+		GoalLeftHandTransform = LeftHandIKComponent->GetComponentTransform();
+		GoalRightHandTransform = RightHandIKComponent->GetComponentTransform();
+	}
+	else
+	{
+		//GunfightAnimInstance->LeftHandTransform = LeftMotionController->GetComponentTransform();
+		//GunfightAnimInstance->RightHandTransform = RightMotionController->GetComponentTransform();
+		GoalLeftHandTransform = LeftMotionController->GetComponentTransform();
+		GoalRightHandTransform = RightMotionController->GetComponentTransform();
+	}
+	//GunfightAnimInstance->LeftHandTransform = FMath::Lerp(GunfightAnimInstance->LeftHandTransform, GoalLeftHandTransform, DeltaTime * 20.f);
+	//GunfightAnimInstance->RightHandTransform = FMath::Lerp(GunfightAnimInstance->RightHandTransform, GoalRightHandTransform, DeltaTime * 20.f);
+
+	// lerp location
+	//FMath::Lerp(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime * 30.f)
+	// FMath::VInterpTo(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime, 30.f)
+	GunfightAnimInstance->LeftHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime * 40.f));
+	GunfightAnimInstance->RightHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->RightHandTransform.GetLocation(), GoalRightHandTransform.GetLocation(), DeltaTime * 40.f));
+	// slerp rotation
+	GunfightAnimInstance->LeftHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->LeftHandTransform.GetRotation(), GoalLeftHandTransform.GetRotation(), DeltaTime * 30.f));
+	GunfightAnimInstance->RightHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->RightHandTransform.GetRotation(), GoalRightHandTransform.GetRotation(), DeltaTime * 30.f));
+
+	//GunfightAnimInstance->LeftHandTransform = LeftMotionController->GetComponentTransform();
+	//GunfightAnimInstance->RightHandTransform = RightMotionController->GetComponentTransform();
 
 	/*
 	GunfightAnimInstance->LeftHandComponent = LeftMotionController;
@@ -740,11 +1018,31 @@ void AGunfightCharacter::UpdateAnimInstanceIK()
 	GunfightAnimInstance->TraceRightFootLocation = TraceFootLocationIK(false);
 }
 
-void AGunfightCharacter::UpdateAnimation()
+void AGunfightCharacter::UpdateAnimation(float DeltaTime)
 {
 	if (bElimmed) return;
 	MoveMeshToCamera();
-	UpdateAnimInstanceIK();
+	UpdateAnimInstanceIK(DeltaTime);
+}
+
+void AGunfightCharacter::ServerGripWeapon_Implementation(bool bLeft)
+{
+	if (Combat)
+	{
+		Combat->GripWeapon(GetClosestOverlappingWeapon(bLeft), bLeft);
+	}
+}
+
+void AGunfightCharacter::ServerReleaseWeapon_Implementation(bool bLeft)
+{
+	if (Combat)
+	{
+		AWeapon* CurrentWeapon = bLeft ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
+		{
+			Combat->ReleaseWeapon(bLeft);
+		}
+	}
 }
 
 void AGunfightCharacter::ServerEquipButtonPressedLeft_Implementation()
@@ -850,25 +1148,28 @@ void AGunfightCharacter::PollInit()
 			}
 		}
 	}
-	if (GunfightPlayerController == nullptr)
+
+
+	if (GunfightPlayerController == nullptr || bPlayerInitialized == false)
 	{
 		GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
 		if (GunfightPlayerController)
 		{
 			SpawnDefaultWeapon();
 			InitializeHUD();
-			UpdateHUDAmmo();
+			//UpdateHUDAmmo();
 			UpdateHUDHealth();
 			if (IsLocallyControlled())
 			{
 				InitializeSettings();
 			}
+			bPlayerInitialized = true;
 		}
 	}
 	else if(!GunfightPlayerController->GetCharacterOverlay())
 	{
 		InitializeHUD();
-		UpdateHUDAmmo();
+		//UpdateHUDAmmo();
 		UpdateHUDHealth();
 	}
 
@@ -882,9 +1183,10 @@ void AGunfightCharacter::OnRep_DefaultWeapon()
 {
 	if (DefaultWeapon == nullptr || DefaultWeapon->GetWeaponMesh() == nullptr || Combat == nullptr) return;
 	DefaultWeapon->CharacterOwner = this;
+	DefaultWeapon->SetOwner(this);
 
 	Combat->AttachWeaponToHolster(DefaultWeapon);
-	DefaultWeapon->GetWeaponMesh()->SetVisibility(true);
+	DefaultWeapon->ResetWeapon();
 
 	// Update the server with my weapon skin
 	if (!IsLocallyControlled()) return;
@@ -925,7 +1227,7 @@ void AGunfightCharacter::ReceiveDamage(AActor* DamagedActor, float Damage, const
 
 void AGunfightCharacter::MulticastSpawnBlood_Implementation(const FVector_NetQuantize Location, const FVector_NetQuantize Normal, EHitbox HitType, int32 BoneIndex)
 {
-	if (GetMesh() == nullptr) return;
+	if (GetMesh() == nullptr || BoneIndex == INDEX_NONE) return;
 	FName BoneName = GetMesh()->GetBoneName(BoneIndex);
 	EHitbox BoxType = FHitbox::GetHitboxType(BoneName);
 	//FVector BloodLocation = GetMesh()->GetBoneLocation(BoneName) + Location;
@@ -994,16 +1296,21 @@ void AGunfightCharacter::Elim(bool bPlayerLeftGame)
 
 void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 {
+	bElimmed = true;
 	// drop equipped weapon/magazine
 	if (Combat)
 	{
-		if (Combat->LeftEquippedWeapon || Combat->LeftEquippedMagazine)
+		if (IsLocallyControlled())
 		{
-			GripReleased(true);
-		}
-		if (Combat->RightEquippedWeapon || Combat->RightEquippedMagazine)
-		{
-			GripReleased(false);
+			if (Combat->LeftEquippedWeapon || Combat->LeftEquippedMagazine)
+			{
+				GripReleased(true);
+			}
+			if (Combat->RightEquippedWeapon || Combat->RightEquippedMagazine)
+			{
+				GripReleased(false);
+			}
+			DeathPP();
 		}
 
 		// drop all weapons
@@ -1012,10 +1319,12 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 			if (Combat->LeftHolsteredWeapon)
 			{
 				Combat->LeftHolsteredWeapon->Dropped(1);
+				Combat->LeftHolsteredWeapon = nullptr;
 			}
 			if (Combat->RightHolsteredWeapon)
 			{
 				Combat->RightHolsteredWeapon->Dropped(1);
+				Combat->RightHolsteredWeapon = nullptr;
 			}
 		}
 	}
@@ -1028,7 +1337,6 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 	SetLocalArmsVisible(true);
 
 	bLeftGame = false;
-	bElimmed = true;
 	bDisableGameplay = true;
 	Ragdoll();
 
@@ -1065,11 +1373,6 @@ void AGunfightCharacter::MultiCastElim_Implementation(bool bPlayerLeftGame)
 		&AGunfightCharacter::ElimTimerFinished,
 		5.f
 	);
-
-	if (IsLocallyControlled())
-	{
-		DeathPP();
-	}
 }
 
 void AGunfightCharacter::MulticastRespawn_Implementation(FVector_NetQuantize SpawnLocation, FRotator SpawnRotation, bool bInputDisabled)
@@ -1117,56 +1420,6 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
 	}
 
-	// TODO: CHANGE THIS: 4/5/2025
-
-	/*
-	if (Combat && DefaultWeapon && DefaultWeapon->GetWeaponMesh())
-	{
-		/*
-		Combat->DropWeapon(true);
-		Combat->DropWeapon(false);
-		Combat->DropMagazine(true);
-		Combat->DropMagazine(false);
-		
-
-		DefaultWeapon->GetWeaponMesh()->SetEnableGravity(false);
-		DefaultWeapon->GetWeaponMesh()->SetSimulatePhysics(false);
-
-		const FName SocketName = GetRightHolsterPreferred() ? FName("RightHolster") : FName("LeftHolster");
-
-		DefaultWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
-		DefaultWeapon->SetActorRelativeLocation(FVector::ZeroVector);
-		DefaultWeapon->SetActorRelativeRotation(FRotator::ZeroRotator);
-
-		////Combat->AttachWeaponToHolster(DefaultWeapon);
-
-		if (DefaultMagazine)
-		{
-			DefaultMagazine->Destroy();
-			DefaultWeapon->UnhideMag();
-		}
-
-		DefaultWeapon->SetAmmo(DefaultWeapon->GetMagCapacity());
-		DefaultWeapon->SetCarriedAmmo(100);
-		//Combat->HandleReload();
-
-		GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
-		if (GunfightGameMode)
-		{
-			//GunfightGameMode->GiveMeWeapon(EWeaponType::Pistol);
-
-		}
-
-		if (GunfightPlayerController)
-		{
-			//GunfightPlayerController->SetHUDWeaponAmmo(DefaultWeapon->GetMagCapacity());
-			//GunfightPlayerController->SetHUDCarriedAmmo(100);
-			GunfightPlayerController->SetHUDHealth(MaxHealth, MaxHealth);
-		}
-
-	}
-	*/
-
 	if (Combat)
 	{
 		bool bHasAWeapon = Combat->ResetOwnedWeapons();
@@ -1176,13 +1429,13 @@ void AGunfightCharacter::Respawn(FVector_NetQuantize SpawnLocation, FRotator Spa
 		{
 			GunfightGameMode->GiveMeWeapon(this, EWeaponType::EWT_Pistol);
 
-			UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
+			/*UGameInstance* GI = UGameplayStatics::GetGameInstance(this);
 			if (GI == nullptr) return;
 			UGunfightGameInstanceSubsystem* GunfightSubsystem = GI->GetSubsystem<UGunfightGameInstanceSubsystem>();
 			if (GunfightSubsystem == nullptr || GunfightSubsystem->GunfightSaveGame == nullptr) return;
 
 			int32 SkinIndex = GunfightSubsystem->GunfightSaveGame->EquippedWeaponSkin;
-			DefaultWeapon->ServerSetWeaponSkin(SkinIndex);
+			DefaultWeapon->ServerSetWeaponSkin(SkinIndex);*/
 		}
 	}
 
@@ -1282,6 +1535,7 @@ void AGunfightCharacter::OnRep_Health()
 
 void AGunfightCharacter::SpawnDefaultWeapon()
 {
+	if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Purple, FString("SpawnDefaultWeapon"));
 	GunfightGameMode = GunfightGameMode == nullptr ? GetWorld()->GetAuthGameMode<AGunfightGameMode>() : GunfightGameMode;
 	World = World == nullptr ? GetWorld() : World;
 	if (GunfightGameMode && World && WeaponClass && Combat)
@@ -1290,11 +1544,13 @@ void AGunfightCharacter::SpawnDefaultWeapon()
 		if (DefaultWeapon)
 		{
 			DefaultWeapon->SetOwner(this);
+			DefaultWeapon->SetCharacterOwner(this);
 			DefaultWeapon->SetHolsterSide(ESide::ES_Right);
 			OnRep_DefaultWeapon();
 			Combat->RightHolsteredWeapon = DefaultWeapon;
 			GunfightGameMode->AddWeaponToPool(DefaultWeapon);
 			//GunfightGameMode->GetWeapon
+			if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Purple, FString("SpawnDefaultWeapon 22222"));
 		}
 	}
 }
@@ -1318,10 +1574,112 @@ void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagCla
 			CurrentMagazine->SetWeaponOwner(CurrentWeapon);
 			CurrentWeapon->SetMagazine(CurrentMagazine);
 
-			AttachMagazineToHolster(CurrentMagazine);
+			ESide Side = bLeft ? ESide::ES_Right : ESide::ES_Left;
+			AttachMagazineToHolster(CurrentMagazine, Side);
 		}
 	}
 
+}
+
+void AGunfightCharacter::SetHUDAmmo(int32 Ammo, bool bLeft)
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController && IsLocallyControlled())
+	{
+		GunfightPlayerController->SetHUDWeaponAmmo(Ammo, bLeft);
+	}
+}
+
+void AGunfightCharacter::SetHUDCarriedAmmo(int32 Ammo, bool bLeft)
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController && IsLocallyControlled())
+	{
+		GunfightPlayerController->SetHUDCarriedAmmo(Ammo, bLeft);
+	}
+}
+
+UMotionControllerComponent* AGunfightCharacter::GetMotionControllerFromAttachment(FName AttachSocket, USceneComponent* AttachComponent)
+{
+	FString SocketString = AttachSocket.ToString();
+	if (!SocketString.IsEmpty())
+	{
+		if (SocketString.Contains("Left"))
+		{
+			return LeftMotionController;
+		}
+		else if (SocketString.Contains("Right"))
+		{
+			return RightMotionController;
+		}
+	}
+
+	if (AttachComponent == LeftMotionController)
+	{
+		return LeftMotionController;
+	}
+	else if (AttachComponent == RightMotionController)
+	{
+		return RightMotionController;
+	}
+
+	if (AttachComponent == LeftHandPistolOffset)
+	{
+		return LeftMotionController;
+	}
+	else if (AttachComponent == RightHandPistolOffset)
+	{
+		return RightMotionController;
+	}
+
+	return nullptr;
+}
+
+bool AGunfightCharacter::GetLeftFromAttachment(FName AttachSocket, USceneComponent* AttachComponent)
+{
+	FString SocketString = AttachSocket.ToString();
+	if (!SocketString.IsEmpty())
+	{
+		if (SocketString.Contains("Left"))
+		{
+			return true;
+		}
+		else if (SocketString.Contains("Right"))
+		{
+			return false;
+		}
+	}
+
+	if (AttachComponent == LeftHandPistolOffset)
+	{
+		return true;
+	}
+	else if (AttachComponent == RightHandPistolOffset)
+	{
+		return false;
+	}
+
+	return false;
+}
+
+void AGunfightCharacter::AttachHandMeshToMotionController(bool bLeft)
+{
+	if (!IsLocallyControlled()) return;
+
+	USkeletalMeshComponent* HMesh = nullptr;
+	USceneComponent* HOffset = nullptr;
+	if (bLeft)
+	{
+		HMesh = LeftHandMesh;
+		HOffset = LeftHandMeshOffset;
+	}
+	else
+	{
+		HMesh = RightHandMesh;
+		HOffset = RightHandMeshOffset;
+	}
+	if (HMesh == nullptr || HOffset == nullptr) return;
+	HMesh->AttachToComponent(HOffset, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 }
 
 void AGunfightCharacter::DebugMagOverlap(bool bLeft)
@@ -1353,11 +1711,15 @@ void AGunfightCharacter::DebugMagOverlap(bool bLeft)
 	}
 }
 
-void AGunfightCharacter::AttachMagazineToHolster(AFullMagazine* FullMag)
+void AGunfightCharacter::AttachMagazineToHolster(AFullMagazine* FullMag, ESide HolsterSide)
 {
 	if (FullMag && GetMesh())
 	{
-		const USkeletalMeshSocket* HolsterSocket = GetMesh()->GetSocketByName(FName("MagHolster"));
+		FName HolsterSocketName = FName("MagHolster");
+		if (HolsterSide == ESide::ES_Left) HolsterSocketName = FName("LeftMagHolster");
+		else if (HolsterSide == ESide::ES_Right) HolsterSocketName = FName("RightMagHolster");
+
+		const USkeletalMeshSocket* HolsterSocket = GetMesh()->GetSocketByName(HolsterSocketName);
 		if (HolsterSocket)
 		{
 			HolsterSocket->AttachActor(FullMag, GetMesh());
@@ -1504,6 +1866,43 @@ void AGunfightCharacter::InitWeaponOffsets()
 	HandOffsetPistolRight->SetupAttachment(RightMotionController);
 }
 
+void AGunfightCharacter::CheckSlot2TimerFinished()
+{
+	if (IsLocallyControlled())
+	{
+		//GetWorldTimerManager().ClearTimer(CheckSlot2Timer);
+		return;
+	}
+	if (Combat == nullptr) return;
+
+	// grabbing slot 2
+	if (Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->Slot2MotionController)
+	{
+		// In Anim Instance, change Slot2MotionController side IK to follow the gun GrabSlot2IK scene component
+		bool bLeft = Combat->LeftEquippedWeapon->Slot2MotionController == LeftMotionController ? true : false;
+		USceneComponent* WeaponSlot2IK = Combat->LeftEquippedWeapon->GetSlot2IK(bLeft);
+		if (WeaponSlot2IK)
+		{
+			bLeft ? LeftHandIKComponent = WeaponSlot2IK : RightHandIKComponent = WeaponSlot2IK;
+		}
+		SetHandState(bLeft, EHandState::EHS_HoldingPistol2);
+	}
+	else // not grabbing slot 2
+	{
+		// In Anim Instance, change Slo2MotionController side IK to follow the motion controller
+		LeftHandIKComponent = LeftMotionController;
+		RightHandIKComponent = RightMotionController;
+
+		if (Combat->PreviousLeftEquippedWeapon && Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController) // there's gotta be a better way to do this
+		{ 
+			bool bLeft = Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController == LeftMotionController ? true : false;
+			if (DoesHandHaveWeapon(bLeft)) return;
+
+			SetHandState(bLeft, EHandState::EHS_Idle);
+		}
+	}
+}
+
 void AGunfightCharacter::SetDefaultWeaponSkin(int32 SkinIndex)
 {
 	if (DefaultWeapon)
@@ -1538,8 +1937,6 @@ void AGunfightCharacter::SetHandState(bool bLeftHand, EHandState NewState)
 		}
 	}
 
-	//if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString("Hand State Changed"));
-
 	if (bLeftHand)
 	{
 		LeftHandState = NewState;
@@ -1554,6 +1951,18 @@ void AGunfightCharacter::SetDefaultWeapon(AWeapon* NewDefaultWeapon)
 {
 	DefaultWeapon = NewDefaultWeapon;
 	OnRep_DefaultWeapon();
+}
+
+EHandState AGunfightCharacter::GetGripState(bool bLeft)
+{
+	if (bLeft)
+	{
+		return bPressingGripLeft ? EHandState::EHS_Grip : EHandState::EHS_Idle;
+	}
+	else
+	{
+		return bPressingGripRight ? EHandState::EHS_Grip : EHandState::EHS_Idle;
+	}
 }
 
 USceneComponent* AGunfightCharacter::GetHandWeaponOffset(EWeaponType WeaponType, bool bLeft)
@@ -1587,7 +1996,7 @@ FVector AGunfightCharacter::GetLeftMotionControllerAverageVelocity()
 	}
 	LeftMotionControllerAverageVelocity /= Num;
 
-	return LeftMotionControllerAverageVelocity;
+	return LeftMotionControllerAverageVelocity.GetClampedToMaxSize(3125.f);
 }
 
 FVector AGunfightCharacter::GetRightMotionControllerAverageVelocity()
@@ -1615,6 +2024,39 @@ bool AGunfightCharacter::IsGunCloserThanMag(AActor* Gun, AActor* Mag, USceneComp
 void AGunfightCharacter::ReleaseGrip(bool bLeft)
 {
 	GripReleased(bLeft);
+}
+
+bool AGunfightCharacter::DoesHandHaveWeapon(bool bLeft)
+{
+	if (GetMesh() == nullptr) return false;
+
+	TArray<AActor*> AttachedActors;
+	GetAttachedActors(AttachedActors);
+	if (AttachedActors.IsEmpty()) return false;
+
+	for (auto i : AttachedActors)
+	{
+		if (i == nullptr) continue;
+
+		if (i->IsA(AWeapon::StaticClass()))
+		{
+			if (GetLeftFromAttachment(i->GetRootComponent()->GetAttachSocketName(), i->GetRootComponent()->GetAttachParent()) == bLeft)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+void AGunfightCharacter::InitializeHUDOnWidgetInit()
+{
+	GunfightPlayerController = GunfightPlayerController == nullptr ? Cast<AGunfightPlayerController>(Controller) : GunfightPlayerController;
+	if (GunfightPlayerController)
+	{
+		GunfightPlayerController->InitializeHUD();
+	}
 }
 
 void AGunfightCharacter::MoveMeshToCamera()

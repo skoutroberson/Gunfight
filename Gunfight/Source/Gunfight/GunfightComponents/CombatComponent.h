@@ -15,15 +15,21 @@ enum class EWeaponType : uint8;
 
 // might have to use this if I am getting out of order OnRep bugs for these two variables
 USTRUCT(BlueprintType)
-struct FOwnedWeapon
+struct FOwnedWeapons
 {
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class AWeapon* EquippedWeapon;
+	class AWeapon* LeftEquippedWeapon;
 
 	UPROPERTY()
-	AWeapon* HolsteredWeapon;
+	AWeapon* RightEquippedWeapon;
+
+	UPROPERTY()
+	AWeapon* LeftHolsteredWeapon;
+
+	UPROPERTY()
+	AWeapon* RightHolsteredWeapon;
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -86,11 +92,6 @@ public:
 		FVector_NetQuantize AngularVelocity
 	);
 
-	UPROPERTY()
-	AWeapon* PreviousLeftEquippedWeapon;
-	UPROPERTY()
-	AWeapon* PreviousRightEquippedWeapon;
-
 	void ResetWeapon(AWeapon* WeaponToReset);
 
 	// returns false if we own no weapons
@@ -98,21 +99,44 @@ public:
 
 	void AddWeaponToHolster(AWeapon* WeaponToHolster, bool bLeft);
 
+	// REWORKED EQUIP SYSTEM
+
+	void GripWeapon(AWeapon* WeaponToGrip, bool bLeft);
+	void UpdateHUDWeaponPickup(bool bLeft, AWeapon* WeaponToGrip);
+	void ReleaseWeapon(bool bLeft);
+	void UpdateHUDWeaponDropped(bool bLeft);
+	void ReleaseWeaponClient(bool bLeft);
+
+	// for attaching the weapon to the correct hand and hand mesh to weapon if the player grabs slot 1
+	void HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand);
+
+	void DetachHandMeshFromWeapon(bool bLeftHand);
+
+	void DetachHandMeshFromWeapon(AWeapon* WeaponToDetachFrom);
+
+	void AttachHandMeshToWeapon(AWeapon* TheWeapon, bool bLeft, bool bSlot1);
+
+	EHandState SlotToHandState(EWeaponType WeaponType, bool bSlot1);
+
+	// returns true if this hand is currently grabbing a weapon in slot 1
+	bool IsHandHoldingAnotherWeapon(bool bLeft);
+
 protected:
 	virtual void BeginPlay() override;
 
 	void EquipPrimaryWeapon(AWeapon* WeaponToEquip, bool bLeftHand);
 	void AttachActorToHand(AActor* ActorToAttach, bool bLeftHand, FVector RelativeOffset = FVector::ZeroVector);
-
-	void HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand);
+	
 	void AttachWeaponToMotionController(AWeapon* WeaponToAttach, bool bLeftHand);
-	void AttachHandMeshToWeapon(AWeapon* Weapon, bool bLeftHand, bool bSlot1);
+	//void AttachHandMeshToWeapon(AWeapon* Weapon, bool bLeftHand, bool bSlot1);
 	// attaches hand mesh to motion controller and applys default offsets
 	void HandleWeaponDrop(bool bLeftHand);
-	void DetachHandMeshFromWeapon(bool bLeftHand);
 
 	void AttachMagazineToMotionController(AFullMagazine* MagToAttach, bool bLeftHand);
 	void HandleMagDrop(bool bLeftHand);
+
+	UFUNCTION()
+	void OnRep_OwnedWeapons();
 
 	UFUNCTION()
 	void OnRep_LeftEquippedWeapon();
@@ -164,6 +188,9 @@ private:
 	UPROPERTY()
 	class AGunfightPlayerController* Controller;
 
+	UPROPERTY(ReplicatedUsing= OnRep_OwnedWeapons)
+	FOwnedWeapons OwnedWeapons;
+
 	UPROPERTY(ReplicatedUsing = OnRep_LeftEquippedWeapon)
 	AWeapon* LeftEquippedWeapon;
 
@@ -175,6 +202,11 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_RightHolsteredWeapon)
 	AWeapon* RightHolsteredWeapon;
+
+	UPROPERTY()
+	AWeapon* PreviousLeftEquippedWeapon;
+	UPROPERTY()
+	AWeapon* PreviousRightEquippedWeapon;
 
 	UPROPERTY()
 	AWeapon* PreviousLeftHolsteredWeapon;
@@ -234,8 +266,6 @@ private:
 	void UpdateAmmoValues();
 	int32 AmountToReload(AWeapon *Weapon);
 
-	EHandState SlotToHandState(EWeaponType WeaponType, bool bSlot1);
-
 	// two hand
 	void RotateWeaponTwoHand(float DeltaTime);
 
@@ -246,6 +276,10 @@ private:
 
 	// used in Tick if we are holding a weapon with two hands, will release the players grip if their hand is too far
 	void CheckSecondHand(class UMotionControllerComponent* MC);
+
+	void SecondHandAttachmentGrabCheck();
+	void SecondHandAttachmentDropCheck();
+	bool IsHandMeshAttachedToSlot2(USkeletalMeshComponent* HandMesh, bool bLeft);
 
 public:	
 	AWeapon* GetEquippedWeapon(bool bLeft);

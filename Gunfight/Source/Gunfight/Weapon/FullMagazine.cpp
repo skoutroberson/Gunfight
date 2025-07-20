@@ -165,7 +165,7 @@ void AFullMagazine::ShouldAttachToHolster()
 			{
 				MagazineMesh->SetSimulatePhysics(false);
 				MagazineMesh->SetEnableGravity(false);
-				CharacterOwner->AttachMagazineToHolster(this);
+				CharacterOwner->AttachMagazineToHolster(this, GetMagHolsterSide());
 				return;
 			}
 		}
@@ -243,4 +243,20 @@ void AFullMagazine::LerpToMagwellStart(float DeltaTime)
 			Destroy();
 		}
 	}
+}
+
+ESide AFullMagazine::GetMagHolsterSide()
+{
+	if (WeaponOwner == nullptr || CharacterOwner == nullptr || CharacterOwner->GetCombat() == nullptr) return ESide::ES_None;
+
+	if (CharacterOwner->GetCombat()->GetEquippedWeapon(true) == WeaponOwner)
+	{
+		return ESide::ES_Right; // mag holster is opposite of the weapon
+	}
+	else if (CharacterOwner->GetCombat()->GetEquippedWeapon(false) == WeaponOwner)
+	{
+		return ESide::ES_Left; // mag holster is opposite of the weapon
+	}
+
+	return ESide::ES_None;
 }

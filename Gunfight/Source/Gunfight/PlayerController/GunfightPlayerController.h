@@ -71,6 +71,7 @@ public:
 
 	FHighPingDelegate HighPingDelegate;
 
+	UFUNCTION(BlueprintCallable)
 	void InitializeHUD();
 
 	UFUNCTION(BlueprintCallable)
@@ -103,6 +104,13 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_GunfightRoundMatchState, VisibleAnywhere, BlueprintReadOnly)
 	EGunfightRoundMatchState GunfightRoundMatchState = EGunfightRoundMatchState::EGRMS_Uninitialized;
+
+	// called when the player leaves the game
+	virtual void Destroyed() override;
+
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
+	void ServerLeaveGame_Implementation();
 
 	/**
 	* Matchmaking
@@ -163,6 +171,9 @@ public:
 	void UpdateAnnouncement(bool bShow, const FSlateColor& Color = FSlateColor(FColor::White), const FString& NewString = FString(""));
 
 	bool bInitUpdateScoreboard = false;
+
+	UPROPERTY()
+	class AGunfightHUD* GunfightHUDInitialized; // testing to see if this works
 	
 protected:
 	virtual void SetupInputComponent() override;

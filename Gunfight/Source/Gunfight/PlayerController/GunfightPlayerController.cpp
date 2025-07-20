@@ -123,6 +123,7 @@ void AGunfightPlayerController::UpdateTeamSwapText(const FString& NewSwapText)
 
 void AGunfightPlayerController::UpdateAnnouncement(bool bShow, const FSlateColor& Color, const FString& NewString)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightHUD == nullptr || GunfightHUD->CharacterOverlay == nullptr) return;
 	UCharacterOverlay* CharOverlay = GunfightHUD->CharacterOverlay;
@@ -162,11 +163,15 @@ void AGunfightPlayerController::PollInit()
 {
 	if (CharacterOverlay == nullptr)
 	{
+		GunfightHUD = GetHUD<AGunfightHUD>();
+		//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, 14.f, FColor::Red, FString("Poll: 1"));
 		if (GunfightHUD && GunfightHUD->CharacterOverlay)
 		{
+			//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, 14.f, FColor::Red, FString("Poll: 2"));
 			CharacterOverlay = GunfightHUD->CharacterOverlay;
 			if (CharacterOverlay)
 			{
+				//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, 14.f, FColor::Red, FString("Poll: 3"));
 				SetHUDHealth(HUDHealth, HUDMaxHealth);
 				SetHUDScore(HUDScore);
 				SetHUDDefeats(HUDDefeats);
@@ -184,7 +189,7 @@ void AGunfightPlayerController::PollInit()
 					}
 				}
 
-				if (GEngine)GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString("AGunfightPlayerController::PollInit() This better not be ticking..."));
+				//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Magenta, FString("AGunfightPlayerController::PollInit() This better not be ticking..."));
 				// TODO: CHANGE THIS DOWN HERE 4/5/2025
 				if (bInitializeCarriedAmmo)
 				{
@@ -198,13 +203,23 @@ void AGunfightPlayerController::PollInit()
 				}
 			}
 		}
+		else if(GunfightHUD)
+		{
+			AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(GetPawn());
+			if (GunfightCharacter)
+			{
+				GunfightHUD->CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
+			}
+		}
 	}
 	else if (!CharacterOverlay->bIsConstructed)
 	{
+		//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, GetWorld()->DeltaTimeSeconds * 1.1f, FColor::Red, FString("Poll: 4"));
 		CharacterOverlay->FillPlayers();
 	}
 	else if (!bPlayerStateInitialized && GetPlayerState<AGunfightPlayerState>())
 	{
+		//if (GEngine && IsLocalController())GEngine->AddOnScreenDebugMessage(-1, 14.f, FColor::Red, FString("Poll: 5"));
 		bPlayerStateInitialized = true;
 		UpdateScoreboard(GetPlayerState<AGunfightPlayerState>(), EScoreboardUpdate::ESU_MAX);
 		//GetPlayerState<AGunfightPlayerState>()->
@@ -219,6 +234,8 @@ void AGunfightPlayerController::InitializeHUD()
 		GunfightCharacter->DebugLogMessage(FString("InitializeHUD"));
 	}
 
+	GunfightHUD = GunfightHUD == nullptr ? GetHUD<AGunfightHUD>() : GunfightHUD;
+
 	if (GunfightCharacter && GunfightHUD && GunfightCharacter->CharacterOverlayWidget && GunfightCharacter->VRStereoLayer)
 	{
 		CharacterOverlay = Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject());
@@ -230,11 +247,13 @@ void AGunfightPlayerController::InitializeHUD()
 
 			if (GunfightRoundMatchState != EGunfightRoundMatchState::EGRMS_Uninitialized)
 			{
+				if (GEngine && IsLocalController()) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Emerald, FString::Printf(TEXT("How is this ticking: %s"), *GetName()));
 				OnRep_GunfightRoundMatchState();
 				SetHUDScoreboardTeamScores();
 			}
 			else
 			{
+				if (GEngine && IsLocalController()) GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Emerald, FString::Printf(TEXT("PLEASE DONT BE TICKING: %s"), *GetName()));
 				OnRep_GunfightMatchState();
 			}
 			
@@ -462,6 +481,7 @@ void AGunfightPlayerController::CountdownTick(float TimeLeft)
 	if (TimeLeft >= TickStartTime || TimeLeft <= 0.f) return;
 	if (GunfightRoundMatchState == EGunfightRoundMatchState::EGRMS_RoundCooldown) return;
 
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 			GunfightHUD->CharacterOverlay &&
@@ -551,7 +571,8 @@ void AGunfightPlayerController::ChangeTextBlockColor(UTextBlock* TextBlock, FSla
 
 AGunfightHUD* AGunfightPlayerController::GetGunfightHUD()
 {
-	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD<AGunfightHUD>()) : GunfightHUD;
+	//GunfightHUD = GunfightHUDInitialized;
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	return GunfightHUD;
 }
 
@@ -787,6 +808,7 @@ void AGunfightPlayerController::HandleMatchHasStarted()
 
 void AGunfightPlayerController::HandleCooldown()
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightHUD)
 	{
@@ -945,6 +967,7 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 		TimeLeft = CooldownTime - (CooldownTime + MatchTime + WarmupTime - GetServerTime() + LevelStartingTime);
 	}
 
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 
 	if (GunfightHUD)
@@ -963,7 +986,7 @@ void AGunfightPlayerController::OnRep_GunfightMatchState()
 
 void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 {
-	if (!HasAuthority() && GEngine)
+	if (!HasAuthority() && GEngine && IsLocalController())
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Orange, FString::Printf(TEXT("OnRep GunfightROUNDMatchState: %s"), *UEnum::GetValueAsString(GunfightRoundMatchState)));
 	}
@@ -989,11 +1012,18 @@ void AGunfightPlayerController::OnRep_GunfightRoundMatchState()
 		HandleGunfightRoundMatchEnded();
 	}
 
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 
 	if (GunfightHUD) // turn off soundtrack for testing
 	{
 		GunfightHUD->UpdateSoundtrackRound(GunfightRoundMatchState);
+	}
+	else
+	{
+		AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
+		if (GChar) GunfightHUD = GChar->GunfightHUD;
+		if (GEngine && IsLocalController()) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, FString("OnRep Round State HUD IS FALSE!!!!"));
 	}
 }
 
@@ -1086,10 +1116,13 @@ void AGunfightPlayerController::HandleGunfightRoundMatchStarted()
 
 	if (GunfightCharacter->CharacterOverlayWidget == nullptr || GunfightCharacter->VRStereoLayer == nullptr) return;
 
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightHUD == nullptr) return;
 
 	CharacterOverlay = CharacterOverlay == nullptr ? Cast<UCharacterOverlay>(GunfightCharacter->CharacterOverlayWidget->GetUserWidgetObject()) : CharacterOverlay;
+	CharacterOverlay = CharacterOverlay == nullptr ? GunfightHUD->CharacterOverlay : CharacterOverlay;
+
 	if (UpdateHUD(false, true, true, false, true) && CharacterOverlay	&& CharacterOverlay->SwapText)
 	{
 		/*CharacterOverlay->WarmupTime			&& 
@@ -1275,6 +1308,7 @@ void AGunfightPlayerController::HandleGunfightRoundMatchEnded()
 {
 	AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
 	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightPlayerState == nullptr || GunfightGameState == nullptr || GunfightHUD == nullptr) return;
 
@@ -1367,6 +1401,7 @@ void AGunfightPlayerController::UpdateSaveGameData(bool bWonTheGame)
 
 bool AGunfightPlayerController::UpdateHUD(bool bMatchCountdown, bool bWarmupTime, bool bAnnouncement, bool bInfo, bool bTeamScores)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	if (GunfightHUD == nullptr || GunfightHUD->CharacterOverlay == nullptr) return false;
 	UCharacterOverlay* CharOverlay = GunfightHUD->CharacterOverlay;
@@ -1419,6 +1454,7 @@ void AGunfightPlayerController::ShowAnnouncementForDuration(const FSlateColor& C
 
 void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 
 	bool bHUDValid = GunfightHUD &&
@@ -1449,6 +1485,7 @@ void AGunfightPlayerController::SetHUDHealth(float Health, float MaxHealth)
 
 void AGunfightPlayerController::SetHUDScore(float Score)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1472,6 +1509,7 @@ void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 {
 	AGunfightPlayerState* GunfightPlayerState = GetPlayerState<AGunfightPlayerState>();
 	GunfightGameState = GunfightGameState == nullptr ? Cast<AGunfightGameState>(UGameplayStatics::GetGameState(this)) : GunfightGameState;
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = TeamToUpdate != ETeam::ET_NoTeam &&
 		GunfightHUD &&
@@ -1523,6 +1561,7 @@ void AGunfightPlayerController::SetHUDTeamScore(float Score, ETeam TeamToUpdate)
 
 void AGunfightPlayerController::SetHUDDefeats(int32 Defeats)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1543,12 +1582,24 @@ void AGunfightPlayerController::SetHUDDefeats(int32 Defeats)
 
 void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo, bool bLeft)
 {
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("SetHUDAmmo. Ammo: %d"), Ammo));
+	
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	if (!GunfightHUD)
+	{
+		AGunfightCharacter* GChar = Cast<AGunfightCharacter>(GetPawn());
+		if (GChar)
+		{
+			GunfightHUD = GChar->GunfightHUD;
+		}
+	}
+
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
 		GunfightHUD->CharacterOverlay->WeaponAmmoAmount &&
-		GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft &&
-		StereoLayer;
+		GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft;
+		// && GunfightHUD->StereoLayer;
 	if (bHUDValid)
 	{
 		FString AmmoText = FString::Printf(TEXT("%d"), Ammo);
@@ -1556,7 +1607,7 @@ void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo, bool bLeft)
 		UTextBlock* CurrentAmmoText = bLeft ? GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft : GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
 		if (CurrentAmmoText == nullptr) return;
 		CurrentAmmoText->SetText(FText::FromString(AmmoText));
-		StereoLayer->MarkTextureForUpdate();
+		//GunfightHUD->StereoLayer->MarkTextureForUpdate();
 	}
 	else
 	{
@@ -1573,6 +1624,7 @@ void AGunfightPlayerController::SetHUDWeaponAmmo(int32 Ammo, bool bLeft)
 
 void AGunfightPlayerController::SetHUDCarriedAmmo(int32 Ammo, bool bLeft)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1630,7 +1682,7 @@ void AGunfightPlayerController::SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVis
 			CurrentCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
 			CurrentSlashText = GunfightHUD->CharacterOverlay->AmmoSlashR;
 		}
-		if (CurrentAmmoText == nullptr || CurrentCarriedText == nullptr) return;
+		if (CurrentAmmoText == nullptr || CurrentCarriedText == nullptr || CurrentSlashText == nullptr) return;
 
 		CurrentAmmoText->SetRenderOpacity(bNewVisible);
 		CurrentCarriedText->SetRenderOpacity(bNewVisible);
@@ -1642,6 +1694,7 @@ void AGunfightPlayerController::SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVis
 
 void AGunfightPlayerController::SetHUDMatchCountdown(float CountdownTime)
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1710,6 +1763,7 @@ void AGunfightPlayerController::SetHUDPing()
 {
 	// could call a server RPC to update ping for all players and show it on scoreboard...
 
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1734,6 +1788,7 @@ void AGunfightPlayerController::OnPossess(APawn* InPawn)
 	AGunfightCharacter* GunfightCharacter = Cast<AGunfightCharacter>(InPawn);
 	if (GunfightCharacter)
 	{
+		GunfightHUDInitialized = GunfightCharacter->GunfightHUD;
 		SetHUDHealth(GunfightCharacter->GetHealth(), GunfightCharacter->GetMaxHealth());
 	}
 }
@@ -1824,8 +1879,26 @@ void AGunfightPlayerController::ClientUpdateMatchState_Implementation(EGunfightM
 	OnRep_GunfightMatchState();
 }
 
+void AGunfightPlayerController::Destroyed()
+{
+	ServerLeaveGame();
+
+	Super::Destroyed();
+}
+
+void AGunfightPlayerController::ServerLeaveGame_Implementation()
+{
+	GunfightGameMode = GunfightGameMode == nullptr ? Cast<AGunfightGameMode>(UGameplayStatics::GetGameMode(this)) : GunfightGameMode;
+	AGunfightPlayerState* PState = GetPlayerState<AGunfightPlayerState>();
+	if (GunfightGameMode && PState)
+	{
+		GunfightGameMode->PlayerLeftGame(PState);
+	}
+}
+
 void AGunfightPlayerController::HighPingWarning()
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&
@@ -1841,6 +1914,7 @@ void AGunfightPlayerController::HighPingWarning()
 
 void AGunfightPlayerController::StopHighPingWarning()
 {
+	//GunfightHUD = GunfightHUDInitialized;
 	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
 	bool bHUDValid = GunfightHUD &&
 		GunfightHUD->CharacterOverlay &&

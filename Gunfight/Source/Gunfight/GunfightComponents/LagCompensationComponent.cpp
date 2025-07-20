@@ -73,10 +73,13 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(AGunfightChara
 		//FVector BloodLocation = (Confirm.HitLocation - BoneLocation) + (TraceStart - HitLocation).GetSafeNormal() * 8.f;
 
 		//FVector InversePosition = HitCharacter->GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace).InverseTransformPosition(Confirm.HitLocation);
-		FTransform BoneTransform = HitCharacter->GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace);
+		//FTransform BoneTransform = HitCharacter->GetMesh()->GetBoneTransform(BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace);
+
+		FVector BloodOffset = (TraceStart + HitLocation).GetSafeNormal() * 15.f;
+
 		FVector OutVector;
 		FRotator OutRotator;
-		HitCharacter->GetMesh()->TransformToBoneSpace(BoneName, Confirm.HitLocation, FRotator::ZeroRotator, OutVector, OutRotator);
+		HitCharacter->GetMesh()->TransformToBoneSpace(BoneName, Confirm.HitLocation + BloodOffset, FRotator::ZeroRotator, OutVector, OutRotator);
 		OutVector * 1.5f;
 
 		HitCharacter->MulticastSpawnBlood(OutVector, Confirm.HitNormal, Confirm.HitType, Confirm.HitBoneIndex);

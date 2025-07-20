@@ -50,17 +50,12 @@ void AHitscanWeapon::Fire(const FVector& HitTarget, bool bLeft)
 
 				// save the bone that was hit so we can spawn blood attached to it.
 				int32 HitBoneIndex = GunfightCharacter->GetMesh()->GetBoneIndex(FireHit.BoneName);
-				//FVector HitBoneLocation = GunfightCharacter->GetMesh()->GetBoneLocation(FireHit.BoneName);
 
-				//FVector InversePosition = GunfightCharacter->GetMesh()->GetBoneTransform(FireHit.BoneName, ERelativeTransformSpace::RTS_ParentBoneSpace).InverseTransformPosition(FireHit.ImpactPoint);
-				//GunfightCharacter->GetMesh()->GetBoneTransform()
-
-				//const FVector BloodSpawnLocation = FireHit.ImpactPoint + (Start - FireHit.ImpactPoint).GetSafeNormal() * 8.f;
-				//FVector BloodLocation = (FireHit.ImpactPoint - HitBoneLocation) + (Start - FireHit.ImpactPoint).GetSafeNormal() * 10.f;
+				FVector BloodOffset = (Start - HitTarget).GetSafeNormal() * 15.f;
 
 				FVector OutVector;
 				FRotator OutRotator;
-				GunfightCharacter->GetMesh()->TransformToBoneSpace(FireHit.BoneName, FireHit.ImpactPoint, FRotator::ZeroRotator, OutVector, OutRotator);
+				GunfightCharacter->GetMesh()->TransformToBoneSpace(FireHit.BoneName, FireHit.ImpactPoint + BloodOffset, FRotator::ZeroRotator, OutVector, OutRotator);
 				OutVector * 1.5f;
 
 				GunfightCharacter->MulticastSpawnBlood(OutVector, FireHit.ImpactNormal, FHitbox::GetHitboxType(FireHit.BoneName), HitBoneIndex);
@@ -191,7 +186,8 @@ void AHitscanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 			OutHit,
 			TraceStart,
 			End,
-			ECollisionChannel::ECC_Visibility
+			ECollisionChannel::ECC_Visibility,
+			BulletQueryParams
 		);
 		FVector BeamEnd = End;
 		if (OutHit.bBlockingHit)

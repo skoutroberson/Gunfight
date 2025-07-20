@@ -43,10 +43,13 @@ void UWeaponPoolComponent::ReclaimWeapon(AWeapon* ReclaimWeapon)
 	{
 		ReclaimWeapon->GetMagazine()->Destroy();
 		ReclaimWeapon->UnhideMag();
+		ReclaimWeapon->SetMagInserted(true);
 	}
 
 	ReclaimWeapon->SetAmmo(ReclaimWeapon->GetMagCapacity());
 	ReclaimWeapon->SetCarriedAmmo(ReclaimWeapon->GetMaxCarriedAmmo());
+
+	ReclaimWeapon->SetLastTimeInteractedWith(WEAPON_START_TIME);
 
 	USkeletalMeshComponent* WeaponMesh = ReclaimWeapon->GetWeaponMesh();
 	if (WeaponMesh == nullptr) return;
@@ -59,10 +62,9 @@ void UWeaponPoolComponent::ReclaimWeapon(AWeapon* ReclaimWeapon)
 AWeapon* UWeaponPoolComponent::GiveWeaponToPlayer(AGunfightCharacter* GunfightCharacter, EWeaponType WeaponType)
 {
 	AWeapon* WeaponToGive = GetOldestUnusedWeapon(WeaponType);
-	if (WeaponToGive == nullptr || WeaponToGive->GetWeaponMesh() == nullptr || GunfightCharacter == nullptr || GunfightCharacter->GetCombat() == nullptr) return nullptr;
+	if (WeaponToGive == nullptr || GunfightCharacter == nullptr || GunfightCharacter->GetCombat() == nullptr) return nullptr;
 
 	WeaponToGive->bAlwaysRelevant = true;
-	WeaponToGive->GetWeaponMesh()->SetVisibility(true);
 	GunfightCharacter->GetCombat()->AddWeaponToHolster(WeaponToGive, false);
 	GunfightCharacter->GetCombat()->ResetWeapon(WeaponToGive);
 	GunfightCharacter->SetDefaultWeapon(WeaponToGive);
@@ -97,7 +99,7 @@ void UWeaponPoolComponent::RemoveWeaponFromPool(AWeapon* WeaponToRemove)
 	TArray<AWeapon*>* WeaponArray = WeaponMap.Find(WeaponToRemove->GetWeaponType());
 	if (WeaponArray != nullptr)
 	{
-		WeaponArray->RemoveSingle(WeaponToRemove);
+		WeaponArray->Remove(WeaponToRemove);
 	}
 }
 
@@ -130,7 +132,8 @@ void UWeaponPoolComponent::ReclaimWeaponTimerFinished()
 		for (auto Weapon : MapPair.Value)
 		{
 			if (Weapon == nullptr) continue;
-			if (Weapon->GetOwner() == nullptr && (World->GetTimeSeconds() - Weapon->GetLastTimeInteractedWith()) > 10.f)
+			float TimeDif = GetWorld()->GetTimeSeconds() - Weapon->GetLastTimeInteractedWith();
+			if (Weapon->GetOwner() == nullptr && TimeDif > 60.f)
 			{
 				ReclaimWeapon(Weapon);
 			}
@@ -145,19 +148,31 @@ AWeapon* UWeaponPoolComponent::GetOldestUnusedWeapon(EWeaponType WeaponType)
 	if (WeaponArray.IsEmpty() || World == nullptr) return nullptr;
 
 	AWeapon* OldestUnusedWeapon = nullptr;
-	float OldestWeaponTime = -WEAPON_START_TIME;
+	float MaxTimeDif = 0.f;
+
+	AWeapon* NewestUnusedWeapon = nullptr; // if valid, then this weapon has not been used.
 
 	for (auto w : WeaponArray)
 	{
+		if (w == nullptr) continue;
 		if (w->GetOwner() == nullptr)
 		{
 			float TimeDif = World->GetTimeSeconds() - w->GetLastTimeInteractedWith();
-			if (TimeDif > OldestWeaponTime)
+			if (TimeDif > MaxTimeDif)
 			{
 				OldestUnusedWeapon = w;
-				OldestWeaponTime = w->GetLastTimeInteractedWith();
+				MaxTimeDif = TimeDif;
+			}
+			else if (TimeDif < -100000.f) // Weapon has not been used yet
+			{
+				NewestUnusedWeapon = w;
 			}
 		}
+	}
+
+	if (MaxTimeDif < 60.f && NewestUnusedWeapon) // last weapon was used less than 60 seconds ago, try to get a weapon that hasn't been used yet.
+	{
+		OldestUnusedWeapon = NewestUnusedWeapon;
 	}
 
 	return OldestUnusedWeapon;

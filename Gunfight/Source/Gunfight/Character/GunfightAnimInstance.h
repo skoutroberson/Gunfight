@@ -33,6 +33,12 @@ public:
 	FTransform RightHandTransform;
 
 	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FTransform LerpingLeftHandTransform;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FTransform LerpingRightHandTransform;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
 	USceneComponent* LeftHandComponent;
 
 	UPROPERTY(BlueprintReadOnly, Category = Character)

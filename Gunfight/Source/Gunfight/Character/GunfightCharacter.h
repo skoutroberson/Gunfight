@@ -11,6 +11,9 @@
 #include "GunfightCharacter.generated.h"
 
 enum class EWeaponType : uint8;
+enum class ESide : uint8;
+
+class UMotionControllerComponent;
 
 /**
  * 
@@ -27,6 +30,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void Restart() override;
 
 	UFUNCTION(BlueprintCallable)
 	void SetVREnabled(bool bEnabled);
@@ -39,7 +43,7 @@ public:
 
 	void SpawnDefaultWeapon();
 
-	void AttachMagazineToHolster(class AFullMagazine* FullMag);
+	void AttachMagazineToHolster(class AFullMagazine* FullMag, ESide HolsterSide = ESide::ES_None);
 
 	void UpdateHUDAmmo();
 
@@ -48,6 +52,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UWidgetComponent* CharacterOverlayWidget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class AGunfightHUD* GunfightHUD;
 
 	void Elim(bool bPlayerLeftGame);
 
@@ -137,6 +144,10 @@ public:
 
 	void SetTeamColor(ETeam Team);
 
+	/**
+	* Hand Offsets
+	*/
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FVector RightHandMeshLocationOffset;
 
@@ -149,6 +160,24 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FRotator LeftHandMeshRotationOffset;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* LeftHandMeshOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* RightHandMeshOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* LeftHandPistolOffset;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* RightHandPistolOffset;
+
+	USceneComponent* GetWeaponOffset(EWeaponType WeaponType, bool bLeft);
+
+
+	bool bLeftHandAttached = false; // true if attached to a weapon
+	bool bRightHandAttached = false; // true if attached to a weapon
+
 	virtual void OnRep_AttachmentReplication() override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -159,6 +188,18 @@ public:
 
 	// Weapon Skin
 	void InitMyWeaponSkin(AWeapon* MyWeapon);
+
+	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex, bool bLeft);
+
+	void SetHUDAmmo(int32 Ammo, bool bLeft);
+	void SetHUDCarriedAmmo(int32 Ammo, bool bLeft);
+
+	UMotionControllerComponent* GetMotionControllerFromAttachment(FName AttachSocket, USceneComponent* AttachComponent);
+
+	// will return right if given bad attachment info
+	bool GetLeftFromAttachment(FName AttachSocket, USceneComponent* AttachComponent);
+
+	void AttachHandMeshToMotionController(bool bLeft);
 
 protected:
 	virtual void BeginPlay() override;
@@ -231,6 +272,8 @@ protected:
 
 	AWeapon* GetClosestOverlappingWeapon(bool bLeft);
 
+	bool bPlayerInitialized = false;
+
 private:
 
 	/**
@@ -299,16 +342,24 @@ private:
 
 	class UGunfightAnimInstance* GunfightAnimInstance;
 
-	void UpdateAnimInstanceIK();
+	void UpdateAnimInstanceIK(float DeltaTime);
 	FVector TraceFootLocationIK(bool bLeft);
 	FCollisionQueryParams IKQueryParams;
 
 	void MoveMeshToCamera();
 
-	void UpdateAnimation();
+	void UpdateAnimation(float DeltaTime);
 
 	UPROPERTY(VisibleAnywhere);
 	bool bIsInVR = true;
+
+	UFUNCTION(Server, Reliable)
+	void ServerGripWeapon(bool bLeft);
+	void ServerGripWeapon_Implementation(bool bLeft);
+
+	UFUNCTION(Server, Reliable)
+	void ServerReleaseWeapon(bool bLeft);
+	void ServerReleaseWeapon_Implementation(bool bLeft);
 
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressedLeft();
@@ -388,8 +439,6 @@ private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_DefaultWeapon)
 	AWeapon* DefaultWeapon;
-
-	void SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagClass, int32 SkinIndex, bool bLeft);
 
 	void DebugMagOverlap(bool bLeft);
 
@@ -513,6 +562,35 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandOffsetPistolRight;
 
+	// grip cooldowns to reduce frequency of grip rpcs. This will also act as a guard for OnReps coming out of order (doesn't fix the core problem though).
+	bool bGripCooldownLeft = false;
+	bool bGripCooldownRight = false;
+
+	bool bPressingGripLeft = false;
+	bool bPressingGripRight = false;
+
+	bool bGripPressedLastLeft = false;
+	bool bGripPressedLastRight = false;
+
+	bool bRightGripFavored = true; // for if we are gripping both, flip this so each grip can be favored
+
+	FTimerHandle GripLeftTimer;
+	FTimerHandle GripRightTimer;
+
+	void GripCooldownLeftFinished();
+	void GripCooldownRightFinished();
+
+	float GripCooldownTime = 0.05f;
+
+	FTimerHandle CheckSlot2Timer;
+	void CheckSlot2TimerFinished();
+
+	UPROPERTY()
+	USceneComponent* LeftHandIKComponent;
+
+	UPROPERTY()
+	USceneComponent* RightHandIKComponent;
+
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);
 	void SetOverlappingWeapon(AWeapon* Weapon);
@@ -537,6 +615,9 @@ public:
 	FORCEINLINE void SetDisableMovement(bool bMovementDisabled) { bDisableMovement = bMovementDisabled; }
 	FORCEINLINE USkeletalMeshComponent* GetRightHandMesh() { return RightHandMesh; }
 	FORCEINLINE USkeletalMeshComponent* GetLeftHandMesh() { return LeftHandMesh; }
+	FORCEINLINE USkeletalMeshComponent* GetHandMesh(bool bLeft) { return bLeft ? LeftHandMesh : RightHandMesh; }
+	FORCEINLINE AGunfightPlayerController* GetGunfightPlayerController() { return GunfightPlayerController; }
+	EHandState GetGripState(bool bLeft);
 
 	USceneComponent* GetHandWeaponOffset(EWeaponType WeaponType, bool bLeft);
 
@@ -555,4 +636,9 @@ public:
 
 	bool IsGunCloserThanMag(AActor* Gun, AActor* Mag, USceneComponent* Hand);
 	void ReleaseGrip(bool bLeft);
+
+	bool DoesHandHaveWeapon(bool bLeft);
+
+	UFUNCTION(BlueprintCallable)
+	void InitializeHUDOnWidgetInit();
 };

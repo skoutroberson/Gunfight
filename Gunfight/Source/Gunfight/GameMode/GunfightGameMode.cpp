@@ -118,10 +118,10 @@ void AGunfightGameMode::OnMatchStateSet()
 
 void AGunfightGameMode::HandleGunfightWarmupStarted()
 {
-	/*if (WeaponPool)
+	if (WeaponPool)
 	{
-		WeaponPool->StartFreeForAllReclaimTimer();
-	}*/
+		WeaponPool->StartFreeForAllReclaimTimer(); // reclaim all weapons that haven't been used for over 30 seconds.
+	}
 }
 
 void AGunfightGameMode::HandleGunfightMatchStarted()
@@ -416,6 +416,22 @@ void AGunfightGameMode::Logout(AController* Exiting)
 
 void AGunfightGameMode::PlayerLeftGame(AGunfightPlayerState* PlayerLeaving)
 {
+	if (PlayerLeaving == nullptr) return;
+	GunfightGameState = GunfightGameState == nullptr ? GetGameState<AGunfightGameState>() : GunfightGameState;
+	if (GunfightGameState && GunfightGameState->TopScoringPlayers.Contains(PlayerLeaving))
+	{
+		GunfightGameState->TopScoringPlayers.Remove(PlayerLeaving);
+	}
+}
+
+void AGunfightGameMode::DestroyWeapon(AWeapon* WeaponToDestroy)
+{
+	if (WeaponToDestroy == nullptr) return;
+	if (WeaponPool)
+	{
+		WeaponPool->RemoveWeaponFromPool(WeaponToDestroy);
+	}
+	WeaponToDestroy->Destroy();
 }
 
 float AGunfightGameMode::CalculateDamage(AController* Attacker, AController* Victim, float BaseDamage)
