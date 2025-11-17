@@ -24,6 +24,7 @@
 #include "Components/StereoLayerComponent.h"
 #include "Gunfight/GameInstance/GunfightGameInstanceSubsystem.h"
 #include "Sound/SoundCue.h"
+#include "Components/GridSlot.h"
 
 AGunfightPlayerController::AGunfightPlayerController()
 {
@@ -1670,23 +1671,46 @@ void AGunfightPlayerController::SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVis
 		UTextBlock* CurrentCarriedText = nullptr;
 		UTextBlock* CurrentSlashText = nullptr;
 
+		UTextBlock* OtherAmmoText = nullptr;
+		UTextBlock* OtherCarriedText = nullptr;
+		UTextBlock* OtherSlashText = nullptr;
+
+		FHUDAmmoTexts AmmoTexts;
+
 		if (bLeft)
 		{
 			CurrentAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft;
 			CurrentCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft;
 			CurrentSlashText = GunfightHUD->CharacterOverlay->AmmoSlashL;
+
+			OtherAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
+			OtherCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
+			OtherSlashText = GunfightHUD->CharacterOverlay->AmmoSlashR;
 		}
 		else
 		{
 			CurrentAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmount;
 			CurrentCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmount;
 			CurrentSlashText = GunfightHUD->CharacterOverlay->AmmoSlashR;
+
+			OtherAmmoText = GunfightHUD->CharacterOverlay->WeaponAmmoAmountLeft;
+			OtherCarriedText = GunfightHUD->CharacterOverlay->CarriedAmmoAmountLeft;
+			OtherSlashText = GunfightHUD->CharacterOverlay->AmmoSlashL;
 		}
 		if (CurrentAmmoText == nullptr || CurrentCarriedText == nullptr || CurrentSlashText == nullptr) return;
 
 		CurrentAmmoText->SetRenderOpacity(bNewVisible);
 		CurrentCarriedText->SetRenderOpacity(bNewVisible);
 		CurrentSlashText->SetRenderOpacity(bNewVisible);
+
+		AmmoTexts.CurrentAmmoText = CurrentAmmoText;
+		AmmoTexts.CurrentCarriedText = CurrentCarriedText;
+		AmmoTexts.CurrentSlashText = CurrentSlashText;
+		AmmoTexts.OtherAmmoText = OtherAmmoText;
+		AmmoTexts.OtherCarriedText = OtherCarriedText;
+		AmmoTexts.OtherSlashText = OtherSlashText;
+
+		UpdateAmmoTextPositions(bNewVisible, bLeft, AmmoTexts);
 
 		StereoLayer->MarkTextureForUpdate();
 	}
@@ -1856,6 +1880,119 @@ bool AGunfightPlayerController::AreWeInATeamsMatch()
 void AGunfightPlayerController::TryToInitScoreboard()
 {
 
+}
+
+void AGunfightPlayerController::UpdateAmmoTextPositions(bool bGrabbed, bool bLeft, FHUDAmmoTexts& AmmoTexts)
+{
+	GunfightHUD = GunfightHUD == nullptr ? Cast<AGunfightHUD>(GetHUD()) : GunfightHUD;
+	bool bHUDValid = GunfightHUD &&
+		GunfightHUD->CharacterOverlay &&
+		GunfightHUD->CharacterOverlay->GridPanelMain &&
+		AmmoTexts.CurrentAmmoText &&
+		AmmoTexts.CurrentCarriedText &&
+		AmmoTexts.CurrentSlashText &&
+		AmmoTexts.OtherAmmoText &&
+		AmmoTexts.OtherCarriedText &&
+		AmmoTexts.OtherSlashText;
+
+	if (!bHUDValid)
+	{
+		UE_LOG(LogTemp, Error, TEXT("HUD Invalid in UpdateAmmoTextPositions(), GunfightPlayerController.cpp"));
+		return;
+	}
+
+	UGridSlot* CurrentAmmoSlot = Cast<UGridSlot>(AmmoTexts.CurrentAmmoText->Slot);
+	UGridSlot* CurrentCarriedSlot = Cast<UGridSlot>(AmmoTexts.CurrentCarriedText->Slot);
+	UGridSlot* CurrentSlashSlot = Cast<UGridSlot>(AmmoTexts.CurrentSlashText->Slot);
+	UGridSlot* OtherAmmoSlot = Cast<UGridSlot>(AmmoTexts.OtherAmmoText->Slot);
+	UGridSlot* OtherCarriedSlot = Cast<UGridSlot>(AmmoTexts.OtherCarriedText->Slot);
+	UGridSlot* OtherSlashSlot = Cast<UGridSlot>(AmmoTexts.OtherSlashText->Slot);
+
+	bool bSlotsValid = CurrentAmmoSlot &&
+		CurrentCarriedSlot &&
+		CurrentSlashSlot &&
+		OtherAmmoSlot &&
+		OtherCarriedSlot &&
+		OtherSlashSlot;
+
+	if (!bSlotsValid)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Slots Invalid in UpdateAmmoTextPositions(), GunfightPlayerController.cpp"));
+		return;
+	}
+
+	const FVector2D DefaultNudge(0.f, 0.f);
+	const FVector2D DefaultSlashNudge(-27.f, 0.f);
+	const FVector2D NudgeR(10.f, 0.f);
+	const FVector2D NudgeL(-10.f, 0.f);
+	const FVector2D NudgeRSlash(-17.f, 0.f);
+	const FVector2D NudgeLSlash(-37.f, 0.f);
+
+	// if other texts are not valid, then move current texts to the center position
+	// if other texts are valid, then move the current text to the top/bottom postion based on left/right.
+
+	bool bOtherHandHoldingGun = AmmoTexts.OtherAmmoText->GetRenderOpacity() > 0.f; // 0 if not holding a gun
+
+	if (bOtherHandHoldingGun)
+	{
+		// grabbed: move texts to top/bottom positions based on bLeft
+		// dropped: move other texts to center.
+		if (bGrabbed)
+		{
+			int32 CurrentRow;
+			int32 OtherRow;
+
+			if (bLeft)
+			{
+				CurrentRow = 3;
+				OtherRow = 1;
+				/*CurrentAmmoSlot->SetNudge(NudgeL);
+				CurrentCarriedSlot->SetNudge(NudgeL);
+				CurrentSlashSlot->SetNudge(NudgeLSlash);
+				OtherAmmoSlot->SetNudge(NudgeR);
+				OtherCarriedSlot->SetNudge(NudgeR);
+				OtherSlashSlot->SetNudge(NudgeRSlash);*/
+			}
+			else
+			{
+				CurrentRow = 1;
+				OtherRow = 3;
+				/*CurrentAmmoSlot->SetNudge(NudgeR);
+				CurrentCarriedSlot->SetNudge(NudgeR);
+				CurrentSlashSlot->SetNudge(NudgeRSlash);
+				OtherAmmoSlot->SetNudge(NudgeL);
+				OtherCarriedSlot->SetNudge(NudgeL);
+				OtherSlashSlot->SetNudge(NudgeLSlash);*/
+			}
+			
+			CurrentAmmoSlot->SetRow(CurrentRow);
+			CurrentCarriedSlot->SetRow(CurrentRow);
+			CurrentSlashSlot->SetRow(CurrentRow);
+			OtherAmmoSlot->SetRow(OtherRow);
+			OtherCarriedSlot->SetRow(OtherRow);
+			OtherSlashSlot->SetRow(OtherRow);
+		}
+		else
+		{ 
+			// Row 2 is center
+			OtherAmmoSlot->SetRow(2);
+			OtherCarriedSlot->SetRow(2);
+			OtherSlashSlot->SetRow(2);
+			/*OtherAmmoSlot->SetNudge(DefaultNudge);
+			OtherCarriedSlot->SetNudge(DefaultNudge);
+			OtherSlashSlot->SetNudge(DefaultSlashNudge);*/
+		}
+	}
+	else if(bGrabbed)
+	{
+		// grabbed: move text to center (row 2).
+		CurrentAmmoSlot->SetRow(2);
+		CurrentCarriedSlot->SetRow(2);
+		CurrentSlashSlot->SetRow(2);
+		/*CurrentAmmoSlot->SetNudge(DefaultNudge);
+		CurrentCarriedSlot->SetNudge(DefaultNudge);
+		CurrentSlashSlot->SetNudge(DefaultSlashNudge);*/
+	}
 }
 
 void AGunfightPlayerController::ClientRestartGame_Implementation(EGunfightMatchState StateOfMatch, float WaitingToStart, float Match, float Cooldown, float StartingTime)

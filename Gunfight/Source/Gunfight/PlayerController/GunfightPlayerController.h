@@ -29,6 +29,30 @@ struct FHUDMatchStateSettings
 	float MatchCountdownOpacity;
 };
 
+USTRUCT(BlueprintType)
+struct FHUDAmmoTexts
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	class UTextBlock* CurrentAmmoText;
+
+	UPROPERTY()
+	UTextBlock* CurrentCarriedText;
+
+	UPROPERTY()
+	UTextBlock* CurrentSlashText;
+
+	UPROPERTY()
+	UTextBlock* OtherAmmoText;
+
+	UPROPERTY()
+	UTextBlock* OtherCarriedText;
+
+	UPROPERTY()
+	UTextBlock* OtherSlashText;
+};
+
 /**
  * 
  */
@@ -45,6 +69,7 @@ public:
 	void SetHUDDefeats(int32 Defeats);
 	void SetHUDWeaponAmmo(int32 Ammo, bool bLeft);
 	void SetHUDCarriedAmmo(int32 Ammo, bool bLeft);
+	// Called when weapon is grabbed or dropped
 	void SetHUDWeaponAmmoVisible(bool bLeft, bool bNewVisible);
 
 	void SetHUDMatchCountdown(float CountdownTime);
@@ -391,6 +416,8 @@ private:
 	bool AreWeInATeamsMatch();
 
 	void TryToInitScoreboard();
+
+	void UpdateAmmoTextPositions(bool bGrabbed, bool bLeft, FHUDAmmoTexts& AmmoTexts);
 	
 public:
 	AGunfightHUD* GetGunfightHUD();

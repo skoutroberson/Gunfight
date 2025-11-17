@@ -963,6 +963,8 @@ void AWeapon::OnDropped()
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
+	WeaponMesh->SetNotifyRigidBodyCollision(true); //
+	//WeaponMesh->WakeRigidBody();
 
 	if (Magazine)
 	{

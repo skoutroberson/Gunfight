@@ -387,6 +387,8 @@ void AGunfightCharacter::MoveForward(float Throttle)
 {
 	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
 
+	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
+
 	FVector CameraForwardVector = VRReplicatedCamera->GetForwardVector();
 	CameraForwardVector.Z = 0.f;
 	CameraForwardVector = CameraForwardVector.GetSafeNormal();
@@ -397,6 +399,7 @@ void AGunfightCharacter::MoveForward(float Throttle)
 void AGunfightCharacter::MoveRight(float Throttle)
 {
 	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
+	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
 	FVector CameraRightVector = VRReplicatedCamera->GetRightVector();
 	CameraRightVector.Z = 0.f;
 	CameraRightVector = CameraRightVector.GetSafeNormal();
@@ -406,11 +409,12 @@ void AGunfightCharacter::MoveRight(float Throttle)
 void AGunfightCharacter::TurnRight(float Throttle)
 {
 	if (World == nullptr || VRMovementReference == nullptr) return;
+	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
 
 	if (bSnapTurning)
 	{
 		float AbsThrottle = FMath::Abs(Throttle);
-		if (bSnapped && AbsThrottle < 0.2f)
+		if (bSnapped && AbsThrottle < 0.25f)
 		{
 			bSnapped = false;
 		}
@@ -431,6 +435,7 @@ void AGunfightCharacter::TurnRight(float Throttle)
 void AGunfightCharacter::LookUp(float Throttle)
 {
 	if (World == nullptr) return;
+	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
 
 	AddControllerPitchInput(Throttle * GetWorld()->DeltaTimeSeconds * 100.f);
 }

@@ -128,6 +128,8 @@ void UCombatComponent::UpdateHUDWeaponDropped(bool bLeft)
 	if (Controller && Controller->IsLocalPlayerController())
 	{
 		Controller->SetHUDWeaponAmmoVisible(bLeft, false);
+
+		// If other hand is holding gun, update ammo text positions to center row
 	}
 }
 
@@ -139,6 +141,9 @@ void UCombatComponent::UpdateHUDWeaponPickup(bool bLeft, AWeapon* WeaponToGrip)
 		Controller->SetHUDWeaponAmmoVisible(bLeft, true);
 		WeaponToGrip->SetHUDAmmo(bLeft);
 		WeaponToGrip->SetHUDCarriedAmmo(bLeft);
+
+		// If other hand is holding gun, update ammo text positions to above and below center row (right: top, left: bottom)
+		// If other hand is empty, update text positions to center
 	}
 }
 
@@ -191,7 +196,10 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 			RotateWeaponTwoHand(DeltaTime);
 		}*/
 
-		// client second grab check
+		/**
+		* Client second hand grab check
+		* 
+		*/
 		if (!Character->HasAuthority())
 		{
 			if (LeftEquippedWeapon && LeftEquippedWeapon->Slot2MotionController)

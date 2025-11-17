@@ -43,6 +43,9 @@ public:
 	void FillPlayers();
 
 	bool bIsConstructed = false;
+
+	UPROPERTY(meta = (BindWidget))
+	class UGridPanel* GridPanelMain;
 	
 	UPROPERTY(meta = (BindWidget))
 	class UProgressBar* HealthBar;
@@ -106,7 +109,7 @@ public:
 	void HideUnusedScores();
 	
 	UPROPERTY(meta = (BindWidget))
-	class UGridPanel* Scoreboard;
+	UGridPanel* Scoreboard;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* Player0Text;
