@@ -82,6 +82,21 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	DOREPLIFETIME(AWeapon, Slot2MotionController);
 }
 
+void AWeapon::OnRep_Owner()
+{
+	Super::OnRep_Owner();
+
+	if (Owner == nullptr)
+	{
+		CharacterOwner = nullptr;
+		GunfightOwnerController = nullptr;
+	}
+	else
+	{
+		CharacterOwner = CharacterOwner == nullptr ? Cast<AGunfightCharacter>(Owner) : CharacterOwner;
+	}
+}
+
 void AWeapon::Fire(const FVector& HitTarget, bool bLeft)
 {
 	SpendRound(bLeft);
@@ -132,7 +147,7 @@ void AWeapon::UnhideMag()
 {
 	if (WeaponMesh)
 	{
-		WeaponMesh->UnHideBoneByName(FName("Colt_Magazine"));
+		WeaponMesh->UnHideBoneByName(MagazineBoneName);
 	}
 }
 
@@ -196,6 +211,8 @@ void AWeapon::HandleAttachmentReplication()
 
 		if (GChar && GChar->GetCombat() && !bIsAttachedToHolster) // Attached to hand
 		{
+			SetOwner(GChar);
+			SetCharacterOwner(GChar);
 			Slot1MotionController = GChar->GetMotionControllerFromAttachment(AttachmentReplication.AttachSocket, AttachmentReplication.AttachComponent);
 			bAttachmentLeft = GChar->GetLeftFromAttachment(AttachmentReplication.AttachSocket, AttachmentReplication.AttachComponent);
 			GChar->GetCombat()->HandleWeaponAttach(this, bAttachmentLeft);
@@ -208,7 +225,7 @@ void AWeapon::HandleAttachmentReplication()
 		}
 
 		// previous hand needs to be detached - This happens when the replication clearing AttachmentReplication wasn't received before we received a new attachment.
-		if (//!bIsAttachedToHolster &&
+		if (//bIsAttachedToHolster || 
 			!PreviousAttachmentReplication.AttachSocket.ToString().Contains("Holster") &&
 			PreviousAttachmentReplication.AttachComponent && 
 			(PreviousAttachmentReplication.AttachComponent != AttachmentReplication.AttachComponent) || 
@@ -227,12 +244,30 @@ void AWeapon::HandleAttachmentReplication()
 				}
 			}
 		}
+
+		// holster weapon
+		if(bIsAttachedToHolster)
+		{
+			AGunfightCharacter* PreviousGChar = Cast<AGunfightCharacter>(PreviousAttachmentReplication.AttachParent);
+			if (PreviousGChar && PreviousGChar->GetCombat())
+			{
+				// TODO: Only do this if the hand is not holding another weapon?
+				bool bLeft = PreviousGChar->GetLeftFromAttachment(PreviousAttachmentReplication.AttachSocket, PreviousAttachmentReplication.AttachComponent);
+				
+				PreviousGChar->AttachHandMeshToMotionController(bLeft);
+				PreviousGChar->SetHandState(bLeft, EHandState::EHS_Idle);
+				PreviousGChar->GetCombat()->UpdateHUDWeaponDropped(bLeft);
+			}
+		}
 	}
 	else // Deattached from hand
 	{
 		SetReplicatingMovement(true);
 		StartPhysics();
 		Slot1MotionController = nullptr;
+
+		SetOwner(nullptr);
+		SetCharacterOwner(nullptr);
 
 		if (!PreviousAttachmentReplication.AttachSocket.ToString().Contains("Holster") && PreviousAttachmentReplication.AttachParent)
 		{
@@ -246,6 +281,8 @@ void AWeapon::HandleAttachmentReplication()
 			}
 		}
 	}
+	StopRotatingTwoHand(); // this is slop, maybe this works here
+
 	PreviousAttachmentReplication = AttachmentReplication;
 }
 
@@ -351,20 +388,6 @@ bool AWeapon::IsObstructed() const
 	return GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECollisionChannel::ECC_WorldDynamic);
 }
 
-void AWeapon::StartRotatingTwoHand(USceneComponent* NewHand1, USceneComponent* NewHand2)
-{
-	if (NewHand1 == nullptr || NewHand2 == nullptr) return;
-	bRotateTwoHand = true;
-
-	Hand1 = NewHand1;
-	Hand2 = NewHand2;
-}
-
-void AWeapon::StopRotatingTwoHand()
-{
-	bRotateTwoHand = false;
-}
-
 void AWeapon::ResetWeapon()
 {
 	if (GetMagazine())
@@ -440,6 +463,7 @@ void AWeapon::StartPhysics()
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldDynamic, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
 	WeaponMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	WeaponMesh->SetBodyNotifyRigidBodyCollision(true);
 	WeaponMesh->SetSimulatePhysics(true);
 	WeaponMesh->SetEnableGravity(true);
 
@@ -537,18 +561,97 @@ void AWeapon::OnRep_Slot2MotionController()
 				GChar->SetHandState(bLeft, GChar->GetGripState(bLeft));
 			}
 		}
+		StartRotatingTwoHand();
 	}
-	else if(PreviousSlot2MotionController) // dropped by PreviousSlot2MotionController
+	else
 	{
-		AGunfightCharacter* GChar = Cast<AGunfightCharacter>(PreviousSlot2MotionController->GetAttachParentActor());
-		if(GChar)
+		if (PreviousSlot2MotionController) // dropped by PreviousSlot2MotionController
 		{
-			bool bLeft = PreviousSlot2MotionController == GChar->LeftMotionController ? true : false;
-			if (GetAttachParentActor() == GChar && bLeft == GChar->GetLeftFromAttachment(AttachmentReplication.AttachSocket, AttachmentReplication.AttachComponent)) return;
-			GChar->SetHandState(bLeft, GChar->GetGripState(bLeft));
+			AGunfightCharacter* GChar = Cast<AGunfightCharacter>(PreviousSlot2MotionController->GetAttachParentActor());
+			if (GChar)
+			{
+				bool bLeft = PreviousSlot2MotionController == GChar->LeftMotionController ? true : false;
+				if (GetAttachParentActor() == GChar && bLeft == GChar->GetLeftFromAttachment(AttachmentReplication.AttachSocket, AttachmentReplication.AttachComponent)) return;
+				GChar->SetHandState(bLeft, GChar->GetGripState(bLeft));
+			}
 		}
+		StopRotatingTwoHand();
 	}
 	PreviousSlot2MotionController = Slot2MotionController;
+}
+
+void AWeapon::StartRotatingTwoHand()
+{
+	//if (!CharacterOwner || !CharacterOwner->IsLocallyControlled()) return;
+	if (bIsRifle == false) return;
+	if (Slot2MotionController == nullptr) return;
+	bRotateTwoHand = true;
+
+	SetSlot2RotationOffset();
+}
+
+void AWeapon::SetSlot2RotationOffset()
+{
+	TArray<USceneComponent*> ChildComponents;
+	Slot2MotionController->GetChildrenComponents(false, ChildComponents);
+	for (auto c : ChildComponents)
+	{
+		if (c->ComponentHasTag(WeaponTag))
+		{
+			Slot2TwoHandRotationOffset = c;
+			break;
+		}
+	}
+}
+
+void AWeapon::StopRotatingTwoHand()
+{
+	bRotateTwoHand = false;
+	SetActorRelativeRotation(FQuat::Identity);
+}
+
+void AWeapon::TickTwoHandRotation(float DeltaTime)
+{
+	if (Slot1MotionController == nullptr || Slot2MotionController == nullptr) return;
+	if (CharacterOwner == nullptr) return;
+
+	FVector Hand1Location = Slot1MotionController->GetComponentLocation();
+	FVector Hand2Location = Slot2TwoHandRotationOffset->GetComponentLocation();
+	FVector Disp = (Hand2Location - Hand1Location).GetSafeNormal();
+
+	/*
+	FVector Hand1Left = -Slot1MotionController->GetRightVector();
+	//FRotator GunRotation = UKismetMathLibrary::MakeRotFromYX(Disp, Hand1Left);
+
+	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromYX(Disp, Hand1Left);
+	FQuat TargetQuat = FQuat(GunRotationMatrix);
+	TargetQuat.Normalize();
+	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
+
+	DrawDebugLine(GetWorld(), Hand1Location, Hand1Location + Hand1Left * 40.f, FColor::Cyan, false, DeltaTime * 1.1f);
+	*/
+
+	FVector Hand1Up = Slot1MotionController->GetUpVector();
+
+	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromYZ(Disp, Hand1Up);
+	FQuat TargetQuat = FQuat(GunRotationMatrix);
+	TargetQuat.Normalize();
+	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
+
+	//SetActorRotation(UKismetMathLibrary::RLerp(GetActorRotation(), GunRotation, 100.f * DeltaTime, true));
+
+	/*
+
+	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromY(Disp);
+	FQuat TargetQuat = FQuat(GunRotationMatrix);
+
+	FQuat Hand1Quat = Slot1MotionController->GetComponentQuat();
+	float Hand1Roll = Hand1Quat.Rotator().Roll;
+
+	FRotator FinalRot = TargetQuat.Rotator();
+	FinalRot.Roll = Hand1Roll;
+	SetActorRotation(FinalRot.Quaternion());
+	*/
 }
 
 void AWeapon::BeginPlay()
@@ -579,6 +682,10 @@ void AWeapon::BeginPlay()
 	}
 	*/
 	PreviousAttachmentReplication.AttachSocket = FName("Holster");
+
+	WeaponTag = GetTagFromType(WeaponType);
+
+
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -643,6 +750,11 @@ void AWeapon::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	
 	PollInit();
+
+	if (bRotateTwoHand)
+	{
+		TickTwoHandRotation(DeltaTime);
+	}
 }
 
 void AWeapon::PollInit()
@@ -699,11 +811,16 @@ void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo, bool bLeft)
 	--Sequence;
 	Ammo -= Sequence;
 	SetHUDAmmo(bLeft);
+
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Magenta, FString::Printf(TEXT("Ammo: %d"), Ammo));
 }
 
 void AWeapon::SpendRound(bool bLeft)
 {
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString("SpendRound 1"));
+	CharacterOwner == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : CharacterOwner;
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+
 	SetHUDAmmo(bLeft);
 	if (HasAuthority())
 	{
@@ -711,6 +828,7 @@ void AWeapon::SpendRound(bool bLeft)
 	}
 	else if (CharacterOwner && CharacterOwner->IsLocallyControlled())
 	{
+		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, FString::Printf(TEXT("Sequence: %d"), Sequence));
 		++Sequence;
 	}
 }
@@ -762,7 +880,7 @@ void AWeapon::DropMag()
 {
 	if (WeaponMesh == nullptr) return;
 
-	WeaponMesh->HideBoneByName(FName("Colt_Magazine"), EPhysBodyOp::PBO_None);
+	WeaponMesh->HideBoneByName(MagazineBoneName, EPhysBodyOp::PBO_None);	// TODO Change Bone name on all weapon meshes to WeaponMag
 	WeaponMesh->PlayAnimation(SlideBackAnimationPose, false);
 
 	if (EmptyMagazineClass)
@@ -1134,6 +1252,24 @@ EHandState AWeapon::SlotToHandState(bool bSlot1)
 		//return bSlot1 ? EHandState::EHS_HoldingPistol : EHandState::EHS_HoldingPistol2;
 	}
 	return ReturnState;
+}
+
+FName AWeapon::GetTagFromType(EWeaponType Type)
+{
+	if (Type == EWeaponType::EWT_M4)
+	{
+		return FName("M4");
+	}
+	else if (Type == EWeaponType::EWT_Shotgun)
+	{
+		return FName("Shotgun");
+	}
+	else if (Type == EWeaponType::EWT_Sniper)
+	{
+		return FName("Sniper");
+	}
+
+	return FName();
 }
 
 bool AWeapon::IsOverlappingHand(bool bLeftHand)

@@ -1,22 +1,4 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * Licensed under the Oculus SDK License Agreement (the "License");
- * you may not use the Oculus SDK except in compliance with the License,
- * which is provided at the time of installation or download, or which
- * otherwise accompanies this software in either electronic or hard copy form.
- *
- * You may obtain a copy of the License at
- *
- * https://developer.oculus.com/licenses/oculussdk/
- *
- * Unless required by applicable law or agreed to in writing, the Oculus SDK
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 
 // This file was @generated with LibOVRPlatform/codegen/main. Do not modify it!
 
@@ -1139,6 +1121,36 @@ EOvrPlatformInitializeResult ConvertPlatformInitializeResult(ovrPlatformInitiali
             return EOvrPlatformInitializeResult::NotEntitled;
         default:
             return EOvrPlatformInitializeResult::Unknown;
+    }
+}
+
+ovrProductType ConvertProductType(EOvrProductType Value)
+{
+    switch (Value)
+    {
+        case EOvrProductType::DURABLE:
+            return ovrProductType::ovrProductType_DURABLE;
+        case EOvrProductType::CONSUMABLE:
+            return ovrProductType::ovrProductType_CONSUMABLE;
+        case EOvrProductType::SUBSCRIPTION:
+            return ovrProductType::ovrProductType_SUBSCRIPTION;
+        default:
+        return ovrProductType::ovrProductType_Unknown;
+    }
+}
+
+EOvrProductType ConvertProductType(ovrProductType Value)
+{
+    switch (Value)
+    {
+        case ovrProductType::ovrProductType_DURABLE:
+            return EOvrProductType::DURABLE;
+        case ovrProductType::ovrProductType_CONSUMABLE:
+            return EOvrProductType::CONSUMABLE;
+        case ovrProductType::ovrProductType_SUBSCRIPTION:
+            return EOvrProductType::SUBSCRIPTION;
+        default:
+            return EOvrProductType::Unknown;
     }
 }
 

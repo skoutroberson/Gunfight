@@ -16,6 +16,7 @@ class GUNFIGHT_API AC4 : public AWeapon
 	
 	/*
 	* Fire() - Start plant
+	* 
 	*/
 	
 };

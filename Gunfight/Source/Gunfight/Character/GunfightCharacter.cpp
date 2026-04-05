@@ -241,6 +241,10 @@ USceneComponent* AGunfightCharacter::GetWeaponOffset(EWeaponType WeaponType, boo
 	{
 		return bLeft ? LeftHandPistolOffset : RightHandPistolOffset;
 	}
+	else if (WeaponType == EWeaponType::EWT_M4)
+	{
+		return bLeft ? HandOffsetM4Left : HandOffsetM4Right;
+	}
 
 	return nullptr;
 }
@@ -336,6 +340,7 @@ void AGunfightCharacter::Tick(float DeltaTime)
 	UpdateAverageMotionControllerVelocities();
 
 	CheckSlot2TimerFinished();
+	CheckInAir();
 
 	/*
 	if (IsLocallyControlled() && Combat)
@@ -387,7 +392,7 @@ void AGunfightCharacter::MoveForward(float Throttle)
 {
 	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
 
-	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
+	if (FMath::Abs(Throttle) < 0.2f) return; // deadzone
 
 	FVector CameraForwardVector = VRReplicatedCamera->GetForwardVector();
 	CameraForwardVector.Z = 0.f;
@@ -399,7 +404,7 @@ void AGunfightCharacter::MoveForward(float Throttle)
 void AGunfightCharacter::MoveRight(float Throttle)
 {
 	if (VRReplicatedCamera == nullptr || bDisableMovement) return;
-	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
+	if (FMath::Abs(Throttle) < 0.2f) return; // deadzone
 	FVector CameraRightVector = VRReplicatedCamera->GetRightVector();
 	CameraRightVector.Z = 0.f;
 	CameraRightVector = CameraRightVector.GetSafeNormal();
@@ -409,7 +414,7 @@ void AGunfightCharacter::MoveRight(float Throttle)
 void AGunfightCharacter::TurnRight(float Throttle)
 {
 	if (World == nullptr || VRMovementReference == nullptr) return;
-	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
+	if (FMath::Abs(Throttle) < 0.2f) return; // deadzone
 
 	if (bSnapTurning)
 	{
@@ -435,7 +440,7 @@ void AGunfightCharacter::TurnRight(float Throttle)
 void AGunfightCharacter::LookUp(float Throttle)
 {
 	if (World == nullptr) return;
-	if (FMath::Abs(Throttle) < 0.15f) return; // deadzone
+	if (FMath::Abs(Throttle) < 0.2f) return; // deadzone
 
 	AddControllerPitchInput(Throttle * GetWorld()->DeltaTimeSeconds * 100.f);
 }
@@ -773,7 +778,8 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 	if (Combat)
 	{
 		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
-		if (CurrentWeapon)
+		bool bCorrectTriggerHand = CheckTriggerHand(bLeftController, CurrentWeapon);
+		if (CurrentWeapon && bCorrectTriggerHand)
 		{
 			Combat->FireButtonPressed(true, bLeftController);
 		}
@@ -782,13 +788,18 @@ void AGunfightCharacter::TriggerPressed(bool bLeftController)
 
 void AGunfightCharacter::TriggerReleased(bool bLeftController)
 {
-	if (bLeftController)
+	if (bLeftController)LeftTriggerReleasedUI();
+	else RightTriggerReleasedUI();
+	
+	if (bDisableGameplay || bDisableShooting) return;
+
+	if (Combat)
 	{
-		LeftTriggerReleasedUI();
-	}
-	else
-	{
-		RightTriggerReleasedUI();
+		AWeapon* CurrentWeapon = bLeftController ? Combat->LeftEquippedWeapon : Combat->RightEquippedWeapon;
+		if (CurrentWeapon)
+		{
+			Combat->FireButtonPressed(false, bLeftController);
+		}
 	}
 }
 
@@ -833,6 +844,34 @@ void AGunfightCharacter::BButtonPressed(bool bLeftController)
 
 void AGunfightCharacter::BButtonReleased(bool bLeftController)
 {
+}
+
+bool AGunfightCharacter::CheckTriggerHand(bool bLeft, AWeapon* CurrentWeapon)
+{
+	if (!CurrentWeapon) return false;
+
+	FRepAttachment WeaponAttachment = CurrentWeapon->GetAttachmentReplication();
+	FName AttachSocket = WeaponAttachment.AttachSocket;
+	USceneComponent* AttachComponent = WeaponAttachment.AttachComponent;
+	
+	if (HasAuthority())
+	{
+		AttachSocket = CurrentWeapon->GetAttachParentSocketName();
+		AttachComponent = CurrentWeapon->GetRootComponent()->GetAttachParent();
+	}
+
+	UMotionControllerComponent* CurrentController = GetMotionControllerFromAttachment(AttachSocket, AttachComponent);
+
+	if (bLeft && CurrentController == LeftMotionController)
+	{
+		return true;
+	}
+	else if (!bLeft && CurrentController == RightMotionController)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void AGunfightCharacter::LeftStickPressed()
@@ -1573,7 +1612,10 @@ void AGunfightCharacter::SpawnFullMagazine(TSubclassOf<AFullMagazine> FullMagCla
 		CurrentMagazine = World->SpawnActor<AFullMagazine>(FullMagClass);
 		if (CurrentMagazine)
 		{
-			CurrentMagazine->SetWeaponSkin(SkinIndex);
+			if (CurrentWeapon->GetWeaponType() == EWeaponType::EWT_Pistol)
+			{
+				CurrentMagazine->SetWeaponSkin(SkinIndex);
+			}
 			CurrentMagazine->SetOwner(this);
 			CurrentMagazine->SetCharacterOwner(this);
 			CurrentMagazine->SetWeaponOwner(CurrentWeapon);
@@ -1637,6 +1679,15 @@ UMotionControllerComponent* AGunfightCharacter::GetMotionControllerFromAttachmen
 		return RightMotionController;
 	}
 
+	if (AttachComponent == HandOffsetM4Left)
+	{
+		return LeftMotionController;
+	}
+	else if (AttachComponent == HandOffsetM4Right)
+	{
+		return RightMotionController;
+	}
+
 	return nullptr;
 }
 
@@ -1664,6 +1715,7 @@ bool AGunfightCharacter::GetLeftFromAttachment(FName AttachSocket, USceneCompone
 		return false;
 	}
 
+	UE_LOG(LogTemp, Warning, TEXT("AGunfightCharacter::GetLeftFromAttachment() END RETURN HIT IN ERROR"));
 	return false;
 }
 
@@ -1866,9 +1918,25 @@ void AGunfightCharacter::InitWeaponOffsets()
 	HandOffsetPistolLeft = CreateDefaultSubobject<USceneComponent>(TEXT("HandOffsetPistolLeft"));
 	HandOffsetPistolLeft->SetupAttachment(LeftMotionController);
 
+	HandOffsetM4Left = CreateDefaultSubobject<USceneComponent>(TEXT("HandOffsetM4Left"));
+	HandOffsetM4Left->SetupAttachment(LeftMotionController);
+
+	// Rotation offsets
+	LeftM4RotationOffset = CreateDefaultSubobject<USceneComponent>(TEXT("LeftM4RotationOffset"));
+	LeftM4RotationOffset->SetupAttachment(LeftMotionController);
+	LeftM4RotationOffset->ComponentTags.Add(FName("M4"));
+
 	// right
 	HandOffsetPistolRight = CreateDefaultSubobject<USceneComponent>(TEXT("HandOffsetPistolRight"));
 	HandOffsetPistolRight->SetupAttachment(RightMotionController);
+
+	HandOffsetM4Right = CreateDefaultSubobject<USceneComponent>(TEXT("HandOffsetM4Right"));
+	HandOffsetM4Right->SetupAttachment(RightMotionController);
+
+	// Rotation offsets
+	RightM4RotationOffset = CreateDefaultSubobject<USceneComponent>(TEXT("RightM4RotationOffset"));
+	RightM4RotationOffset->SetupAttachment(RightMotionController);
+	RightM4RotationOffset->ComponentTags.Add(FName("M4"));
 }
 
 void AGunfightCharacter::CheckSlot2TimerFinished()
@@ -1905,6 +1973,50 @@ void AGunfightCharacter::CheckSlot2TimerFinished()
 
 			SetHandState(bLeft, EHandState::EHS_Idle);
 		}
+	}
+}
+
+void AGunfightCharacter::CheckInAir()
+{
+	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling())
+	{
+		if (!bCheckingInAir)
+		{
+			bCheckingInAir = true;
+			GetWorldTimerManager().SetTimer(InAirTimer, this, &AGunfightCharacter::StillInAir, 0.1f);
+		}
+	}
+	else
+	{
+		GetWorldTimerManager().ClearTimer(InAirTimer);
+		bCheckingInAir = false;
+
+		if (bPlayLandSound)
+		{
+			PlayLandSound();
+			bPlayLandSound = false;
+		}
+	}
+}
+
+void AGunfightCharacter::StillInAir()
+{
+	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling())
+	{
+		bPlayLandSound = true;
+	}
+	else
+	{
+		bCheckingInAir = false;
+	}
+}
+
+void AGunfightCharacter::PlayLandSound()
+{
+	World = World == nullptr ? GetWorld() : World;
+	if (FallLandSound && World)
+	{
+		UGameplayStatics::PlaySoundAtLocation(World, FallLandSound, GetActorLocation());
 	}
 }
 
@@ -1978,7 +2090,7 @@ USceneComponent* AGunfightCharacter::GetHandWeaponOffset(EWeaponType WeaponType,
 	}
 	else if (WeaponType == EWeaponType::EWT_M4)
 	{
-		// return bLeft ? HandOffsetM4Left : HandOffsetM4Right;
+		return bLeft ? HandOffsetM4Left : HandOffsetM4Right;
 	}
 	return nullptr;
 }

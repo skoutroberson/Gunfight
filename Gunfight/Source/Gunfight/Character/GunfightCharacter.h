@@ -14,6 +14,7 @@ enum class EWeaponType : uint8;
 enum class ESide : uint8;
 
 class UMotionControllerComponent;
+class AWeapon;
 
 /**
  * 
@@ -194,12 +195,29 @@ public:
 	void SetHUDAmmo(int32 Ammo, bool bLeft);
 	void SetHUDCarriedAmmo(int32 Ammo, bool bLeft);
 
+	// returns the Motion Controller that the actor is attached to
 	UMotionControllerComponent* GetMotionControllerFromAttachment(FName AttachSocket, USceneComponent* AttachComponent);
 
 	// will return right if given bad attachment info
 	bool GetLeftFromAttachment(FName AttachSocket, USceneComponent* AttachComponent);
 
 	void AttachHandMeshToMotionController(bool bLeft);
+
+	/**
+	* Two hand rotation offsets
+	* 
+	* Left/Right should mirror eachother across x axis
+	* 
+	* Initialized in InitWeaponOffsets()
+	* 
+	* These need to have a tag specifying which weapon they are for
+	*/
+
+	UPROPERTY(EditAnywhere)
+	USceneComponent* LeftM4RotationOffset;
+
+	UPROPERTY(EditAnywhere)
+	USceneComponent* RightM4RotationOffset;
 
 protected:
 	virtual void BeginPlay() override;
@@ -220,6 +238,9 @@ protected:
 	void AButtonReleased(bool bLeftController);
 	void BButtonPressed(bool bLeftController);
 	void BButtonReleased(bool bLeftController);
+
+	// returns true if bLeft matches with the hand that CurrentWeapon is attached to.
+	bool CheckTriggerHand(bool bLeft, AWeapon* CurrentWeapon);
 
 	void LeftStickPressed();
 	void LeftStickReleased();
@@ -556,11 +577,21 @@ private:
 
 	void InitWeaponOffsets();
 
+	// Weapon offsets so the weapon pistol grip lines up with the player's motion controller
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandOffsetPistolLeft;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandOffsetPistolRight;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USceneComponent* HandOffsetM4Left;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	USceneComponent* HandOffsetM4Right;
+
+
 
 	// grip cooldowns to reduce frequency of grip rpcs. This will also act as a guard for OnReps coming out of order (doesn't fix the core problem though).
 	bool bGripCooldownLeft = false;
@@ -590,6 +621,19 @@ private:
 
 	UPROPERTY()
 	USceneComponent* RightHandIKComponent;
+
+	// for playing land sound after falling
+
+	void CheckInAir();
+	FTimerHandle InAirTimer;
+	void StillInAir();
+	bool bCheckingInAir = false;
+	bool bPlayLandSound = false;
+
+	UPROPERTY(EditAnywhere)
+	USoundCue* FallLandSound;
+
+	void PlayLandSound();
 
 public:
 	void SetDefaultWeaponSkin(int32 SkinIndex);

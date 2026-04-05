@@ -241,6 +241,9 @@ private:
 	bool bCanFireLeft = true;
 	bool bCanFireRight = true;
 
+	bool bDryFiredLeft = false;
+	bool bDryFiredRight = false;
+
 	FTimerHandle FireTimer;
 
 	FTimerHandle FireTimerLeft;
@@ -265,9 +268,6 @@ private:
 	void UpdateCarriedAmmo();
 	void UpdateAmmoValues();
 	int32 AmountToReload(AWeapon *Weapon);
-
-	// two hand
-	void RotateWeaponTwoHand(float DeltaTime);
 
 	ESide GetClosestHolster(FVector WeaponLocation, float &OutDistance);
 	void AttachWeaponToHolster(AWeapon* WeaponToHolster, ESide HolsterSide);

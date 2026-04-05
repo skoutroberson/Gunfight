@@ -31,6 +31,13 @@ void UEOSSubsystem::CreateSession(const FName& SessionName)
 	if (SessionPtr)
 	{
 		FOnlineSessionSettings SessionSettings{};
+
+		// Changes trying to fix unable to join error that occurs now for some reason after a unreal engine or oculus update
+
+		//SessionSettings.bUsesPresence = true;
+
+		//
+
 		SessionSettings.bAllowInvites = false;
 		SessionSettings.bAllowJoinInProgress = true;
 		SessionSettings.bAllowJoinViaPresence = false;

@@ -1,22 +1,4 @@
-/*
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- * All rights reserved.
- *
- * Licensed under the Oculus SDK License Agreement (the "License");
- * you may not use the Oculus SDK except in compliance with the License,
- * which is provided at the time of installation or download, or which
- * otherwise accompanies this software in either electronic or hard copy form.
- *
- * You may obtain a copy of the License at
- *
- * https://developer.oculus.com/licenses/oculussdk/
- *
- * Unless required by applicable law or agreed to in writing, the Oculus SDK
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright (c) Meta Platforms, Inc. and affiliates.
 
 // This file was @generated with LibOVRPlatform/codegen/main. Do not modify it!
 
@@ -1266,6 +1248,47 @@ void FOvrLivestreamingVideoStats::Update(ovrLivestreamingVideoStatsHandle OvrHan
 }
 
 // -----------------------------------------------------------------------------
+// FOvrManagedInfo
+
+FOvrManagedInfo::FOvrManagedInfo()
+{
+    Clear();
+}
+
+FOvrManagedInfo::FOvrManagedInfo(ovrManagedInfoHandle OvrHandle, TOvrMessageHandlePtr MessageHandlePtr)
+{
+    Update(OvrHandle, MessageHandlePtr);
+}
+
+void FOvrManagedInfo::Clear()
+{
+    Department = TEXT("");
+    Email = TEXT("");
+    EmployeeNumber = TEXT("");
+    ExternalId = TEXT("");
+    Location = TEXT("");
+    Manager = TEXT("");
+    Name = TEXT("");
+    OrganizationId = TEXT("");
+    OrganizationName = TEXT("");
+    Position = TEXT("");
+}
+
+void FOvrManagedInfo::Update(ovrManagedInfoHandle OvrHandle, TOvrMessageHandlePtr MessageHandlePtr)
+{
+    Department = UTF8_TO_TCHAR(ovr_ManagedInfo_GetDepartment(OvrHandle));
+    Email = UTF8_TO_TCHAR(ovr_ManagedInfo_GetEmail(OvrHandle));
+    EmployeeNumber = UTF8_TO_TCHAR(ovr_ManagedInfo_GetEmployeeNumber(OvrHandle));
+    ExternalId = UTF8_TO_TCHAR(ovr_ManagedInfo_GetExternalId(OvrHandle));
+    Location = UTF8_TO_TCHAR(ovr_ManagedInfo_GetLocation(OvrHandle));
+    Manager = UTF8_TO_TCHAR(ovr_ManagedInfo_GetManager(OvrHandle));
+    Name = UTF8_TO_TCHAR(ovr_ManagedInfo_GetName(OvrHandle));
+    OrganizationId = UTF8_TO_TCHAR(ovr_ManagedInfo_GetOrganizationId(OvrHandle));
+    OrganizationName = UTF8_TO_TCHAR(ovr_ManagedInfo_GetOrganizationName(OvrHandle));
+    Position = UTF8_TO_TCHAR(ovr_ManagedInfo_GetPosition(OvrHandle));
+}
+
+// -----------------------------------------------------------------------------
 // FOvrMicrophone
 
 FOvrMicrophone::FOvrMicrophone()
@@ -1628,6 +1651,33 @@ void FOvrPlatformInitialize::Update(ovrPlatformInitializeHandle OvrHandle, TOvrM
 }
 
 // -----------------------------------------------------------------------------
+// FOvrPrice
+
+FOvrPrice::FOvrPrice()
+{
+    Clear();
+}
+
+FOvrPrice::FOvrPrice(ovrPriceHandle OvrHandle, TOvrMessageHandlePtr MessageHandlePtr)
+{
+    Update(OvrHandle, MessageHandlePtr);
+}
+
+void FOvrPrice::Clear()
+{
+    AmountInHundredths = 0;
+    Currency = TEXT("");
+    Formatted = TEXT("");
+}
+
+void FOvrPrice::Update(ovrPriceHandle OvrHandle, TOvrMessageHandlePtr MessageHandlePtr)
+{
+    AmountInHundredths = static_cast<int32>(ovr_Price_GetAmountInHundredths(OvrHandle));
+    Currency = UTF8_TO_TCHAR(ovr_Price_GetCurrency(OvrHandle));
+    Formatted = UTF8_TO_TCHAR(ovr_Price_GetFormatted(OvrHandle));
+}
+
+// -----------------------------------------------------------------------------
 // FOvrProduct
 
 FOvrProduct::FOvrProduct()
@@ -1645,7 +1695,9 @@ void FOvrProduct::Clear()
     Description = TEXT("");
     FormattedPrice = TEXT("");
     Name = TEXT("");
+    Price.Clear();
     SKU = TEXT("");
+    Type = EOvrProductType::Unknown;
 }
 
 void FOvrProduct::Update(ovrProductHandle OvrHandle, TOvrMessageHandlePtr MessageHandlePtr)
@@ -1653,7 +1705,9 @@ void FOvrProduct::Update(ovrProductHandle OvrHandle, TOvrMessageHandlePtr Messag
     Description = UTF8_TO_TCHAR(ovr_Product_GetDescription(OvrHandle));
     FormattedPrice = UTF8_TO_TCHAR(ovr_Product_GetFormattedPrice(OvrHandle));
     Name = UTF8_TO_TCHAR(ovr_Product_GetName(OvrHandle));
+    Price.Update(ovr_Product_GetPrice(OvrHandle), MessageHandlePtr);
     SKU = UTF8_TO_TCHAR(ovr_Product_GetSKU(OvrHandle));
+    Type = ConvertProductType(ovr_Product_GetType(OvrHandle));
 }
 
 // -----------------------------------------------------------------------------
@@ -1918,6 +1972,7 @@ void FOvrUser::Clear()
     DisplayName = TEXT("");
     ID = 0;
     ImageUrl = TEXT("");
+    ManagedInfo.Clear();
     OculusID = TEXT("");
     Presence = TEXT("");
     PresenceDeeplinkMessage = TEXT("");
@@ -1933,6 +1988,7 @@ void FOvrUser::Update(ovrUserHandle OvrHandle, TOvrMessageHandlePtr MessageHandl
     DisplayName = UTF8_TO_TCHAR(ovr_User_GetDisplayName(OvrHandle));
     ID = static_cast<FOvrId>(ovr_User_GetID(OvrHandle));
     ImageUrl = UTF8_TO_TCHAR(ovr_User_GetImageUrl(OvrHandle));
+    ManagedInfo.Update(ovr_User_GetManagedInfo(OvrHandle), MessageHandlePtr);
     OculusID = UTF8_TO_TCHAR(ovr_User_GetOculusID(OvrHandle));
     Presence = UTF8_TO_TCHAR(ovr_User_GetPresence(OvrHandle));
     PresenceDeeplinkMessage = UTF8_TO_TCHAR(ovr_User_GetPresenceDeeplinkMessage(OvrHandle));

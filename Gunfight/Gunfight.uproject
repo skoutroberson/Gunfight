@@ -81,7 +81,8 @@
 			"SupportedTargetPlatforms": [
 				"Win64",
 				"Android"
-			]
+			],
+			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/7ce814580ba341b4bb5865983fea9d31"
 		},
 		{
 			"Name": "MultiplayerSessions",

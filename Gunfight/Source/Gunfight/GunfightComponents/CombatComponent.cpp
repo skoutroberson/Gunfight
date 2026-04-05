@@ -68,7 +68,7 @@ void UCombatComponent::GripWeapon(AWeapon* WeaponToGrip, bool bLeft)
 		{
 			AttachHandMeshToWeapon(WeaponToGrip, bLeft, false);
 			// TODO: Start rotating two hand
-			//WeaponToEquip->StartRotatingTwoHand(OtherController, CurrentHandWeaponOffset);
+			WeaponToGrip->StartRotatingTwoHand();
 		}
 		else
 		{
@@ -116,6 +116,7 @@ void UCombatComponent::ReleaseWeapon(bool bLeft)
 		CurrentWeapon->Slot2MotionController = nullptr;
 		Character->AttachHandMeshToMotionController(bLeft);
 		// TODO: stop rotating two hand
+		CurrentWeapon->StopRotatingTwoHand();
 	}
 
 	CurrentWeapon = nullptr;
@@ -204,11 +205,12 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		{
 			if (LeftEquippedWeapon && LeftEquippedWeapon->Slot2MotionController)
 			{
-				if (!Character->HasAuthority())
+				SecondHandAttachmentGrabCheck();
+
+				if (LeftEquippedWeapon->IsRifle() && !LeftEquippedWeapon->IsRotatingTwoHand())
 				{
-					SecondHandAttachmentGrabCheck();
+					LeftEquippedWeapon->StartRotatingTwoHand();
 				}
-				CheckSecondHand(LeftEquippedWeapon->Slot2MotionController);
 			}
 			else
 			{
@@ -220,6 +222,11 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		if (LeftEquippedWeapon && LeftEquippedWeapon->Slot2MotionController)
 		{
 			CheckSecondHand(LeftEquippedWeapon->Slot2MotionController);
+		}
+
+		if (Character && LeftEquippedWeapon && LeftEquippedWeapon->bRotateTwoHand)
+		{
+			LeftEquippedWeapon->TickTwoHandRotation(DeltaTime);
 		}
 	}
 }
@@ -539,6 +546,10 @@ void UCombatComponent::FireButtonPressed(bool bPressed, bool bLeftHand)
 	if (bPressed)
 	{
 		Fire(bLeftHand);
+	}
+	else
+	{
+		bLeftHand ? bDryFiredLeft = false : bDryFiredRight = false;
 	}
 }
 
@@ -1115,7 +1126,24 @@ void UCombatComponent::Fire(bool bLeft)
 	{
 		bCurrentCanFire = false;
 		StartFireTimer(CurrentWeapon->FireDelay, bLeft);
-		CurrentWeapon->PlayDryFireSound();
+
+		if (bLeft && !bDryFiredLeft)
+		{
+			CurrentWeapon->PlayDryFireSound();
+			bDryFiredLeft = true;
+		}
+		else if (!bLeft && !bDryFiredRight)
+		{
+			CurrentWeapon->PlayDryFireSound();
+			bDryFiredRight = true;
+		}
+		/*
+		if (!bDryFired)
+		{
+			CurrentWeapon->PlayDryFireSound();
+			bDryFired = true;
+		}
+		*/
 	}
 }
 
@@ -1671,12 +1699,15 @@ void UCombatComponent::CheckSecondHand(UMotionControllerComponent* MC)
 	if (HandMesh == nullptr) return;
 
 	// distance check
-	if (FVector::DistSquared(MC->GetComponentLocation(), HandMesh->GetComponentLocation()) > 1400.f) // ? inches
+	if (FVector::DistSquared(MC->GetComponentLocation(), HandMesh->GetComponentLocation()) > 4096.f) // 25 inches
 	{
 		Character->ReleaseGrip(bLeft);
 		return;
 	}
 	// rotation check
+
+	// 3/30/2026 NOT GOING TO DO ROTATION CHECK FOR NOW
+	if(1) return;
 
 	FVector HandUpVector = HandMesh->GetUpVector();
 	FVector MotionControllerUpVector = MC->GetUpVector();
@@ -1821,7 +1852,7 @@ EHandState UCombatComponent::SlotToHandState(EWeaponType WeaponType, bool bSlot1
 	}
 	if (WeaponType == EWeaponType::EWT_M4)
 	{
-		//HandState = bSlot1 ? EHandState::EHS_HoldingM4 : EHandState::EHS_HoldingM42;
+		HandState = bSlot1 ? EHandState::EHS_HoldingM4 : EHandState::EHS_HoldingM42;
 	}
 	
 
@@ -1847,20 +1878,6 @@ bool UCombatComponent::IsHandHoldingAnotherWeapon(bool bLeft)
 		}
 	}
 	return false;
-}
-
-void UCombatComponent::RotateWeaponTwoHand(float DeltaTime)
-{
-	if (LeftEquippedWeapon == nullptr || LeftEquippedWeapon->Hand1 == nullptr || LeftEquippedWeapon->Hand2 == nullptr) return;
-
-	const FVector Hand1Location = LeftEquippedWeapon->Hand1->GetComponentLocation();
-	const FVector Hand2Location = LeftEquippedWeapon->Hand2->GetComponentLocation();
-	const FQuat Hand1Rotation = LeftEquippedWeapon->Hand1->GetComponentQuat();
-	const FQuat Hand2Rotation = LeftEquippedWeapon->Hand2->GetComponentQuat();
-
-
-
-	//LeftEquippedWeapon->SetActorLocationAndRotation(FMath::VInterpTo(Hand1)
 }
 
 ESide UCombatComponent::GetClosestHolster(FVector WeaponLocation, float &OutDistance)

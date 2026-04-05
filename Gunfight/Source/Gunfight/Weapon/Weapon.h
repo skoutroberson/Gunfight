@@ -63,6 +63,9 @@ enum class EWeaponType : uint8
 {
 	EWT_Pistol	UMETA(DisplayName = "Pistol"),
 	EWT_M4		UMETA(DisplayName = "M4"),
+	EWT_Uzi		UMETA(DisplayName = "Uzi"),
+	EWT_Shotgun	UMETA(DisplayName = "Shotgun"),
+	EWT_Sniper	UMETA(DisplayName = "Sniper"),
 
 	EWT_MAX		UMETA(DisplayName = "DefaultMAX"),
 };
@@ -86,6 +89,7 @@ public:
 	virtual void PostInitializeComponents() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void OnRep_Owner() override;
 
 	virtual void Fire(const FVector& HitTarget, bool bLeft);
 
@@ -126,6 +130,10 @@ public:
 	// called at the end of the slide end animation to hide the magazine bone, and spawn an empty magazine to simulate physics
 	UFUNCTION(BlueprintCallable)
 	void DropMag();
+	void UnhideMag();
+
+	UPROPERTY(EditAnywhere)
+	FName MagazineBoneName = FName("Colt_Magazine");
 
 	void InitializeAnim();
 
@@ -139,8 +147,6 @@ public:
 
 	UPROPERTY()
 	class AGunfightPlayerController* GunfightOwnerController;
-
-	void UnhideMag();
 
 	void SetCarriedAmmo(int32 NewAmmo) { CarriedAmmo = NewAmmo; }
 	void AddAmmo(int32 AmmoToAdd, bool bLeft);
@@ -198,7 +204,7 @@ public:
 	FTransform HandOffsetLeft2;
 
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true")) // replaced "meta = (AllowPrivateAccess = "true")" with "EditConst"
 	USceneComponent* GrabSlot1R;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
@@ -245,21 +251,6 @@ public:
 	// called when we drop the weapon in case we drop it while the mag is dropping out.
 	void ClearWeaponMagTimer();
 
-	// two hand
-	void StartRotatingTwoHand(USceneComponent* NewHand1, USceneComponent* NewHand2);
-	void StopRotatingTwoHand();
-
-	bool bRotateTwoHand = false;
-
-	UPROPERTY()
-	USceneComponent* Hand1;
-
-	UPROPERTY()
-	USceneComponent* Hand2;
-
-	UPROPERTY(EditAnywhere)
-	float TwoHandRotationSpeed = 10.f;
-
 	void ResetWeapon();
 
 	bool bSlideBack = false;
@@ -295,6 +286,24 @@ public:
 	void HandleAttachmentReplication2();
 
 	void PlayEquipSound();
+
+	/**
+	* Two hand rotation
+	*/
+
+	void StartRotatingTwoHand();
+	void SetSlot2RotationOffset();
+	void StopRotatingTwoHand();
+	bool bRotateTwoHand = false;
+
+	// For offsetting two hand rotation displacement vector for rifles
+	UPROPERTY()
+	USceneComponent* Slot2TwoHandRotationOffset;
+
+	UPROPERTY(EditAnywhere)
+	float TwoHandRotationSpeed = 10.f;
+
+	void TickTwoHandRotation(float DeltaTime);
 
 protected:
 	virtual void BeginPlay() override;
@@ -490,6 +499,10 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	EWeaponType WeaponType;
 
+	// If true, when two handed, the weapon will rotate its pitch and yaw based on the displacement vector between both motion controllers.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	bool bIsRifle = false;
+
 	ESide HolsterSide = ESide::ES_None;
 
 	float LastTimeInteractedWith = WEAPON_START_TIME;
@@ -507,6 +520,10 @@ private:
 	bool bPlayingHolsterSound = false;
 	FTimerHandle HolsterSoundTimer;
 	void HolsterSoundTimerFinished() { bPlayingHolsterSound = false; }
+
+	// initialized in BeginPlay()
+	FName WeaponTag;
+	FName GetTagFromType(EWeaponType Type);
 
 public:
 
@@ -554,4 +571,6 @@ public:
 	FORCEINLINE bool IsTwoHanded() const { return bTwoHanded; }
 	FORCEINLINE void SetLastTimeInteractedWith(float NewLastTime) { LastTimeInteractedWith = NewLastTime; }
 	USceneComponent* GetSlot2IK(bool bLeft);
+	FORCEINLINE bool IsRifle() const { return bIsRifle; }
+	FORCEINLINE bool IsRotatingTwoHand() const { return bRotateTwoHand; }
 };
