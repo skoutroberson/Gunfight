@@ -1951,6 +1951,8 @@ void AGunfightCharacter::CheckSlot2TimerFinished()
 	// grabbing slot 2
 	if (Combat->LeftEquippedWeapon && Combat->LeftEquippedWeapon->Slot2MotionController)
 	{
+		// Can put all of this in a function: UpdateHandAnimIK(bool bLeft, bool bSlot1, bool bGrabbed)
+
 		// In Anim Instance, change Slot2MotionController side IK to follow the gun GrabSlot2IK scene component
 		bool bLeft = Combat->LeftEquippedWeapon->Slot2MotionController == LeftMotionController ? true : false;
 		USceneComponent* WeaponSlot2IK = Combat->LeftEquippedWeapon->GetSlot2IK(bLeft);
@@ -1959,6 +1961,20 @@ void AGunfightCharacter::CheckSlot2TimerFinished()
 			bLeft ? LeftHandIKComponent = WeaponSlot2IK : RightHandIKComponent = WeaponSlot2IK;
 		}
 		SetHandState(bLeft, EHandState::EHS_HoldingPistol2);
+
+		//
+
+		// Do the same for Slot1MotionController IK if the gun is a rifle
+
+		if (Combat->LeftEquippedWeapon->IsRifle())
+		{
+			USceneComponent* WeaponSlot1IK = Combat->LeftEquippedWeapon->GetSlot1IK(!bLeft);
+			if (WeaponSlot1IK)
+			{
+				!bLeft ? LeftHandIKComponent = WeaponSlot1IK : RightHandIKComponent = WeaponSlot1IK;
+			}
+			SetHandState(!bLeft, EHandState::EHS_HoldingPistol);
+		}
 	}
 	else // not grabbing slot 2
 	{
@@ -1966,7 +1982,7 @@ void AGunfightCharacter::CheckSlot2TimerFinished()
 		LeftHandIKComponent = LeftMotionController;
 		RightHandIKComponent = RightMotionController;
 
-		if (Combat->PreviousLeftEquippedWeapon && Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController) // there's gotta be a better way to do this
+		if (Combat->PreviousLeftEquippedWeapon && Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController)
 		{ 
 			bool bLeft = Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController == LeftMotionController ? true : false;
 			if (DoesHandHaveWeapon(bLeft)) return;

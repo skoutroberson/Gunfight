@@ -618,40 +618,12 @@ void AWeapon::TickTwoHandRotation(float DeltaTime)
 	FVector Hand1Location = Slot1MotionController->GetComponentLocation();
 	FVector Hand2Location = Slot2TwoHandRotationOffset->GetComponentLocation();
 	FVector Disp = (Hand2Location - Hand1Location).GetSafeNormal();
-
-	/*
-	FVector Hand1Left = -Slot1MotionController->GetRightVector();
-	//FRotator GunRotation = UKismetMathLibrary::MakeRotFromYX(Disp, Hand1Left);
-
-	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromYX(Disp, Hand1Left);
-	FQuat TargetQuat = FQuat(GunRotationMatrix);
-	TargetQuat.Normalize();
-	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
-
-	DrawDebugLine(GetWorld(), Hand1Location, Hand1Location + Hand1Left * 40.f, FColor::Cyan, false, DeltaTime * 1.1f);
-	*/
-
 	FVector Hand1Up = Slot1MotionController->GetUpVector();
-
 	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromYZ(Disp, Hand1Up);
 	FQuat TargetQuat = FQuat(GunRotationMatrix);
 	TargetQuat.Normalize();
+
 	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
-
-	//SetActorRotation(UKismetMathLibrary::RLerp(GetActorRotation(), GunRotation, 100.f * DeltaTime, true));
-
-	/*
-
-	FMatrix GunRotationMatrix = FRotationMatrix::MakeFromY(Disp);
-	FQuat TargetQuat = FQuat(GunRotationMatrix);
-
-	FQuat Hand1Quat = Slot1MotionController->GetComponentQuat();
-	float Hand1Roll = Hand1Quat.Rotator().Roll;
-
-	FRotator FinalRot = TargetQuat.Rotator();
-	FinalRot.Roll = Hand1Roll;
-	SetActorRotation(FinalRot.Quaternion());
-	*/
 }
 
 void AWeapon::BeginPlay()
@@ -857,6 +829,11 @@ FVector AWeapon::GetMagwellDirection() const
 USceneComponent* AWeapon::GetSlot2IK(bool bLeft)
 {
 	return bLeft ? GrabSlot2IKL : GrabSlot2IKR;
+}
+
+USceneComponent* AWeapon::GetSlot1IK(bool bLeft)
+{
+	return bLeft ? GrabSlot1IKL : GrabSlot1IKR;
 }
 
 FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget)

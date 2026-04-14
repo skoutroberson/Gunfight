@@ -222,6 +222,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	USceneComponent* GrabSlot2IKR;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot1IKL;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* GrabSlot1IKR;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	bool bTwoHanded = false;
 
@@ -571,6 +577,7 @@ public:
 	FORCEINLINE bool IsTwoHanded() const { return bTwoHanded; }
 	FORCEINLINE void SetLastTimeInteractedWith(float NewLastTime) { LastTimeInteractedWith = NewLastTime; }
 	USceneComponent* GetSlot2IK(bool bLeft);
+	USceneComponent* GetSlot1IK(bool bLeft);
 	FORCEINLINE bool IsRifle() const { return bIsRifle; }
 	FORCEINLINE bool IsRotatingTwoHand() const { return bRotateTwoHand; }
 };

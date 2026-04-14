@@ -206,11 +206,6 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 			if (LeftEquippedWeapon && LeftEquippedWeapon->Slot2MotionController)
 			{
 				SecondHandAttachmentGrabCheck();
-
-				if (LeftEquippedWeapon->IsRifle() && !LeftEquippedWeapon->IsRotatingTwoHand())
-				{
-					LeftEquippedWeapon->StartRotatingTwoHand();
-				}
 			}
 			else
 			{
@@ -223,11 +218,22 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		{
 			CheckSecondHand(LeftEquippedWeapon->Slot2MotionController);
 		}
+	}
 
-		if (Character && LeftEquippedWeapon && LeftEquippedWeapon->bRotateTwoHand)
+	if (!Character->HasAuthority())
+	{
+		if (LeftEquippedWeapon && LeftEquippedWeapon->Slot2MotionController)
 		{
-			LeftEquippedWeapon->TickTwoHandRotation(DeltaTime);
+			if (LeftEquippedWeapon->IsRifle() && !LeftEquippedWeapon->IsRotatingTwoHand())
+			{
+				LeftEquippedWeapon->StartRotatingTwoHand();
+			}
 		}
+	}
+
+	if (Character && LeftEquippedWeapon && LeftEquippedWeapon->bRotateTwoHand)
+	{
+		LeftEquippedWeapon->TickTwoHandRotation(DeltaTime);
 	}
 }
 
