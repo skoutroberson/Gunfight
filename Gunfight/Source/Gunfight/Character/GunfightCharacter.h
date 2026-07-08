@@ -578,6 +578,7 @@ private:
 	void InitWeaponOffsets();
 
 	// Weapon offsets so the weapon pistol grip lines up with the player's motion controller
+	// MAKE SURE TO ADD TWO MORE LINES FOR EACH NEW GUN TO GetLeftFromAttachment()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandOffsetPistolLeft;
@@ -590,6 +591,12 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	USceneComponent* HandOffsetM4Right;
+
+	// ^^^^ MAKE SURE TO ADD TWO MORE LINES FOR EACH NEW GUN TO GetLeftFromAttachment() ****************************
+
+
+
+
 
 
 

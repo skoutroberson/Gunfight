@@ -110,6 +110,9 @@ public:
 	// for attaching the weapon to the correct hand and hand mesh to weapon if the player grabs slot 1
 	void HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHand);
 
+	// flip flopped version of HandleWeaponAttach where for non locally controlled players, we attach to motion controller
+	void HandleWeaponTwoHandAttachForProxy(AWeapon* WeaponToAttach, bool bLeftHand, bool bAttach);
+
 	void DetachHandMeshFromWeapon(bool bLeftHand);
 
 	void DetachHandMeshFromWeapon(AWeapon* WeaponToDetachFrom);

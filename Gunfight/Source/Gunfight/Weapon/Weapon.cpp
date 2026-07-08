@@ -59,6 +59,12 @@ AWeapon::AWeapon()
 
 	GrabSlot2IKR = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot2IKR"));
 	GrabSlot2IKR->SetupAttachment(GetRootComponent());
+
+	GrabSlot1IKL = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot1IKL"));
+	GrabSlot1IKL->SetupAttachment(GetRootComponent());
+
+	GrabSlot1IKR = CreateDefaultSubobject<USceneComponent>(TEXT("GrabSlot1IKR"));
+	GrabSlot1IKR->SetupAttachment(GetRootComponent());
 }
 
 void AWeapon::PostInitializeComponents()
@@ -111,6 +117,8 @@ void AWeapon::Fire(const FVector& HitTarget, bool bLeft)
 			WeaponMesh->PlayAnimation(FireAnimation, false);
 		}
 	}
+
+	AddFireRecoil();
 }
 
 void AWeapon::SetHUDAmmo(bool bLeft)
@@ -400,6 +408,8 @@ void AWeapon::ResetWeapon()
 	SetAmmo(GetMagCapacity());
 	SetCarriedAmmo(GetMaxCarriedAmmo());
 
+
+
 	if (WeaponMesh == nullptr) return;
 
 	WeaponMesh->SetEnableGravity(false);
@@ -561,7 +571,7 @@ void AWeapon::OnRep_Slot2MotionController()
 				GChar->SetHandState(bLeft, GChar->GetGripState(bLeft));
 			}
 		}
-		StartRotatingTwoHand();
+		StartRotatingTwoHand(); // need to also attach weapon to the motion controller now instead of the skeletal mesh hand socket
 	}
 	else
 	{
@@ -584,10 +594,16 @@ void AWeapon::StartRotatingTwoHand()
 {
 	//if (!CharacterOwner || !CharacterOwner->IsLocallyControlled()) return;
 	if (bIsRifle == false) return;
-	if (Slot2MotionController == nullptr) return;
+	if (Slot2MotionController == nullptr || Slot1MotionController == nullptr) return;
 	bRotateTwoHand = true;
-
 	SetSlot2RotationOffset();
+
+	if (CharacterOwner && CharacterOwner->GetCombat() && !CharacterOwner->IsLocallyControlled())
+	{
+		// attach weapon to motion controller1
+		bool bLeft = (Slot1MotionController == CharacterOwner->LeftMotionController) ? true : false;
+		CharacterOwner->GetCombat()->HandleWeaponTwoHandAttachForProxy(this, bLeft, true);
+	}
 }
 
 void AWeapon::SetSlot2RotationOffset()
@@ -606,8 +622,16 @@ void AWeapon::SetSlot2RotationOffset()
 
 void AWeapon::StopRotatingTwoHand()
 {
+	if(Slot1MotionController == nullptr) return;
 	bRotateTwoHand = false;
 	SetActorRelativeRotation(FQuat::Identity);
+
+	if (CharacterOwner && CharacterOwner->GetCombat() && !CharacterOwner->IsLocallyControlled())
+	{
+		// attach weapon to skeletal mesh hand
+		bool bLeft = (Slot1MotionController == CharacterOwner->LeftMotionController) ? true : false;
+		CharacterOwner->GetCombat()->HandleWeaponTwoHandAttachForProxy(this, bLeft, false);
+	}
 }
 
 void AWeapon::TickTwoHandRotation(float DeltaTime)
@@ -615,6 +639,7 @@ void AWeapon::TickTwoHandRotation(float DeltaTime)
 	if (Slot1MotionController == nullptr || Slot2MotionController == nullptr) return;
 	if (CharacterOwner == nullptr) return;
 
+	// rotate based on both hands
 	FVector Hand1Location = Slot1MotionController->GetComponentLocation();
 	FVector Hand2Location = Slot2TwoHandRotationOffset->GetComponentLocation();
 	FVector Disp = (Hand2Location - Hand1Location).GetSafeNormal();
@@ -623,7 +648,100 @@ void AWeapon::TickTwoHandRotation(float DeltaTime)
 	FQuat TargetQuat = FQuat(GunRotationMatrix);
 	TargetQuat.Normalize();
 
+	// apply recoil
+	//ApplyRecoilRotation(TargetQuat);
+
+	UpdateRecoil(DeltaTime);
+	float PitchAngle = CurrentRecoilValue;
+	if (Slot1MotionController && Slot2MotionController) // Drastically reduce recoil if the weapon is being held with two hands
+	{
+		PitchAngle *= 0.15f;
+	}
+
+	FQuat PitchRotation = FQuat(TargetQuat.GetForwardVector(), PitchAngle);
+	TargetQuat = TargetQuat * PitchRotation;
+	TargetQuat.Normalize();
+
 	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
+}
+
+void AWeapon::TickOneHandRotation(float DeltaTime)
+{
+	if (Slot1MotionController == nullptr || CharacterOwner == nullptr) return;
+
+	// First get the rotation of the attachment component 
+	USceneComponent* AttachComponent = nullptr;
+	if (HasAuthority())
+	{
+		if (GetRootComponent()->GetAttachParent() == nullptr) return;
+		
+		AttachComponent = GetRootComponent()->GetAttachParent();
+	}
+	else
+	{
+		if (AttachmentReplication.AttachComponent == nullptr) return;
+		AttachComponent = AttachmentReplication.AttachComponent;
+	}
+
+	if (AttachComponent == nullptr) return;
+
+	FQuat AttachmentRotation = AttachComponent->GetComponentQuat();
+
+	// Update recoil and apply recoil rotation to the weapon
+
+	UpdateRecoil(DeltaTime);
+	float PitchAngle = CurrentRecoilValue;
+	if (Slot1MotionController && Slot2MotionController) // Drastically reduce recoil if the weapon is being held with two hands
+	{
+		PitchAngle *= 0.15f;
+	}
+	FQuat PitchRotation = FQuat(FRotator(0.f, 0.f, -(PitchAngle * 60.f))); // 60.f = 180/PI
+	AttachmentRotation = AttachmentRotation * PitchRotation;
+	AttachmentRotation.Normalize();
+	SetActorRotation(FMath::QInterpTo(GetActorQuat(), AttachmentRotation, DeltaTime, 100.f));
+
+	//CharacterOwner->GetLeftFromAttachment()
+	//USceneComponent* MotionControllerWeaponOffset = CharacterOwner->GetWeapon
+}
+
+void AWeapon::AddFireRecoil()
+{
+	RecoilValue += WeaponRecoil;
+	if (RecoilValue > 1.5f)
+	{
+		RecoilValue = 1.5f;
+	}
+	bRecoilGoingUp = true;
+	bIsRecoiling = true;
+}
+
+void AWeapon::UpdateRecoil(float DeltaTime)
+{
+	if (bRecoilGoingUp)
+	{
+		CurrentRecoilValue = FMath::FInterpTo(CurrentRecoilValue, RecoilValue, DeltaTime, RecoilUpSpeed);
+		if (FMath::IsNearlyEqual(CurrentRecoilValue, RecoilValue, 0.01f))
+		{
+			bRecoilGoingUp = false;
+		}
+	}
+	else
+	{
+		CurrentRecoilValue = FMath::FInterpTo(CurrentRecoilValue, 0.f, DeltaTime, RecoilDownSpeed);
+		RecoilValue = CurrentRecoilValue;
+		if (FMath::IsNearlyEqual(CurrentRecoilValue, 0.f, 0.01f))
+		{
+			CurrentRecoilValue = 0.f;
+			RecoilValue = 0.f;
+			bIsRecoiling = false;
+		}
+	}
+}
+
+void AWeapon::ApplyRecoilRotation(FQuat& CurrentRot)
+{
+	FQuat PitchRotation = FQuat(CurrentRot.GetForwardVector(), CurrentRecoilValue);
+	CurrentRot = CurrentRot * PitchRotation;
 }
 
 void AWeapon::BeginPlay()

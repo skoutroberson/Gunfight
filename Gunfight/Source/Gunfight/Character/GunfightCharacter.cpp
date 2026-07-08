@@ -1030,11 +1030,24 @@ void AGunfightCharacter::UpdateAnimInstanceIK(float DeltaTime)
 	// lerp location
 	//FMath::Lerp(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime * 30.f)
 	// FMath::VInterpTo(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime, 30.f)
-	GunfightAnimInstance->LeftHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime * 40.f));
-	GunfightAnimInstance->RightHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->RightHandTransform.GetLocation(), GoalRightHandTransform.GetLocation(), DeltaTime * 40.f));
+
+	/*
+	GunfightAnimInstance->LeftHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->LeftHandTransform.GetLocation(), GoalLeftHandTransform.GetLocation(), DeltaTime * 10.f)); //40
+	GunfightAnimInstance->RightHandTransform.SetLocation(FMath::Lerp(GunfightAnimInstance->RightHandTransform.GetLocation(), GoalRightHandTransform.GetLocation(), DeltaTime * 10.f));
 	// slerp rotation
-	GunfightAnimInstance->LeftHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->LeftHandTransform.GetRotation(), GoalLeftHandTransform.GetRotation(), DeltaTime * 30.f));
-	GunfightAnimInstance->RightHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->RightHandTransform.GetRotation(), GoalRightHandTransform.GetRotation(), DeltaTime * 30.f));
+	GunfightAnimInstance->LeftHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->LeftHandTransform.GetRotation(), GoalLeftHandTransform.GetRotation(), DeltaTime * 8.f));
+	GunfightAnimInstance->RightHandTransform.SetRotation(FQuat::Slerp(GunfightAnimInstance->RightHandTransform.GetRotation(), GoalRightHandTransform.GetRotation(), DeltaTime * 8.f)); //30
+	*/
+
+	/*
+	* If two handing a weapon do below, else do above!
+	*/
+
+	GunfightAnimInstance->LeftHandTransform.SetLocation(GoalLeftHandTransform.GetLocation()); // MAKE SURE TO LERP HANDS WHEN NOT HOLDING 2 HANDED!
+	GunfightAnimInstance->RightHandTransform.SetLocation(GoalRightHandTransform.GetLocation());
+
+	GunfightAnimInstance->LeftHandTransform.SetRotation(GoalLeftHandTransform.GetRotation());
+	GunfightAnimInstance->RightHandTransform.SetRotation(GoalRightHandTransform.GetRotation());
 
 	//GunfightAnimInstance->LeftHandTransform = LeftMotionController->GetComponentTransform();
 	//GunfightAnimInstance->RightHandTransform = RightMotionController->GetComponentTransform();
@@ -1710,10 +1723,18 @@ bool AGunfightCharacter::GetLeftFromAttachment(FName AttachSocket, USceneCompone
 	{
 		return true;
 	}
+	else if (AttachComponent == HandOffsetM4Left)
+	{
+		return true;
+	}	// NEW GUN LINE GOES HERE - LEFT
 	else if (AttachComponent == RightHandPistolOffset)
 	{
 		return false;
 	}
+	else if (AttachComponent == HandOffsetM4Right)
+	{
+		return false;
+	} // NEW GUN LINE GOES HERE - RIGHT
 
 	UE_LOG(LogTemp, Warning, TEXT("AGunfightCharacter::GetLeftFromAttachment() END RETURN HIT IN ERROR"));
 	return false;
@@ -1978,16 +1999,24 @@ void AGunfightCharacter::CheckSlot2TimerFinished()
 	}
 	else // not grabbing slot 2
 	{
-		// In Anim Instance, change Slo2MotionController side IK to follow the motion controller
+		// In Anim Instance, change Slot2MotionController side IK to follow the motion controller
 		LeftHandIKComponent = LeftMotionController;
 		RightHandIKComponent = RightMotionController;
 
 		if (Combat->PreviousLeftEquippedWeapon && Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController)
 		{ 
 			bool bLeft = Combat->PreviousLeftEquippedWeapon->PreviousSlot2MotionController == LeftMotionController ? true : false;
-			if (DoesHandHaveWeapon(bLeft)) return;
+			if (!DoesHandHaveWeapon(bLeft))
+			{
+				SetHandState(bLeft, EHandState::EHS_Idle);
+			}
 
-			SetHandState(bLeft, EHandState::EHS_Idle);
+			// Do the same for Slot1MotionController IK if the gun is a rifle
+
+			if (Combat->PreviousLeftEquippedWeapon->IsRifle() && DoesHandHaveWeapon(!bLeft))
+			{
+
+			}
 		}
 	}
 }

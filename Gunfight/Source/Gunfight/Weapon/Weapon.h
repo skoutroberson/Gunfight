@@ -310,6 +310,43 @@ public:
 	float TwoHandRotationSpeed = 10.f;
 
 	void TickTwoHandRotation(float DeltaTime);
+	void TickOneHandRotation(float DeltaTime); // need for one hand recoil
+
+	/*
+	* Recoil
+	*/
+
+	bool bRecoilGoingUp = true;
+	bool bIsRecoiling = true;
+
+	// In Radians, max should be no more than 1.5.
+	UPROPERTY()
+	float RecoilValue = 0.f;
+
+	// For lerping to RecoilValue in tick
+	UPROPERTY()
+	float CurrentRecoilValue = 0.f;
+
+	// Custom for each gun, how much the recoil goes up with each shot. 0.3f means 5 shots puts it to max
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float WeaponRecoil = 0.3f;
+
+	// In radians, so 1.5 is around 90 degrees.
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float WeaponMaxRecoil = 1.5f;
+
+	// Interp speed when recoil is going up.
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilUpSpeed = 50.f;
+
+	// Interp speed when recoil is going down.
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilDownSpeed = 10.f;
+
+	void AddFireRecoil();
+
+	void UpdateRecoil(float DeltaTime);
+	void ApplyRecoilRotation(FQuat& CurrentRot);
 
 protected:
 	virtual void BeginPlay() override;

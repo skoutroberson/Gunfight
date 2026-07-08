@@ -218,6 +218,22 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		{
 			CheckSecondHand(LeftEquippedWeapon->Slot2MotionController);
 		}
+
+		if (LeftEquippedWeapon)
+		{
+			if(LeftEquippedWeapon->bRotateTwoHand)
+			{
+				LeftEquippedWeapon->TickTwoHandRotation(DeltaTime);
+			}
+			else if (LeftEquippedWeapon->bIsRecoiling)
+			{
+				LeftEquippedWeapon->TickOneHandRotation(DeltaTime);
+			}
+		}
+		else if (RightEquippedWeapon && RightEquippedWeapon->bIsRecoiling)
+		{
+			RightEquippedWeapon->TickOneHandRotation(DeltaTime);
+		}
 	}
 
 	if (!Character->HasAuthority())
@@ -229,11 +245,6 @@ void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 				LeftEquippedWeapon->StartRotatingTwoHand();
 			}
 		}
-	}
-
-	if (Character && LeftEquippedWeapon && LeftEquippedWeapon->bRotateTwoHand)
-	{
-		LeftEquippedWeapon->TickTwoHandRotation(DeltaTime);
 	}
 }
 
@@ -568,6 +579,23 @@ void UCombatComponent::HandleWeaponAttach(AWeapon* WeaponToAttach, bool bLeftHan
 	{
 		AttachWeaponToMotionController(WeaponToAttach, bLeftHand);
 		WeaponToAttach->PlayEquipSound();
+	}
+	else
+	{
+		AttachActorToHand(WeaponToAttach, bLeftHand);
+	}
+	Character->SetHandState(bLeftHand, SlotToHandState(WeaponToAttach->GetWeaponType(), true));
+}
+
+void UCombatComponent::HandleWeaponTwoHandAttachForProxy(AWeapon* WeaponToAttach, bool bLeftHand, bool bAttach)
+{
+	Character = Character == nullptr ? Cast<AGunfightCharacter>(GetOwner()) : Character;
+	if (Character == nullptr || WeaponToAttach == nullptr) return;
+
+	if (bAttach)
+	{
+		AttachWeaponToMotionController(WeaponToAttach, bLeftHand);
+		//WeaponToAttach->PlayEquipSound();
 	}
 	else
 	{
@@ -1549,7 +1577,7 @@ bool UCombatComponent::ResetOwnedWeapons()
 		LeftEquippedWeapon->ResetWeapon();
 		LeftEquippedWeapon->SetHUDAmmo(true);
 	}
-	if (RightEquippedWeapon)
+	if (RightEquippedWeapon && RightEquippedWeapon != LeftEquippedWeapon)
 	{
 		bOwnsAWeapon = true;
 		RightEquippedWeapon->ResetWeapon();
@@ -1565,6 +1593,10 @@ bool UCombatComponent::ResetOwnedWeapons()
 		bOwnsAWeapon = true;
 		RightHolsteredWeapon->ResetWeapon();
 	}
+
+	bFireButtonPressedLeft = false;
+	bFireButtonPressedRight = false;
+
 	return bOwnsAWeapon;
 }
 
