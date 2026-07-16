@@ -317,7 +317,7 @@ public:
 	*/
 
 	bool bRecoilGoingUp = true;
-	bool bIsRecoiling = true;
+	bool bIsRecoiling = false;
 
 	// In Radians, max should be no more than 1.5.
 	UPROPERTY()
@@ -339,9 +339,24 @@ public:
 	UPROPERTY(EditAnywhere, Category = Recoil)
 	float RecoilUpSpeed = 50.f;
 
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilUpLerpSpeed = 150.f;
+
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilTwoHandMultiplier = 0.75f;
+
 	// Interp speed when recoil is going down.
 	UPROPERTY(EditAnywhere, Category = Recoil)
 	float RecoilDownSpeed = 10.f;
+
+	// Time to ease in and out when the recoil going back down
+	UPROPERTY(EditAnywhere, Category = Recoil)
+	float RecoilDownTime = 0.4f;
+
+	// Keeps track of the time that the recoil has been going down
+	float RecoilDownTimer = 0.f;
+
+	float RecoilAlpha = 0.f;
 
 	void AddFireRecoil();
 

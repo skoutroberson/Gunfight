@@ -648,6 +648,15 @@ void AWeapon::TickTwoHandRotation(float DeltaTime)
 	FQuat TargetQuat = FQuat(GunRotationMatrix);
 	TargetQuat.Normalize();
 
+	/*
+	FVector Hand1Location = Slot1MotionController->GetComponentLocation();
+	FVector Hand2Location = Slot2TwoHandRotationOffset->GetComponentLocation();
+	FVector Disp = (Hand2Location - Hand1Location).GetSafeNormal();
+	FVector Hand1Up = Slot1MotionController->GetComponentRotation().RotateVector(FVector::UpVector); // Optional: if using relative up, otherwise Hand1Up is fine
+
+	FQuat TargetQuat = FQuat::MakeFromYZ(Disp, Hand1Up);
+	*/
+
 	// apply recoil
 	//ApplyRecoilRotation(TargetQuat);
 
@@ -658,11 +667,20 @@ void AWeapon::TickTwoHandRotation(float DeltaTime)
 		PitchAngle *= 0.15f;
 	}
 
-	FQuat PitchRotation = FQuat(TargetQuat.GetForwardVector(), PitchAngle);
+	FQuat PitchRotation = FQuat(FVector(1.f, 0.f, 0.f), PitchAngle);
 	TargetQuat = TargetQuat * PitchRotation;
 	TargetQuat.Normalize();
 
-	SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
+	if (!bRecoilGoingUp && RecoilDownTimer < RecoilDownTime) // Recoil is going down
+	{
+		SetActorRotation(FMath::InterpEaseInOut(GetActorQuat(), TargetQuat, RecoilAlpha, 2.f));
+	}
+	else // Recoil is 0 or is going up
+	{
+		SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, RecoilUpLerpSpeed));
+	}
+
+	//SetActorRotation(FMath::QInterpTo(GetActorQuat(), TargetQuat, DeltaTime, 100.f));
 }
 
 void AWeapon::TickOneHandRotation(float DeltaTime)
@@ -679,8 +697,12 @@ void AWeapon::TickOneHandRotation(float DeltaTime)
 	}
 	else
 	{
-		if (AttachmentReplication.AttachComponent == nullptr) return;
-		AttachComponent = AttachmentReplication.AttachComponent;
+		//if (AttachmentReplication.AttachComponent == nullptr) return;
+		//AttachComponent = AttachmentReplication.AttachComponent;
+
+		if (GetRootComponent()->GetAttachParent() == nullptr) return;
+
+		AttachComponent = GetRootComponent()->GetAttachParent();
 	}
 
 	if (AttachComponent == nullptr) return;
@@ -695,13 +717,24 @@ void AWeapon::TickOneHandRotation(float DeltaTime)
 	{
 		PitchAngle *= 0.15f;
 	}
-	FQuat PitchRotation = FQuat(FRotator(0.f, 0.f, -(PitchAngle * 60.f))); // 60.f = 180/PI
+	//FQuat PitchRotation = FQuat(FRotator(0.f, 0.f, -(PitchAngle * 60.f))); // 60.f = 180/PI
+
+	FQuat PitchRotation = FQuat(FVector(1.f, 0.f, 0.f), PitchAngle);
+
 	AttachmentRotation = AttachmentRotation * PitchRotation;
 	AttachmentRotation.Normalize();
-	SetActorRotation(FMath::QInterpTo(GetActorQuat(), AttachmentRotation, DeltaTime, 100.f));
 
-	//CharacterOwner->GetLeftFromAttachment()
-	//USceneComponent* MotionControllerWeaponOffset = CharacterOwner->GetWeapon
+	//SetActorRotation(FMath::QInterpTo(GetActorQuat(), AttachmentRotation, DeltaTime, 100.f));
+
+	
+	if (!bRecoilGoingUp && RecoilDownTimer < RecoilDownTime) // Recoil is going down
+	{
+		SetActorRotation(FMath::InterpEaseInOut(GetActorQuat(), AttachmentRotation, RecoilAlpha, 2.f));
+	}
+	else // Recoil is 0 or is going up
+	{
+		SetActorRotation(FMath::QInterpTo(GetActorQuat(), AttachmentRotation, DeltaTime, RecoilUpLerpSpeed));
+	}
 }
 
 void AWeapon::AddFireRecoil()
@@ -724,16 +757,26 @@ void AWeapon::UpdateRecoil(float DeltaTime)
 		{
 			bRecoilGoingUp = false;
 		}
+		RecoilDownTimer = 0.f;
 	}
 	else
 	{
-		CurrentRecoilValue = FMath::FInterpTo(CurrentRecoilValue, 0.f, DeltaTime, RecoilDownSpeed);
+		float RecoilTwoHandMulti = Slot1MotionController && Slot2MotionController ? RecoilTwoHandMultiplier : 1.f;
+		//float RecoilDownTimeUpdated = RecoilDownTime * RecoilTwoHandMulti;
+		RecoilDownTimer = FMath::Clamp(RecoilDownTimer + DeltaTime, 0.f, RecoilDownTime);
+		RecoilAlpha = FMath::Clamp(RecoilDownTimer / RecoilDownTime, 0.f, 1.f);
+		CurrentRecoilValue = FMath::InterpEaseInOut(CurrentRecoilValue, 0.f, RecoilAlpha, 2.f) * RecoilTwoHandMulti;
+
+		//CurrentRecoilValue = FMath::FInterpTo(CurrentRecoilValue, 0.f, DeltaTime, RecoilDownSpeed);
+		
 		RecoilValue = CurrentRecoilValue;
-		if (FMath::IsNearlyEqual(CurrentRecoilValue, 0.f, 0.01f))
+		if (FMath::IsNearlyEqual(CurrentRecoilValue, 0.f, 0.001f))
 		{
 			CurrentRecoilValue = 0.f;
 			RecoilValue = 0.f;
 			bIsRecoiling = false;
+			RecoilDownTimer = 0.f;
+			RecoilAlpha = 0.f;
 		}
 	}
 }
